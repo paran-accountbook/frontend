@@ -8,6 +8,7 @@ import 'package:sobilog/features/home/presentation/home_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_detail_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_edit_screen.dart';
+import 'package:sobilog/features/register/presentation/register_type_screen.dart';
 import 'package:sobilog/features/onboarding/presentation/onboarding_screen.dart';
 import 'package:sobilog/features/splash/presentation/splash_screen.dart';
 
@@ -113,5 +114,14 @@ void main() {
     expect(find.text('내역 수정'), findsOneWidget);
     expect(find.text('저장'), findsOneWidget);
     expect(find.text('커피'), findsNWidgets(5));
+  });
+
+  testWidgets('renders register type choices', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const RegisterTypeScreen()),
+    );
+
+    expect(find.text('소비 등록'), findsOneWidget);
+    expect(find.text('수입 등록'), findsOneWidget);
   });
 }

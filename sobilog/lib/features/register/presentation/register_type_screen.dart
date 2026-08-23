@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import 'register_method_screen.dart';
+import 'register_income_screen.dart';
 
 class RegisterTypeScreen extends StatelessWidget {
   const RegisterTypeScreen({super.key, this.onExpense, this.onIncome});
@@ -17,6 +18,11 @@ class RegisterTypeScreen extends StatelessWidget {
         onExpense ??
         () => Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => const RegisterMethodScreen()),
+        );
+    final income =
+        onIncome ??
+        () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const RegisterIncomeScreen()),
         );
     return Scaffold(
       body: DesignCanvas(
@@ -50,7 +56,7 @@ class RegisterTypeScreen extends StatelessWidget {
             Positioned(
               left: 46,
               top: 850,
-              child: _RegisterChoice(label: '수입 등록', onTap: onIncome),
+              child: _RegisterChoice(label: '수입 등록', onTap: income),
             ),
             const Positioned(
               left: 0,

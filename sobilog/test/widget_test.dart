@@ -6,6 +6,7 @@ import 'package:sobilog/features/auth/presentation/terms_screen.dart';
 import 'package:sobilog/features/auth/presentation/verification_screen.dart';
 import 'package:sobilog/features/home/presentation/home_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_screen.dart';
+import 'package:sobilog/features/ledger/presentation/ledger_detail_screen.dart';
 import 'package:sobilog/features/onboarding/presentation/onboarding_screen.dart';
 import 'package:sobilog/features/splash/presentation/splash_screen.dart';
 
@@ -91,5 +92,15 @@ void main() {
     expect(find.byType(LedgerScreen), findsOneWidget);
     expect(find.text('가계부'), findsOneWidget);
     expect(find.text('아주대학교 카페'), findsNWidgets(4));
+  });
+
+  testWidgets('renders ledger detail', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const LedgerDetailScreen()),
+    );
+
+    expect(find.text('상세 내역'), findsOneWidget);
+    expect(find.text('더치페이 하기'), findsOneWidget);
+    expect(find.text('메모 남기기'), findsOneWidget);
   });
 }

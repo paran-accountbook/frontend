@@ -3,11 +3,22 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../../shared/widgets/gradient_action_button.dart';
+import '../../auth/presentation/login_screen.dart';
 
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key, this.onFinished});
 
   final VoidCallback? onFinished;
+
+  void _finish(BuildContext context) {
+    if (onFinished case final callback?) {
+      callback();
+      return;
+    }
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +32,7 @@ class OnboardingScreen extends StatelessWidget {
                 left: 331,
                 top: 159,
                 child: GestureDetector(
-                  onTap: onFinished,
+                  onTap: () => _finish(context),
                   child: const Text(
                     '건너뛰기',
                     style: TextStyle(
@@ -78,7 +89,7 @@ class OnboardingScreen extends StatelessWidget {
                 top: 1466,
                 child: GradientActionButton(
                   label: '다음',
-                  onPressed: onFinished ?? () {},
+                  onPressed: () => _finish(context),
                 ),
               ),
             ],

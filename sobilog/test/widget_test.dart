@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sobilog/core/theme/app_theme.dart';
+import 'package:sobilog/features/auth/presentation/login_screen.dart';
 import 'package:sobilog/features/onboarding/presentation/onboarding_screen.dart';
 import 'package:sobilog/features/splash/presentation/splash_screen.dart';
 
@@ -26,5 +27,18 @@ void main() {
 
     expect(find.byType(OnboardingScreen), findsOneWidget);
     expect(find.text('소비 습관'), findsOneWidget);
+  });
+
+  testWidgets('opens login from onboarding', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const OnboardingScreen()),
+    );
+
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(LoginScreen), findsOneWidget);
+    expect(find.text('카카오로 로그인'), findsOneWidget);
+    expect(find.text('이메일로 로그인'), findsOneWidget);
   });
 }

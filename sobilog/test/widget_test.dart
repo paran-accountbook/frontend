@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sobilog/core/theme/app_theme.dart';
 import 'package:sobilog/features/auth/presentation/login_screen.dart';
+import 'package:sobilog/features/auth/presentation/verification_screen.dart';
 import 'package:sobilog/features/onboarding/presentation/onboarding_screen.dart';
 import 'package:sobilog/features/splash/presentation/splash_screen.dart';
 
@@ -40,5 +41,17 @@ void main() {
     expect(find.byType(LoginScreen), findsOneWidget);
     expect(find.text('카카오로 로그인'), findsOneWidget);
     expect(find.text('이메일로 로그인'), findsOneWidget);
+  });
+
+  testWidgets('opens verification from email login', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const LoginScreen()),
+    );
+
+    await tester.tap(find.text('이메일로 로그인'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(VerificationScreen), findsOneWidget);
+    expect(find.text('인증번호를 입력하세요'), findsOneWidget);
   });
 }

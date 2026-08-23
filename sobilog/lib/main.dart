@@ -6,6 +6,7 @@ import 'core/config/app_config.dart';
 import 'core/logging/app_logger.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/login_screen.dart';
+import 'features/auth/presentation/verification_screen.dart';
 import 'features/splash/presentation/splash_screen.dart';
 
 Future<void> main() async {
@@ -31,7 +32,11 @@ class SobilogApp extends StatelessWidget {
       title: 'Sobilog',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
-      home: _preview == 'login' ? const LoginScreen() : const SplashScreen(),
+      home: switch (_preview) {
+        'login' => const LoginScreen(),
+        'verification' => const VerificationScreen(),
+        _ => const SplashScreen(),
+      },
     );
   }
 }

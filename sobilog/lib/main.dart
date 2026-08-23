@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'core/config/app_config.dart';
 import 'core/logging/app_logger.dart';
+import 'core/theme/app_theme.dart';
+import 'features/splash/presentation/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env');
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  await dotenv.load(fileName: '.env.example');
 
   AppLogger.info(
     'Sobilog started | env=${AppConfig.environment} | api=${AppConfig.apiBaseUrl}',
@@ -22,10 +26,9 @@ class SobilogApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Sobilog',
-      debugShowCheckedModeBanner: AppConfig.isDevelopment,
-      home: const Scaffold(
-        body: Center(child: Text('Sobilog')),
-      ),
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.dark,
+      home: const SplashScreen(),
     );
   }
 }

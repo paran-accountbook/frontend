@@ -1,0 +1,225 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
+import '../../core/constants/app_assets.dart';
+import 'receipt_surface.dart';
+
+class EditableReceiptForm extends StatelessWidget {
+  const EditableReceiptForm({super.key, this.income = false});
+
+  final bool income;
+
+  @override
+  Widget build(BuildContext context) {
+    return ReceiptSurface(
+      width: 683,
+      height: 1173,
+      endColor: const Color(0xFFC5C5ED),
+      child: Stack(
+        children: [
+          const Positioned(left: 53, top: 72, child: _PaperAsterisks()),
+          Positioned(
+            top: 130,
+            width: 683,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  '총',
+                  style: TextStyle(
+                    color: Color(0xFF1B1B1B),
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 7),
+                Text(
+                  income ? '0' : '150,000',
+                  style: const TextStyle(
+                    color: Color(0xFF1B1B1B),
+                    fontFamily: 'Amarante',
+                    fontSize: 52,
+                    height: 1,
+                  ),
+                ),
+                const SizedBox(width: 7),
+                SvgPicture.asset(AppAssets.wonDark, width: 36, height: 39),
+              ],
+            ),
+          ),
+          Positioned(
+            left: 53,
+            top: 228,
+            child: _FieldRow(
+              label: '가맹점 명',
+              value: income ? '수입처를 입력하세요' : '아주대학교 카페',
+            ),
+          ),
+          const Positioned(
+            left: 53,
+            top: 304,
+            child: _FieldRow(label: '결제일시', value: '2026년 8월 19일 오전 10:30'),
+          ),
+          const Positioned(left: 53, top: 370, child: _PaperAsterisks()),
+          const Positioned(
+            top: 420,
+            width: 683,
+            child: Center(child: _AddButton()),
+          ),
+          const Positioned(left: 50, top: 522, child: _EditableItems()),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaperAsterisks extends StatelessWidget {
+  const _PaperAsterisks();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 577,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: List.generate(
+          18,
+          (_) => const Text(
+            '*',
+            style: TextStyle(color: Color(0x331B1B1B), fontSize: 20),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FieldRow extends StatelessWidget {
+  const _FieldRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 577,
+      height: 50,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 160,
+            child: Text(
+              label,
+              style: const TextStyle(color: Color(0x801B1B1B), fontSize: 23),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: Color(0xFF1B1B1B),
+                fontSize: 23,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 25),
+          const Icon(Icons.close, color: Color(0x801B1B1B), size: 37),
+        ],
+      ),
+    );
+  }
+}
+
+class _AddButton extends StatelessWidget {
+  const _AddButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 68,
+      height: 68,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1B1B1B),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: const Icon(Icons.add, color: Colors.white, size: 45),
+    );
+  }
+}
+
+class _EditableItems extends StatelessWidget {
+  const _EditableItems();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 583,
+      child: Column(children: List.generate(5, (_) => const _EditableItem())),
+    );
+  }
+}
+
+class _EditableItem extends StatelessWidget {
+  const _EditableItem();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 148,
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: Color(0x141B1B1B))),
+      ),
+      child: Stack(
+        children: [
+          const Positioned(
+            top: 43,
+            child: Text(
+              '커피',
+              style: TextStyle(
+                color: Color(0xFF1B1B1B),
+                fontFamily: 'BujangnimNunchi',
+                fontSize: 39,
+                height: 1,
+              ),
+            ),
+          ),
+          const Positioned(
+            top: 91,
+            child: Text(
+              'X 1',
+              style: TextStyle(color: Color(0x801B1B1B), fontSize: 21),
+            ),
+          ),
+          Positioned(
+            right: 57,
+            top: 49,
+            child: Row(
+              children: [
+                const Text(
+                  '150,000',
+                  style: TextStyle(
+                    color: Color(0xFF1B1B1B),
+                    fontFamily: 'Amarante',
+                    fontSize: 40,
+                    height: 1,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                SvgPicture.asset(AppAssets.wonDark, width: 29, height: 31),
+              ],
+            ),
+          ),
+          const Positioned(
+            right: 0,
+            top: 49,
+            child: Icon(Icons.close, color: Color(0x801B1B1B), size: 39),
+          ),
+        ],
+      ),
+    );
+  }
+}

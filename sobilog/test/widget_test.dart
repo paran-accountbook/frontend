@@ -7,6 +7,7 @@ import 'package:sobilog/features/auth/presentation/verification_screen.dart';
 import 'package:sobilog/features/home/presentation/home_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_detail_screen.dart';
+import 'package:sobilog/features/ledger/presentation/ledger_edit_screen.dart';
 import 'package:sobilog/features/onboarding/presentation/onboarding_screen.dart';
 import 'package:sobilog/features/splash/presentation/splash_screen.dart';
 
@@ -102,5 +103,15 @@ void main() {
     expect(find.text('상세 내역'), findsOneWidget);
     expect(find.text('더치페이 하기'), findsOneWidget);
     expect(find.text('메모 남기기'), findsOneWidget);
+  });
+
+  testWidgets('renders ledger edit receipt', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const LedgerEditScreen()),
+    );
+
+    expect(find.text('내역 수정'), findsOneWidget);
+    expect(find.text('저장'), findsOneWidget);
+    expect(find.text('커피'), findsNWidgets(5));
   });
 }

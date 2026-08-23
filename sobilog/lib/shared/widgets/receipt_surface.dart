@@ -6,11 +6,13 @@ class ReceiptSurface extends StatelessWidget {
     super.key,
     this.width = 683,
     this.height = 442,
+    this.endColor = const Color(0xFFE4E4FF),
   });
 
   final Widget child;
   final double width;
   final double height;
+  final Color endColor;
 
   @override
   Widget build(BuildContext context) {
@@ -19,11 +21,11 @@ class ReceiptSurface extends StatelessWidget {
       child: Container(
         width: width,
         height: height,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFFFFF), Color(0xFFE4E4FF)],
+            colors: [Colors.white, endColor],
           ),
         ),
         child: child,

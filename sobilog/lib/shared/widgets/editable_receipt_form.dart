@@ -5,9 +5,14 @@ import '../../core/constants/app_assets.dart';
 import 'receipt_surface.dart';
 
 class EditableReceiptForm extends StatelessWidget {
-  const EditableReceiptForm({super.key, this.income = false});
+  const EditableReceiptForm({
+    super.key,
+    this.income = false,
+    this.draft = false,
+  });
 
   final bool income;
+  final bool draft;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +39,7 @@ class EditableReceiptForm extends StatelessWidget {
                 ),
                 const SizedBox(width: 7),
                 Text(
-                  income ? '0' : '150,000',
+                  income || draft ? '0' : '150,000',
                   style: const TextStyle(
                     color: Color(0xFF1B1B1B),
                     fontFamily: 'Amarante',
@@ -52,7 +57,7 @@ class EditableReceiptForm extends StatelessWidget {
             top: 228,
             child: _FieldRow(
               label: '가맹점 명',
-              value: income ? '수입처를 입력하세요' : '아주대학교 카페',
+              value: income ? '수입처를 입력하세요' : (draft ? '소비로그' : '아주대학교 카페'),
             ),
           ),
           const Positioned(
@@ -66,7 +71,14 @@ class EditableReceiptForm extends StatelessWidget {
             width: 683,
             child: Center(child: _AddButton()),
           ),
-          const Positioned(left: 50, top: 522, child: _EditableItems()),
+          Positioned(
+            left: 50,
+            top: 522,
+            child: _EditableItems(
+              itemCount: draft || income ? 1 : 5,
+              zeroAmount: draft || income,
+            ),
+          ),
         ],
       ),
     );
@@ -152,19 +164,29 @@ class _AddButton extends StatelessWidget {
 }
 
 class _EditableItems extends StatelessWidget {
-  const _EditableItems();
+  const _EditableItems({required this.itemCount, required this.zeroAmount});
+
+  final int itemCount;
+  final bool zeroAmount;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: 583,
-      child: Column(children: List.generate(5, (_) => const _EditableItem())),
+      child: Column(
+        children: List.generate(
+          itemCount,
+          (_) => _EditableItem(zeroAmount: zeroAmount),
+        ),
+      ),
     );
   }
 }
 
 class _EditableItem extends StatelessWidget {
-  const _EditableItem();
+  const _EditableItem({required this.zeroAmount});
+
+  final bool zeroAmount;
 
   @override
   Widget build(BuildContext context) {
@@ -199,9 +221,9 @@ class _EditableItem extends StatelessWidget {
             top: 49,
             child: Row(
               children: [
-                const Text(
-                  '150,000',
-                  style: TextStyle(
+                Text(
+                  zeroAmount ? '0' : '150,000',
+                  style: const TextStyle(
                     color: Color(0xFF1B1B1B),
                     fontFamily: 'Amarante',
                     fontSize: 40,

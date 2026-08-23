@@ -2,124 +2,134 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import 'dutch_assignment_screen.dart';
 
 class DutchPeopleScreen extends StatelessWidget {
   const DutchPeopleScreen({super.key, this.onNext});
   final VoidCallback? onNext;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: DesignCanvas(
-      child: Stack(
-        children: [
-          const Positioned(
-            left: 46,
-            top: 144,
-            child: Text(
-              '인원등록',
-              style: TextStyle(
-                color: AppColors.text,
-                fontSize: 50,
-                fontWeight: FontWeight.w600,
+  Widget build(BuildContext context) {
+    final next =
+        onNext ??
+        () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => const DutchAssignmentScreen(),
+          ),
+        );
+    return Scaffold(
+      body: DesignCanvas(
+        child: Stack(
+          children: [
+            const Positioned(
+              left: 46,
+              top: 144,
+              child: Text(
+                '인원등록',
+                style: TextStyle(
+                  color: AppColors.text,
+                  fontSize: 50,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          ),
-          Positioned(
-            left: 46,
-            top: 250,
-            child: Text(
-              '무엇을 기록할까요?',
-              style: TextStyle(color: AppColors.text80, fontSize: 29),
-            ),
-          ),
-          Positioned(
-            left: 57,
-            top: 329,
-            child: Container(
-              width: 635,
-              height: 102,
-              padding: const EdgeInsets.symmetric(horizontal: 36),
-              decoration: BoxDecoration(
-                color: AppColors.secondary,
-                borderRadius: BorderRadius.circular(29),
-              ),
-              child: const Row(
-                children: [
-                  Text(
-                    '현우',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 30,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Spacer(),
-                  Icon(Icons.add, color: AppColors.main, size: 48),
-                ],
+            Positioned(
+              left: 46,
+              top: 250,
+              child: Text(
+                '무엇을 기록할까요?',
+                style: TextStyle(color: AppColors.text80, fontSize: 29),
               ),
             ),
-          ),
-          const Positioned(
-            left: 46,
-            top: 492,
-            child: SizedBox(
-              width: 650,
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 16,
-                children: [
-                  _PersonChip('나 (본인)', true),
-                  _PersonChip('철수', false),
-                  _PersonChip('안녕하세요', false),
-                  _PersonChip('민수', false),
-                  _PersonChip('지은', false),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            top: 1220,
-            width: 749,
-            child: Text(
-              '최근 정산에 사용한 이름',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.text50, fontSize: 22),
-            ),
-          ),
-          const Positioned(left: 0, top: 1288, child: _RecentPeople()),
-          Positioned(
-            left: 57,
-            top: 1458,
-            child: GestureDetector(
-              onTap: onNext,
+            Positioned(
+              left: 57,
+              top: 329,
               child: Container(
                 width: 635,
-                height: 100,
-                alignment: Alignment.center,
+                height: 102,
+                padding: const EdgeInsets.symmetric(horizontal: 36),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFF33298F), AppColors.main],
-                  ),
+                  color: AppColors.secondary,
                   borderRadius: BorderRadius.circular(29),
-                  border: Border.all(color: Colors.white24),
                 ),
-                child: const Text(
-                  '정산하기',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
+                child: const Row(
+                  children: [
+                    Text(
+                      '현우',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 30,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Spacer(),
+                    Icon(Icons.add, color: AppColors.main, size: 48),
+                  ],
+                ),
+              ),
+            ),
+            const Positioned(
+              left: 46,
+              top: 492,
+              child: SizedBox(
+                width: 650,
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 16,
+                  children: [
+                    _PersonChip('나 (본인)', true),
+                    _PersonChip('철수', false),
+                    _PersonChip('안녕하세요', false),
+                    _PersonChip('민수', false),
+                    _PersonChip('지은', false),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              top: 1220,
+              width: 749,
+              child: Text(
+                '최근 정산에 사용한 이름',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.text50, fontSize: 22),
+              ),
+            ),
+            const Positioned(left: 0, top: 1288, child: _RecentPeople()),
+            Positioned(
+              left: 57,
+              top: 1458,
+              child: GestureDetector(
+                onTap: next,
+                child: Container(
+                  width: 635,
+                  height: 100,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0xFF33298F), AppColors.main],
+                    ),
+                    borderRadius: BorderRadius.circular(29),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: const Text(
+                    '정산하기',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _PersonChip extends StatelessWidget {

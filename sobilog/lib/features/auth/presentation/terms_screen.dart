@@ -5,6 +5,7 @@ import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../../shared/widgets/gradient_action_button.dart';
+import '../../home/presentation/home_screen.dart';
 
 class TermsScreen extends StatefulWidget {
   const TermsScreen({super.key, this.onAgreed});
@@ -17,6 +18,17 @@ class TermsScreen extends StatefulWidget {
 
 class _TermsScreenState extends State<TermsScreen> {
   final _selected = List.filled(5, false);
+
+  void _agree() {
+    if (widget.onAgreed case final callback?) {
+      callback();
+      return;
+    }
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
+      (_) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,10 +84,7 @@ class _TermsScreenState extends State<TermsScreen> {
               Positioned(
                 left: 58,
                 top: 1466,
-                child: GradientActionButton(
-                  label: '동의합니다',
-                  onPressed: widget.onAgreed ?? () {},
-                ),
+                child: GradientActionButton(label: '동의합니다', onPressed: _agree),
               ),
             ],
           ),

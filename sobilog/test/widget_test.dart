@@ -4,6 +4,7 @@ import 'package:sobilog/core/theme/app_theme.dart';
 import 'package:sobilog/features/auth/presentation/login_screen.dart';
 import 'package:sobilog/features/auth/presentation/terms_screen.dart';
 import 'package:sobilog/features/auth/presentation/verification_screen.dart';
+import 'package:sobilog/features/home/presentation/home_screen.dart';
 import 'package:sobilog/features/onboarding/presentation/onboarding_screen.dart';
 import 'package:sobilog/features/splash/presentation/splash_screen.dart';
 
@@ -67,5 +68,17 @@ void main() {
     expect(find.byType(TermsScreen), findsOneWidget);
     expect(find.text('약관동의'), findsOneWidget);
     expect(find.text('예시'), findsNWidgets(5));
+  });
+
+  testWidgets('opens home after terms agreement', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const TermsScreen()),
+    );
+
+    await tester.tap(find.text('동의합니다'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.text('최근 등록 내역'), findsOneWidget);
   });
 }

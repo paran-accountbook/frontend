@@ -25,6 +25,8 @@ flutter:
   assets:
     - .env.example
     - assets/icons/
+    - assets/icons/navigation/
+    - assets/images/home/
   fonts:
     - family: BujangnimNunchi
       fonts:

@@ -5,6 +5,7 @@ import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import 'ledger_edit_screen.dart';
 
 class LedgerDetailScreen extends StatelessWidget {
   const LedgerDetailScreen({super.key, this.onEdit, this.onDutchPay});
@@ -14,6 +15,11 @@ class LedgerDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final edit =
+        onEdit ??
+        () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const LedgerEditScreen()),
+        );
     return Scaffold(
       body: ScrollableDesignCanvas(
         child: Stack(
@@ -22,7 +28,7 @@ class LedgerDetailScreen extends StatelessWidget {
               left: 55,
               top: 147,
               child: GestureDetector(
-                onTap: onEdit,
+                onTap: edit,
                 child: const Icon(Icons.edit, color: AppColors.text, size: 45),
               ),
             ),

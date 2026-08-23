@@ -10,6 +10,7 @@ import 'features/auth/presentation/terms_screen.dart';
 import 'features/auth/presentation/verification_screen.dart';
 import 'features/home/presentation/home_screen.dart';
 import 'features/ledger/presentation/ledger_screen.dart';
+import 'features/ledger/presentation/ledger_detail_screen.dart';
 import 'features/splash/presentation/splash_screen.dart';
 
 Future<void> main() async {
@@ -41,6 +42,7 @@ class SobilogApp extends StatelessWidget {
         'terms' => const TermsScreen(),
         'home' => const HomeScreen(),
         'ledger' => const LedgerScreen(),
+        'ledger-detail' => const LedgerDetailScreen(),
         _ => const SplashScreen(),
       },
     );

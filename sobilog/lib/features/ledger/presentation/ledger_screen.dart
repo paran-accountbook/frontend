@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../features/home/presentation/home_screen.dart';
+import 'ledger_detail_screen.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/design_canvas.dart';
 
@@ -14,6 +15,11 @@ class LedgerScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final openDetail =
+        onEntrySelected ??
+        () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const LedgerDetailScreen()),
+        );
     return Scaffold(
       body: DesignCanvas(
         child: Stack(
@@ -43,7 +49,7 @@ class LedgerScreen extends StatelessWidget {
                   _EntryData(amount: '-150,000'),
                   _EntryData(amount: '-150,000'),
                 ],
-                onTap: onEntrySelected,
+                onTap: openDetail,
               ),
             ),
             Positioned(
@@ -55,7 +61,7 @@ class LedgerScreen extends StatelessWidget {
                   _EntryData(amount: '150,000'),
                   _EntryData(amount: '150,000'),
                 ],
-                onTap: onEntrySelected,
+                onTap: openDetail,
               ),
             ),
             Positioned(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sobilog/core/theme/app_theme.dart';
 import 'package:sobilog/features/auth/presentation/login_screen.dart';
+import 'package:sobilog/features/auth/presentation/terms_screen.dart';
 import 'package:sobilog/features/auth/presentation/verification_screen.dart';
 import 'package:sobilog/features/onboarding/presentation/onboarding_screen.dart';
 import 'package:sobilog/features/splash/presentation/splash_screen.dart';
@@ -53,5 +54,18 @@ void main() {
 
     expect(find.byType(VerificationScreen), findsOneWidget);
     expect(find.text('인증번호를 입력하세요'), findsOneWidget);
+  });
+
+  testWidgets('opens terms from verification', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const VerificationScreen()),
+    );
+
+    await tester.tap(find.text('1'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TermsScreen), findsOneWidget);
+    expect(find.text('약관동의'), findsOneWidget);
+    expect(find.text('예시'), findsNWidgets(5));
   });
 }

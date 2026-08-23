@@ -3,11 +3,22 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../../shared/widgets/receipt_surface.dart';
+import 'terms_screen.dart';
 
 class VerificationScreen extends StatelessWidget {
   const VerificationScreen({super.key, this.onVerified});
 
   final VoidCallback? onVerified;
+
+  void _complete(BuildContext context) {
+    if (onVerified case final callback?) {
+      callback();
+      return;
+    }
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const TermsScreen()));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +61,7 @@ class VerificationScreen extends StatelessWidget {
                                 right: index == 5 ? 0 : 16,
                               ),
                               child: GestureDetector(
-                                onTap: onVerified,
+                                onTap: () => _complete(context),
                                 child: Container(
                                   width: 68,
                                   height: 68,

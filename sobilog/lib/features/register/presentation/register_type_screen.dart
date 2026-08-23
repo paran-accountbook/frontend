@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import 'register_method_screen.dart';
 
 class RegisterTypeScreen extends StatelessWidget {
   const RegisterTypeScreen({super.key, this.onExpense, this.onIncome});
@@ -12,6 +13,11 @@ class RegisterTypeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final expense =
+        onExpense ??
+        () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const RegisterMethodScreen()),
+        );
     return Scaffold(
       body: DesignCanvas(
         child: Stack(
@@ -39,7 +45,7 @@ class RegisterTypeScreen extends StatelessWidget {
             Positioned(
               left: 46,
               top: 748,
-              child: _RegisterChoice(label: '소비 등록', onTap: onExpense),
+              child: _RegisterChoice(label: '소비 등록', onTap: expense),
             ),
             Positioned(
               left: 46,

@@ -4,6 +4,7 @@ import 'package:sobilog/core/theme/app_theme.dart';
 import 'package:sobilog/features/auth/presentation/login_screen.dart';
 import 'package:sobilog/features/auth/presentation/terms_screen.dart';
 import 'package:sobilog/features/auth/presentation/verification_screen.dart';
+import 'package:sobilog/features/dutch/presentation/dutch_people_screen.dart';
 import 'package:sobilog/features/home/presentation/home_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_detail_screen.dart';
@@ -156,5 +157,13 @@ void main() {
     expect(find.text('용돈'), findsOneWidget);
     expect(find.text('수입일'), findsOneWidget);
     expect(find.text('저장'), findsOneWidget);
+  });
+
+  testWidgets('renders dutch people', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const DutchPeopleScreen()),
+    );
+    expect(find.text('인원등록'), findsOneWidget);
+    expect(find.text('정산하기'), findsOneWidget);
   });
 }

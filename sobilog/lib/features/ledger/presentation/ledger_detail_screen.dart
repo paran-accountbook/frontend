@@ -5,6 +5,7 @@ import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../../dutch/presentation/dutch_people_screen.dart';
 import 'ledger_edit_screen.dart';
 
 class LedgerDetailScreen extends StatelessWidget {
@@ -19,6 +20,11 @@ class LedgerDetailScreen extends StatelessWidget {
         onEdit ??
         () => Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => const LedgerEditScreen()),
+        );
+    final dutchPay =
+        onDutchPay ??
+        () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const DutchPeopleScreen()),
         );
     return Scaffold(
       body: ScrollableDesignCanvas(
@@ -105,7 +111,7 @@ class LedgerDetailScreen extends StatelessWidget {
               left: 57,
               top: 554,
               child: GestureDetector(
-                onTap: onDutchPay,
+                onTap: dutchPay,
                 child: Container(
                   width: 635,
                   height: 100,

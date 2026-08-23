@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import 'register_direct_screen.dart';
 
 class RegisterMethodScreen extends StatelessWidget {
   const RegisterMethodScreen({super.key, this.onDirect});
@@ -11,6 +12,11 @@ class RegisterMethodScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final direct =
+        onDirect ??
+        () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const RegisterDirectScreen()),
+        );
     return Scaffold(
       body: DesignCanvas(
         child: Stack(
@@ -51,7 +57,7 @@ class RegisterMethodScreen extends StatelessWidget {
               child: _MethodChoice(
                 icon: Icons.edit,
                 label: '직접 등록',
-                onTap: onDirect,
+                onTap: direct,
               ),
             ),
             const Positioned(

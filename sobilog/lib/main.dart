@@ -5,6 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/config/app_config.dart';
 import 'core/logging/app_logger.dart';
 import 'core/theme/app_theme.dart';
+import 'features/auth/presentation/login_screen.dart';
 import 'features/splash/presentation/splash_screen.dart';
 
 Future<void> main() async {
@@ -22,13 +23,15 @@ Future<void> main() async {
 class SobilogApp extends StatelessWidget {
   const SobilogApp({super.key});
 
+  static const String _preview = String.fromEnvironment('SOBILOG_PREVIEW');
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Sobilog',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
-      home: const SplashScreen(),
+      home: _preview == 'login' ? const LoginScreen() : const SplashScreen(),
     );
   }
 }

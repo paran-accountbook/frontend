@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../ledger/presentation/ledger_screen.dart';
+import '../../register/presentation/register_type_screen.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/design_canvas.dart';
 
@@ -89,6 +90,12 @@ class HomeScreen extends StatelessWidget {
                       Navigator.of(context).pushReplacement(
                         MaterialPageRoute<void>(
                           builder: (_) => const LedgerScreen(),
+                        ),
+                      );
+                    } else if (index == 2) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const RegisterTypeScreen(),
                         ),
                       );
                     }

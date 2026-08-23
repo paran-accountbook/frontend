@@ -6,6 +6,7 @@ import 'core/config/app_config.dart';
 import 'core/logging/app_logger.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/login_screen.dart';
+import 'features/auth/presentation/terms_screen.dart';
 import 'features/auth/presentation/verification_screen.dart';
 import 'features/splash/presentation/splash_screen.dart';
 
@@ -35,6 +36,7 @@ class SobilogApp extends StatelessWidget {
       home: switch (_preview) {
         'login' => const LoginScreen(),
         'verification' => const VerificationScreen(),
+        'terms' => const TermsScreen(),
         _ => const SplashScreen(),
       },
     );

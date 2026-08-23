@@ -11,6 +11,7 @@ import 'package:sobilog/features/ledger/presentation/ledger_edit_screen.dart';
 import 'package:sobilog/features/register/presentation/register_type_screen.dart';
 import 'package:sobilog/features/register/presentation/register_method_screen.dart';
 import 'package:sobilog/features/register/presentation/register_direct_screen.dart';
+import 'package:sobilog/features/register/presentation/register_income_screen.dart';
 import 'package:sobilog/features/onboarding/presentation/onboarding_screen.dart';
 import 'package:sobilog/features/splash/presentation/splash_screen.dart';
 
@@ -145,5 +146,15 @@ void main() {
     expect(find.text('소비로그'), findsOneWidget);
     expect(find.text('저장'), findsOneWidget);
     expect(find.text('커피'), findsOneWidget);
+  });
+
+  testWidgets('renders income receipt', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const RegisterIncomeScreen()),
+    );
+
+    expect(find.text('용돈'), findsOneWidget);
+    expect(find.text('수입일'), findsOneWidget);
+    expect(find.text('저장'), findsOneWidget);
   });
 }

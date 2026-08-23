@@ -15,6 +15,7 @@ import 'features/ledger/presentation/ledger_edit_screen.dart';
 import 'features/register/presentation/register_type_screen.dart';
 import 'features/register/presentation/register_method_screen.dart';
 import 'features/register/presentation/register_direct_screen.dart';
+import 'features/register/presentation/register_income_screen.dart';
 import 'features/splash/presentation/splash_screen.dart';
 
 Future<void> main() async {
@@ -51,6 +52,7 @@ class SobilogApp extends StatelessWidget {
         'register-type' => const RegisterTypeScreen(),
         'register-method' => const RegisterMethodScreen(),
         'register-direct' => const RegisterDirectScreen(),
+        'register-income' => const RegisterIncomeScreen(),
         _ => const SplashScreen(),
       },
     );

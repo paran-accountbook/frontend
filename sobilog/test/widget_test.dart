@@ -9,6 +9,7 @@ import 'package:sobilog/features/ledger/presentation/ledger_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_detail_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_edit_screen.dart';
 import 'package:sobilog/features/register/presentation/register_type_screen.dart';
+import 'package:sobilog/features/register/presentation/register_method_screen.dart';
 import 'package:sobilog/features/onboarding/presentation/onboarding_screen.dart';
 import 'package:sobilog/features/splash/presentation/splash_screen.dart';
 
@@ -123,5 +124,15 @@ void main() {
 
     expect(find.text('소비 등록'), findsOneWidget);
     expect(find.text('수입 등록'), findsOneWidget);
+  });
+
+  testWidgets('renders register method choices', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const RegisterMethodScreen()),
+    );
+
+    expect(find.text('카메라로 촬영'), findsOneWidget);
+    expect(find.text('갤러리에서 선택'), findsOneWidget);
+    expect(find.text('직접 등록'), findsOneWidget);
   });
 }

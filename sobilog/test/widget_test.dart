@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:sobilog/core/theme/app_theme.dart';
 import 'package:sobilog/features/auth/presentation/login_screen.dart';
 import 'package:sobilog/features/auth/presentation/terms_screen.dart';
@@ -144,6 +145,25 @@ void main() {
     expect(find.text('카메라로 촬영'), findsOneWidget);
     expect(find.text('갤러리에서 선택'), findsOneWidget);
     expect(find.text('직접 등록'), findsOneWidget);
+  });
+
+  testWidgets('requests native camera and gallery sources', (tester) async {
+    final sources = <ImageSource>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: RegisterMethodScreen(
+          onPickImage: (source) async => sources.add(source),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('카메라로 촬영'));
+    await tester.pump();
+    await tester.tap(find.text('갤러리에서 선택'));
+    await tester.pump();
+
+    expect(sources, [ImageSource.camera, ImageSource.gallery]);
   });
 
   testWidgets('renders direct expense receipt', (tester) async {

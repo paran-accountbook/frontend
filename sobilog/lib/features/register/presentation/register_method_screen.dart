@@ -1,14 +1,28 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../../core/logging/app_logger.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import 'register_direct_screen.dart';
 
+typedef PickImageCallback = Future<void> Function(ImageSource source);
+
 class RegisterMethodScreen extends StatelessWidget {
-  const RegisterMethodScreen({super.key, this.onDirect});
+  const RegisterMethodScreen({
+    super.key,
+    this.onDirect,
+    this.onPickImage,
+    this.onImageSelected,
+  });
 
   final VoidCallback? onDirect;
+  final PickImageCallback? onPickImage;
+  final ValueChanged<XFile>? onImageSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -41,15 +55,23 @@ class RegisterMethodScreen extends StatelessWidget {
                 style: TextStyle(color: AppColors.text80, fontSize: 29),
               ),
             ),
-            const Positioned(
+            Positioned(
               left: 57,
               top: 696,
-              child: _MethodChoice(icon: Icons.camera_alt, label: '카메라로 촬영'),
+              child: _MethodChoice(
+                icon: Icons.camera_alt,
+                label: '카메라로 촬영',
+                onTap: () => unawaited(_pickImage(ImageSource.camera)),
+              ),
             ),
-            const Positioned(
+            Positioned(
               left: 57,
               top: 794,
-              child: _MethodChoice(icon: Icons.image, label: '갤러리에서 선택'),
+              child: _MethodChoice(
+                icon: Icons.image,
+                label: '갤러리에서 선택',
+                onTap: () => unawaited(_pickImage(ImageSource.gallery)),
+              ),
             ),
             Positioned(
               left: 57,
@@ -69,6 +91,23 @@ class RegisterMethodScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    if (onPickImage case final callback?) {
+      await callback(source);
+      return;
+    }
+
+    try {
+      final image = await ImagePicker().pickImage(
+        source: source,
+        requestFullMetadata: false,
+      );
+      if (image != null) onImageSelected?.call(image);
+    } on PlatformException catch (error, stackTrace) {
+      AppLogger.error('Failed to open native image picker', error, stackTrace);
+    }
   }
 }
 

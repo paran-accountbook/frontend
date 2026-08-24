@@ -17,6 +17,7 @@ abstract final class AppAssets {
   static const String closeLight = '$_iconRoot/close_light.svg';
   static const String addPurple = '$_iconRoot/add_purple.svg';
   static const String checkLight = '$_iconRoot/check_light.svg';
+  static const String avatarSelf = '$_iconRoot/avatar_self.svg';
   static const String divider = '$_iconRoot/divider.svg';
   static const String asteriskDividerDark =
       '$_iconRoot/asterisk_divider_dark.svg';

@@ -27,6 +27,7 @@ abstract final class AppAssets {
   static const String categoryTransport = '$_iconRoot/category_transport.svg';
   static const String categoryMedical = '$_iconRoot/category_medical.svg';
   static const String categoryCulture = '$_iconRoot/category_culture.svg';
+  static const String analysisLocked = '$_iconRoot/analysis_locked.svg';
   static const String divider = '$_iconRoot/divider.svg';
   static const String asteriskDividerDark =
       '$_iconRoot/asterisk_divider_dark.svg';

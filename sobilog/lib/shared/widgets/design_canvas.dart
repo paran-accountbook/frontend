@@ -45,20 +45,34 @@ class ScrollableDesignCanvas extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final scale = constraints.maxWidth / width;
-          return SingleChildScrollView(
-            child: SizedBox(
-              width: constraints.maxWidth,
-              height: height * scale,
-              child: Transform.scale(
-                scale: scale,
-                alignment: Alignment.topLeft,
-                child: OverflowBox(
-                  alignment: Alignment.topLeft,
-                  minWidth: width,
-                  maxWidth: width,
-                  minHeight: height,
-                  maxHeight: height,
-                  child: SizedBox(width: width, height: height, child: child),
+          final safeTop = MediaQuery.viewPaddingOf(context).top;
+          final safeTopInDesign = (safeTop / scale).clamp(0.0, height);
+          final scrollExtent = (height - safeTopInDesign) * scale;
+
+          return Padding(
+            padding: EdgeInsets.only(top: safeTop),
+            child: SingleChildScrollView(
+              child: SizedBox(
+                width: constraints.maxWidth,
+                height: scrollExtent,
+                child: Transform.translate(
+                  offset: Offset(0, -safeTop),
+                  child: Transform.scale(
+                    scale: scale,
+                    alignment: Alignment.topLeft,
+                    child: OverflowBox(
+                      alignment: Alignment.topLeft,
+                      minWidth: width,
+                      maxWidth: width,
+                      minHeight: height,
+                      maxHeight: height,
+                      child: SizedBox(
+                        width: width,
+                        height: height,
+                        child: child,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),

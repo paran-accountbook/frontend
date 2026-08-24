@@ -9,23 +9,34 @@ class EditableReceiptForm extends StatelessWidget {
     super.key,
     this.income = false,
     this.draft = false,
+    this.compact = false,
   });
 
   final bool income;
   final bool draft;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    final paperWidth = compact ? 657.0 : 683.0;
+    final paperHeight = compact ? 1130.0 : 1174.0;
+    final contentOffset = compact ? -13.0 : 0.0;
+
     return ReceiptSurface(
-      width: 683,
-      height: 1173,
-      endColor: const Color(0xFFC5C5ED),
+      width: paperWidth,
+      height: paperHeight,
+      startColor: compact ? const Color(0xFFFAFAFF) : Colors.white,
+      endColor: compact ? const Color(0xFFBCBCE4) : const Color(0xFFC5C5ED),
       child: Stack(
         children: [
-          const Positioned(left: 53, top: 72, child: _PaperAsterisks()),
           Positioned(
-            top: 130,
-            width: 683,
+            left: compact ? 51 : 53,
+            top: compact ? 67 : 70,
+            child: _PaperAsterisks(width: compact ? 555 : 577),
+          ),
+          Positioned(
+            top: 115,
+            width: paperWidth,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -53,26 +64,36 @@ class EditableReceiptForm extends StatelessWidget {
             ),
           ),
           Positioned(
-            left: 53,
-            top: 228,
+            left: compact ? -12.5 : 1,
+            top: 205,
             child: _FieldRow(
+              width: 682,
               label: '가맹점 명',
               value: income ? '수입처를 입력하세요' : (draft ? '소비로그' : '아주대학교 카페'),
             ),
           ),
-          const Positioned(
-            left: 53,
-            top: 304,
-            child: _FieldRow(label: '결제일시', value: '2026년 8월 19일 오전 10:30'),
-          ),
-          const Positioned(left: 53, top: 370, child: _PaperAsterisks()),
-          const Positioned(
-            top: 420,
-            width: 683,
-            child: Center(child: _AddButton()),
+          Positioned(
+            left: compact ? -12.5 : 1,
+            top: 280,
+            child: const _FieldRow(
+              width: 682,
+              label: '결제일시',
+              value: '2026년 8월 19일 오전 10:30',
+            ),
           ),
           Positioned(
-            top: 522,
+            left: compact ? 51 : 53,
+            top: compact ? 362 : 366,
+            child: _PaperAsterisks(width: compact ? 555 : 577),
+          ),
+          Positioned(
+            top: 416,
+            width: paperWidth,
+            child: const Center(child: _AddButton()),
+          ),
+          Positioned(
+            left: contentOffset,
+            top: 521,
             child: _EditableItems(
               itemCount: income ? 1 : 5,
               zeroAmount: draft || income,
@@ -85,12 +106,14 @@ class EditableReceiptForm extends StatelessWidget {
 }
 
 class _PaperAsterisks extends StatelessWidget {
-  const _PaperAsterisks();
+  const _PaperAsterisks({required this.width});
+
+  final double width;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 577,
+      width: width,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: List.generate(
@@ -106,26 +129,34 @@ class _PaperAsterisks extends StatelessWidget {
 }
 
 class _FieldRow extends StatelessWidget {
-  const _FieldRow({required this.label, required this.value});
+  const _FieldRow({
+    required this.width,
+    required this.label,
+    required this.value,
+  });
 
+  final double width;
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 577,
-      height: 50,
-      child: Row(
+      width: width,
+      height: 66,
+      child: Stack(
         children: [
-          SizedBox(
-            width: 160,
+          Positioned(
+            left: 51,
+            top: 15,
             child: Text(
               label,
               style: const TextStyle(color: Color(0x801B1B1B), fontSize: 23),
             ),
           ),
-          Expanded(
+          Positioned(
+            right: 105,
+            top: 16,
             child: Text(
               value,
               textAlign: TextAlign.right,
@@ -136,8 +167,7 @@ class _FieldRow extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 25),
-          const Icon(Icons.close, color: Color(0x801B1B1B), size: 37),
+          const Positioned(right: 38, top: 10, child: _CloseIcon()),
         ],
       ),
     );

@@ -28,6 +28,13 @@ abstract final class AppAssets {
   static const String categoryMedical = '$_iconRoot/category_medical.svg';
   static const String categoryCulture = '$_iconRoot/category_culture.svg';
   static const String analysisLocked = '$_iconRoot/analysis_locked.svg';
+  static const String profileAvatar = '$_iconRoot/profile_avatar.svg';
+  static const String profileAttendance = '$_iconRoot/profile_attendance.svg';
+  static const String profileRewards = '$_iconRoot/profile_rewards.svg';
+  static const String profileNotifications =
+      '$_iconRoot/profile_notifications.svg';
+  static const String profileAccount = '$_iconRoot/profile_account.svg';
+  static const String profileArrow = '$_iconRoot/profile_arrow.svg';
   static const String divider = '$_iconRoot/divider.svg';
   static const String asteriskDividerDark =
       '$_iconRoot/asterisk_divider_dark.svg';

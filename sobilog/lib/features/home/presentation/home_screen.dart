@@ -7,6 +7,7 @@ import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../analysis/presentation/analysis_overview_screen.dart';
 import '../../ledger/presentation/ledger_screen.dart';
+import '../../profile/presentation/profile_screen.dart';
 import '../../register/presentation/register_type_screen.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/design_canvas.dart';
@@ -103,6 +104,12 @@ class HomeScreen extends StatelessWidget {
                       Navigator.of(context).pushReplacement(
                         MaterialPageRoute<void>(
                           builder: (_) => const AnalysisOverviewScreen(),
+                        ),
+                      );
+                    } else if (index == 4) {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const ProfileScreen(),
                         ),
                       );
                     }

@@ -7,6 +7,7 @@ import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../home/presentation/home_screen.dart';
 import '../../ledger/presentation/ledger_screen.dart';
+import '../../profile/presentation/profile_screen.dart';
 import '../../register/presentation/register_type_screen.dart';
 import 'analysis_goal_screen.dart';
 
@@ -113,6 +114,7 @@ class AnalysisDetailCanvas extends StatelessWidget {
       0 => const HomeScreen(),
       1 => const LedgerScreen(),
       2 => const RegisterTypeScreen(),
+      4 => const ProfileScreen(),
       _ => null,
     };
     if (destination == null) return;

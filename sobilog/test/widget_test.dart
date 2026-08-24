@@ -19,6 +19,7 @@ import 'package:sobilog/features/register/presentation/register_type_screen.dart
 import 'package:sobilog/features/register/presentation/register_method_screen.dart';
 import 'package:sobilog/features/register/presentation/register_direct_screen.dart';
 import 'package:sobilog/features/register/presentation/register_income_screen.dart';
+import 'package:sobilog/features/profile/presentation/profile_screen.dart';
 import 'package:sobilog/features/onboarding/presentation/onboarding_screen.dart';
 import 'package:sobilog/features/splash/presentation/splash_screen.dart';
 
@@ -257,5 +258,16 @@ void main() {
 
     expect(find.byType(AnalysisGoalScreen), findsNothing);
     expect(find.byType(AnalysisDetailScreen), findsOneWidget);
+  });
+
+  testWidgets('renders profile menu', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const ProfileScreen()),
+    );
+
+    expect(find.text('마이 페이지'), findsOneWidget);
+    expect(find.text('1111 님'), findsOneWidget);
+    expect(find.text('출석 현황'), findsOneWidget);
+    expect(find.text('계정 설정'), findsOneWidget);
   });
 }

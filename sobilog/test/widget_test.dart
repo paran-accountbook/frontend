@@ -7,6 +7,7 @@ import 'package:sobilog/features/auth/presentation/verification_screen.dart';
 import 'package:sobilog/features/dutch/presentation/dutch_people_screen.dart';
 import 'package:sobilog/features/dutch/presentation/dutch_assignment_screen.dart';
 import 'package:sobilog/features/dutch/presentation/dutch_result_screen.dart';
+import 'package:sobilog/features/dutch/presentation/dutch_request_screen.dart';
 import 'package:sobilog/features/home/presentation/home_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_detail_screen.dart';
@@ -186,5 +187,15 @@ void main() {
     expect(find.text('영수증 총액'), findsOneWidget);
     expect(find.text('김치찌개'), findsOneWidget);
     expect(find.text('다음'), findsOneWidget);
+  });
+
+  testWidgets('renders dutch settlement request', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const DutchRequestScreen()),
+    );
+    expect(find.text('정산 요청'), findsOneWidget);
+    expect(find.text('내 계좌'), findsOneWidget);
+    expect(find.text('요청할 인원 2명'), findsOneWidget);
+    expect(find.text('완료'), findsOneWidget);
   });
 }

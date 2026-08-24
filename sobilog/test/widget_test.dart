@@ -5,6 +5,7 @@ import 'package:sobilog/features/auth/presentation/login_screen.dart';
 import 'package:sobilog/features/auth/presentation/terms_screen.dart';
 import 'package:sobilog/features/auth/presentation/verification_screen.dart';
 import 'package:sobilog/features/analysis/presentation/analysis_overview_screen.dart';
+import 'package:sobilog/features/analysis/presentation/analysis_detail_screen.dart';
 import 'package:sobilog/features/dutch/presentation/dutch_people_screen.dart';
 import 'package:sobilog/features/dutch/presentation/dutch_assignment_screen.dart';
 import 'package:sobilog/features/dutch/presentation/dutch_result_screen.dart';
@@ -220,5 +221,16 @@ void main() {
 
     expect(find.byType(AnalysisOverviewScreen), findsOneWidget);
     expect(find.text('카테고리별 비중'), findsOneWidget);
+  });
+
+  testWidgets('renders analysis detail', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const AnalysisDetailScreen()),
+    );
+
+    expect(find.text('가장 많이 지출한 카테고리'), findsOneWidget);
+    expect(find.text('가장 많이 산 품목 TOP 5'), findsOneWidget);
+    expect(find.text('소비 패턴 분석'), findsOneWidget);
+    expect(find.text('재구매 충동구매 분석'), findsOneWidget);
   });
 }

@@ -10,6 +10,7 @@ import 'features/auth/presentation/terms_screen.dart';
 import 'features/auth/presentation/verification_screen.dart';
 import 'features/dutch/presentation/dutch_people_screen.dart';
 import 'features/dutch/presentation/dutch_assignment_screen.dart';
+import 'features/dutch/presentation/dutch_result_screen.dart';
 import 'features/home/presentation/home_screen.dart';
 import 'features/ledger/presentation/ledger_screen.dart';
 import 'features/ledger/presentation/ledger_detail_screen.dart';
@@ -57,6 +58,7 @@ class SobilogApp extends StatelessWidget {
         'register-income' => const RegisterIncomeScreen(),
         'dutch-people' => const DutchPeopleScreen(),
         'dutch-assignment' => const DutchAssignmentScreen(),
+        'dutch-result' => const DutchResultScreen(),
         _ => const SplashScreen(),
       },
     );

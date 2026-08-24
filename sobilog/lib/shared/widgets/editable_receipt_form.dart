@@ -72,10 +72,9 @@ class EditableReceiptForm extends StatelessWidget {
             child: Center(child: _AddButton()),
           ),
           Positioned(
-            left: 50,
             top: 522,
             child: _EditableItems(
-              itemCount: draft || income ? 1 : 5,
+              itemCount: income ? 1 : 5,
               zeroAmount: draft || income,
             ),
           ),
@@ -158,7 +157,7 @@ class _AddButton extends StatelessWidget {
         color: const Color(0xFF1B1B1B),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: const Icon(Icons.add, color: Colors.white, size: 45),
+      child: SvgPicture.asset(AppAssets.addLight, width: 28, height: 28),
     );
   }
 }
@@ -172,7 +171,7 @@ class _EditableItems extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 583,
+      width: 683,
       child: Column(
         children: List.generate(
           itemCount,
@@ -190,34 +189,40 @@ class _EditableItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       height: 148,
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0x141B1B1B))),
-      ),
       child: Stack(
         children: [
           const Positioned(
-            top: 43,
+            left: 49,
+            top: 0,
+            child: SizedBox(
+              width: 585,
+              child: Divider(height: 1, thickness: 1, color: Color(0x141B1B1B)),
+            ),
+          ),
+          const Positioned(
+            left: 49,
+            top: 27,
             child: Text(
               '커피',
               style: TextStyle(
                 color: Color(0xFF1B1B1B),
                 fontFamily: 'BujangnimNunchi',
-                fontSize: 39,
-                height: 1,
+                fontSize: 50,
               ),
             ),
           ),
           const Positioned(
-            top: 91,
+            left: 49,
+            top: 85,
             child: Text(
               'X 1',
-              style: TextStyle(color: Color(0x801B1B1B), fontSize: 21),
+              style: TextStyle(color: Color(0x801B1B1B), fontSize: 23),
             ),
           ),
           Positioned(
-            right: 57,
+            right: 108,
             top: 49,
             child: Row(
               children: [
@@ -235,13 +240,18 @@ class _EditableItem extends StatelessWidget {
               ],
             ),
           ),
-          const Positioned(
-            right: 0,
-            top: 49,
-            child: Icon(Icons.close, color: Color(0x801B1B1B), size: 39),
-          ),
+          const Positioned(right: 39, top: 51, child: _CloseIcon()),
         ],
       ),
     );
+  }
+}
+
+class _CloseIcon extends StatelessWidget {
+  const _CloseIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return SvgPicture.asset(AppAssets.closeDark, width: 46, height: 46);
   }
 }

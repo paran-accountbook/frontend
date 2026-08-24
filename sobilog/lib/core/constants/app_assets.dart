@@ -8,6 +8,9 @@ abstract final class AppAssets {
   static const String mail = '$_iconRoot/mail.svg';
   static const String arrowDown = '$_iconRoot/arrow_down.svg';
   static const String arrowSmall = '$_iconRoot/arrow_small.svg';
+  static const String arrowBackLight = '$_iconRoot/arrow_back_light.svg';
+  static const String closeDark = '$_iconRoot/close_dark.svg';
+  static const String addLight = '$_iconRoot/add_light.svg';
   static const String divider = '$_iconRoot/divider.svg';
   static const String asteriskDividerDark =
       '$_iconRoot/asterisk_divider_dark.svg';

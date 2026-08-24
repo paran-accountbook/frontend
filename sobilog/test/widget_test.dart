@@ -147,7 +147,7 @@ void main() {
 
     expect(find.text('소비로그'), findsOneWidget);
     expect(find.text('저장'), findsOneWidget);
-    expect(find.text('커피'), findsOneWidget);
+    expect(find.text('커피'), findsNWidgets(5));
   });
 
   testWidgets('renders income receipt', (tester) async {

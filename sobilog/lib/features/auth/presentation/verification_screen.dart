@@ -1,17 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
-import '../../../shared/widgets/receipt_surface.dart';
 import 'terms_screen.dart';
 
-class VerificationScreen extends StatelessWidget {
+class VerificationScreen extends StatefulWidget {
   const VerificationScreen({super.key, this.onVerified});
 
   final VoidCallback? onVerified;
 
-  void _complete(BuildContext context) {
-    if (onVerified case final callback?) {
+  @override
+  State<VerificationScreen> createState() => _VerificationScreenState();
+}
+
+class _VerificationScreenState extends State<VerificationScreen> {
+  late final TextEditingController _controller;
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: '123456');
+    _focusNode = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _complete() {
+    if (widget.onVerified case final callback?) {
       callback();
       return;
     }
@@ -22,116 +45,104 @@ class VerificationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final digits = _controller.text.padRight(6).substring(0, 6).split('');
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: DesignCanvas(
         child: ColoredBox(
           color: AppColors.background,
           child: Stack(
             children: [
               Positioned(
-                left: 33,
-                top: 593,
-                child: ReceiptSurface(
-                  child: Stack(
-                    children: [
-                      const Positioned(
-                        left: 53,
-                        top: 61,
-                        child: _AsteriskDivider(),
-                      ),
-                      const Positioned(
-                        left: 231,
-                        top: 146,
-                        child: Text(
-                          '인증번호를 입력하세요',
-                          style: TextStyle(
-                            color: Color(0xFF1B1B1B),
-                            fontSize: 25,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        left: 98,
-                        top: 230,
-                        child: Row(
-                          children: List.generate(6, (index) {
-                            return Padding(
-                              padding: EdgeInsets.only(
-                                right: index == 5 ? 0 : 16,
-                              ),
-                              child: GestureDetector(
-                                onTap: () => _complete(context),
-                                child: Container(
-                                  width: 68,
-                                  height: 68,
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF1B1B1B),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    '${index + 1}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontFamily: 'Amarante',
-                                      fontSize: 40,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }),
-                        ),
-                      ),
-                      const Positioned(
-                        left: 53,
-                        top: 368,
-                        child: _AsteriskDivider(),
-                      ),
-                    ],
+                left: -200,
+                top: -100,
+                width: 100,
+                height: 50,
+                child: Opacity(
+                  opacity: 0,
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    autofocus: true,
+                    maxLength: 6,
+                    keyboardType: TextInputType.text,
+                    keyboardAppearance: Brightness.light,
+                    textInputAction: TextInputAction.done,
+                    decoration: const InputDecoration.collapsed(hintText: ''),
+                    onChanged: (_) => setState(() {}),
+                    onSubmitted: (_) => _complete(),
                   ),
                 ),
               ),
               Positioned(
-                left: 303,
-                top: 1469,
+                left: 7,
+                top: 559,
+                width: 735,
+                height: 494,
+                child: SvgPicture.asset(
+                  AppAssets.verificationReceipt,
+                  fit: BoxFit.fill,
+                ),
+              ),
+              Positioned(
+                left: 86,
+                top: 642,
+                width: 577,
+                height: 13,
+                child: SvgPicture.asset(AppAssets.asteriskDividerDark),
+              ),
+              const Positioned(
+                top: 727,
+                width: 749,
                 child: Text(
-                  '팀 로고',
+                  '인증번호를 입력하세요',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: AppColors.text50,
-                    fontSize: 50,
+                    color: Color(0xFF1B1B1B),
+                    fontSize: 25,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
+              Positioned(
+                left: 131,
+                top: 811,
+                child: GestureDetector(
+                  onTap: _complete,
+                  child: Row(
+                    children: List.generate(6, (index) {
+                      return Padding(
+                        padding: EdgeInsets.only(right: index == 5 ? 0 : 16),
+                        child: Container(
+                          width: 68,
+                          height: 68,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1B1B1B),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            digits[index],
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontFamily: 'Amarante',
+                              fontSize: 40,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 86,
+                top: 949,
+                width: 577,
+                height: 13,
+                child: SvgPicture.asset(AppAssets.asteriskDividerDark),
+              ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AsteriskDivider extends StatelessWidget {
-  const _AsteriskDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 577,
-      height: 13,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: List.generate(
-          18,
-          (_) => const Text(
-            '*',
-            style: TextStyle(
-              color: Color(0x331B1B1B),
-              fontSize: 20,
-              height: 0.8,
-            ),
           ),
         ),
       ),

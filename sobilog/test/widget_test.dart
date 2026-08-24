@@ -6,6 +6,7 @@ import 'package:sobilog/features/auth/presentation/terms_screen.dart';
 import 'package:sobilog/features/auth/presentation/verification_screen.dart';
 import 'package:sobilog/features/analysis/presentation/analysis_overview_screen.dart';
 import 'package:sobilog/features/analysis/presentation/analysis_detail_screen.dart';
+import 'package:sobilog/features/analysis/presentation/analysis_goal_screen.dart';
 import 'package:sobilog/features/dutch/presentation/dutch_people_screen.dart';
 import 'package:sobilog/features/dutch/presentation/dutch_assignment_screen.dart';
 import 'package:sobilog/features/dutch/presentation/dutch_result_screen.dart';
@@ -232,5 +233,29 @@ void main() {
     expect(find.text('가장 많이 산 품목 TOP 5'), findsOneWidget);
     expect(find.text('소비 패턴 분석'), findsOneWidget);
     expect(find.text('재구매 충동구매 분석'), findsOneWidget);
+  });
+
+  testWidgets('opens spending goal dialog from analysis detail', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const AnalysisDetailScreen()),
+    );
+
+    await tester.ensureVisible(find.text('4월 지출 목표'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('4월 지출 목표'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AnalysisGoalScreen), findsOneWidget);
+    expect(find.text('지출 목표 설정'), findsOneWidget);
+    expect(find.text('수입의 50%'), findsOneWidget);
+    expect(find.text('직접 입력'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('analysis-goal-close')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AnalysisGoalScreen), findsNothing);
+    expect(find.byType(AnalysisDetailScreen), findsOneWidget);
   });
 }

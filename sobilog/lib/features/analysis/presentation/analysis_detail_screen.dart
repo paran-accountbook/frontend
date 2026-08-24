@@ -8,6 +8,7 @@ import '../../../shared/widgets/design_canvas.dart';
 import '../../home/presentation/home_screen.dart';
 import '../../ledger/presentation/ledger_screen.dart';
 import '../../register/presentation/register_type_screen.dart';
+import 'analysis_goal_screen.dart';
 
 class AnalysisDetailScreen extends StatelessWidget {
   const AnalysisDetailScreen({super.key, this.onNavigationSelected});
@@ -19,46 +20,86 @@ class AnalysisDetailScreen extends StatelessWidget {
     return Scaffold(
       body: ScrollableDesignCanvas(
         height: 2151,
-        child: Stack(
-          children: [
-            const Positioned(
-              left: 46,
-              top: 214,
-              child: Text(
-                '소비분석',
-                style: TextStyle(
-                  color: AppColors.text,
-                  fontFamily: 'BujangnimNunchi',
-                  fontSize: 75,
-                  height: 1,
+        child: AnalysisDetailCanvas(
+          onNavigationSelected: onNavigationSelected,
+          onGoalSelected: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const AnalysisGoalScreen(
+                  background: AnalysisDetailCanvas(showNavigation: false),
                 ),
               ),
-            ),
-            const Positioned(left: 0, top: 307, child: _MonthSelector()),
-            const Positioned(left: 0, top: 435, child: _TopCategorySection()),
-            const Positioned(left: 0, top: 700, child: _TopItemsSection()),
-            const Positioned(left: 0, top: 1021, child: _SpendingGoalSection()),
-            const Positioned(
-              left: 45.5,
-              top: 1235,
-              child: _LockedAnalysisCard(title: '소비 패턴 분석'),
-            ),
-            const Positioned(
-              left: 45.5,
-              top: 1433,
-              child: _LockedAnalysisCard(title: '재구매 충동구매 분석'),
-            ),
-            Positioned(
-              left: 0,
-              top: 1982,
-              child: AppBottomNavigation(
-                selectedIndex: 3,
-                onSelected: (index) => _handleNavigation(context, index),
-              ),
-            ),
-          ],
+            );
+          },
         ),
       ),
+    );
+  }
+}
+
+class AnalysisDetailCanvas extends StatelessWidget {
+  const AnalysisDetailCanvas({
+    super.key,
+    this.onNavigationSelected,
+    this.onGoalSelected,
+    this.showNavigation = true,
+    this.navigationTop = 1982,
+  });
+
+  final ValueChanged<int>? onNavigationSelected;
+  final VoidCallback? onGoalSelected;
+  final bool showNavigation;
+  final double navigationTop;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        const Positioned(
+          left: 46,
+          top: 214,
+          child: Text(
+            '소비분석',
+            style: TextStyle(
+              color: AppColors.text,
+              fontFamily: 'BujangnimNunchi',
+              fontSize: 75,
+              height: 1,
+            ),
+          ),
+        ),
+        const Positioned(left: 0, top: 307, child: _MonthSelector()),
+        const Positioned(left: 0, top: 435, child: _TopCategorySection()),
+        const Positioned(left: 0, top: 700, child: _TopItemsSection()),
+        Positioned(
+          left: 0,
+          top: 1021,
+          child: GestureDetector(
+            onTap: onGoalSelected,
+            behavior: HitTestBehavior.opaque,
+            child: const _SpendingGoalSection(),
+          ),
+        ),
+        const Positioned(
+          left: 45.5,
+          top: 1235,
+          child: _LockedAnalysisCard(title: '소비 패턴 분석'),
+        ),
+        const Positioned(
+          left: 45.5,
+          top: 1433,
+          child: _LockedAnalysisCard(title: '재구매 충동구매 분석'),
+        ),
+        if (showNavigation)
+          Positioned(
+            left: 0,
+            top: navigationTop,
+            child: AppBottomNavigation(
+              selectedIndex: 3,
+              onSelected: (index) => _handleNavigation(context, index),
+            ),
+          ),
+      ],
     );
   }
 

@@ -4,9 +4,12 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../features/home/presentation/home_screen.dart';
-import 'ledger_detail_screen.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../../analysis/presentation/analysis_overview_screen.dart';
+import '../../profile/presentation/profile_screen.dart';
+import '../../register/presentation/register_type_screen.dart';
+import 'ledger_detail_screen.dart';
 
 class LedgerScreen extends StatelessWidget {
   const LedgerScreen({super.key, this.onEntrySelected});
@@ -74,6 +77,24 @@ class LedgerScreen extends StatelessWidget {
                     Navigator.of(context).pushReplacement(
                       MaterialPageRoute<void>(
                         builder: (_) => const HomeScreen(),
+                      ),
+                    );
+                  } else if (index == 2) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const RegisterTypeScreen(),
+                      ),
+                    );
+                  } else if (index == 3) {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const AnalysisOverviewScreen(),
+                      ),
+                    );
+                  } else if (index == 4) {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ProfileScreen(),
                       ),
                     );
                   }

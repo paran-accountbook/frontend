@@ -20,6 +20,7 @@ import 'features/ledger/presentation/ledger_screen.dart';
 import 'features/ledger/presentation/ledger_detail_screen.dart';
 import 'features/ledger/presentation/ledger_edit_screen.dart';
 import 'features/register/presentation/register_type_screen.dart';
+import 'features/profile/presentation/profile_screen.dart';
 import 'features/register/presentation/register_method_screen.dart';
 import 'features/register/presentation/register_direct_screen.dart';
 import 'features/register/presentation/register_income_screen.dart';
@@ -57,6 +58,7 @@ class SobilogApp extends StatelessWidget {
         'analysis-goal' => const AnalysisGoalScreen(
           background: AnalysisDetailCanvas(showNavigation: false),
         ),
+        'profile' => const ProfileScreen(),
         'home' => const HomeScreen(),
         'ledger' => const LedgerScreen(),
         'ledger-detail' => const LedgerDetailScreen(),

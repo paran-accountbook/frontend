@@ -19,6 +19,14 @@ abstract final class AppAssets {
   static const String checkLight = '$_iconRoot/check_light.svg';
   static const String avatarSelf = '$_iconRoot/avatar_self.svg';
   static const String editLight = '$_iconRoot/edit_light.svg';
+  static const String monthArrowActive = '$_iconRoot/month_arrow_active.svg';
+  static const String monthArrowDim = '$_iconRoot/month_arrow_dim.svg';
+  static const String spendUp = '$_iconRoot/spend_up.svg';
+  static const String categoryFood = '$_iconRoot/category_food.svg';
+  static const String categoryShopping = '$_iconRoot/category_shopping.svg';
+  static const String categoryTransport = '$_iconRoot/category_transport.svg';
+  static const String categoryMedical = '$_iconRoot/category_medical.svg';
+  static const String categoryCulture = '$_iconRoot/category_culture.svg';
   static const String divider = '$_iconRoot/divider.svg';
   static const String asteriskDividerDark =
       '$_iconRoot/asterisk_divider_dark.svg';

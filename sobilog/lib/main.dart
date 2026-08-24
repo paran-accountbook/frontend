@@ -8,6 +8,7 @@ import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/login_screen.dart';
 import 'features/auth/presentation/terms_screen.dart';
 import 'features/auth/presentation/verification_screen.dart';
+import 'features/analysis/presentation/analysis_overview_screen.dart';
 import 'features/dutch/presentation/dutch_people_screen.dart';
 import 'features/dutch/presentation/dutch_assignment_screen.dart';
 import 'features/dutch/presentation/dutch_result_screen.dart';
@@ -49,6 +50,7 @@ class SobilogApp extends StatelessWidget {
         'login' => const LoginScreen(),
         'verification' => const VerificationScreen(),
         'terms' => const TermsScreen(),
+        'analysis-overview' => const AnalysisOverviewScreen(),
         'home' => const HomeScreen(),
         'ledger' => const LedgerScreen(),
         'ledger-detail' => const LedgerDetailScreen(),

@@ -6,12 +6,14 @@ class ReceiptSurface extends StatelessWidget {
     super.key,
     this.width = 683,
     this.height = 442,
+    this.startColor = Colors.white,
     this.endColor = const Color(0xFFE4E4FF),
   });
 
   final Widget child;
   final double width;
   final double height;
+  final Color startColor;
   final Color endColor;
 
   @override
@@ -25,7 +27,7 @@ class ReceiptSurface extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Colors.white, endColor],
+            colors: [startColor, endColor],
           ),
         ),
         child: child,

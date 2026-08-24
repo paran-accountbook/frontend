@@ -11,6 +11,7 @@ abstract final class AppAssets {
   static const String arrowBackLight = '$_iconRoot/arrow_back_light.svg';
   static const String closeDark = '$_iconRoot/close_dark.svg';
   static const String addLight = '$_iconRoot/add_light.svg';
+  static const String deleteRed = '$_iconRoot/delete_red.svg';
   static const String divider = '$_iconRoot/divider.svg';
   static const String asteriskDividerDark =
       '$_iconRoot/asterisk_divider_dark.svg';

@@ -27,6 +27,7 @@ flutter:
     - assets/icons/
     - assets/icons/navigation/
     - assets/images/home/
+    - assets/images/auth/
   fonts:
     - family: BujangnimNunchi
       fonts:

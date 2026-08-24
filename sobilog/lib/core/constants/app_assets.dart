@@ -9,6 +9,8 @@ abstract final class AppAssets {
   static const String arrowDown = '$_iconRoot/arrow_down.svg';
   static const String arrowSmall = '$_iconRoot/arrow_small.svg';
   static const String divider = '$_iconRoot/divider.svg';
+  static const String asteriskDividerDark =
+      '$_iconRoot/asterisk_divider_dark.svg';
   static const String homeLogoSymbol = '$_iconRoot/home_logo_symbol.svg';
   static const String homeLogoWordmark = '$_iconRoot/home_logo_wordmark.svg';
   static const String wonDark = '$_iconRoot/won_dark.svg';
@@ -22,4 +24,6 @@ abstract final class AppAssets {
 
   static const String homeReceipt = '$_imageRoot/home/summary_receipt.svg';
   static const String homeBarcode = '$_imageRoot/home/barcode.svg';
+  static const String verificationReceipt =
+      '$_imageRoot/auth/verification_receipt.svg';
 }

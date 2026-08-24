@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import 'dutch_request_screen.dart';
 
 class DutchResultScreen extends StatelessWidget {
   const DutchResultScreen({super.key, this.onNext});
@@ -66,7 +67,17 @@ class DutchResultScreen extends StatelessWidget {
                   onTap: () => Navigator.of(context).maybePop(),
                 ),
                 const SizedBox(width: 20),
-                _ActionButton(label: '다음', gradient: true, onTap: onNext),
+                _ActionButton(
+                  label: '다음',
+                  gradient: true,
+                  onTap:
+                      onNext ??
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const DutchRequestScreen(),
+                        ),
+                      ),
+                ),
               ],
             ),
           ),

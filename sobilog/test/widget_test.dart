@@ -4,6 +4,7 @@ import 'package:sobilog/core/theme/app_theme.dart';
 import 'package:sobilog/features/auth/presentation/login_screen.dart';
 import 'package:sobilog/features/auth/presentation/terms_screen.dart';
 import 'package:sobilog/features/auth/presentation/verification_screen.dart';
+import 'package:sobilog/features/analysis/presentation/analysis_overview_screen.dart';
 import 'package:sobilog/features/dutch/presentation/dutch_people_screen.dart';
 import 'package:sobilog/features/dutch/presentation/dutch_assignment_screen.dart';
 import 'package:sobilog/features/dutch/presentation/dutch_result_screen.dart';
@@ -197,5 +198,27 @@ void main() {
     expect(find.text('내 계좌'), findsOneWidget);
     expect(find.text('요청할 인원 2명'), findsOneWidget);
     expect(find.text('완료'), findsOneWidget);
+  });
+
+  testWidgets('renders analysis overview', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const AnalysisOverviewScreen()),
+    );
+    expect(find.text('소비분석'), findsOneWidget);
+    expect(find.text('총 지출'), findsOneWidget);
+    expect(find.text('카테고리별 비중'), findsOneWidget);
+    expect(find.text('식비'), findsOneWidget);
+  });
+
+  testWidgets('opens analysis overview from home summary', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const HomeScreen()),
+    );
+
+    await tester.tap(find.text('소비 요약 보러가기'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AnalysisOverviewScreen), findsOneWidget);
+    expect(find.text('카테고리별 비중'), findsOneWidget);
   });
 }

@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../analysis/presentation/analysis_overview_screen.dart';
 import '../../ledger/presentation/ledger_screen.dart';
 import '../../register/presentation/register_type_screen.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
@@ -98,6 +99,12 @@ class HomeScreen extends StatelessWidget {
                           builder: (_) => const RegisterTypeScreen(),
                         ),
                       );
+                    } else if (index == 3) {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const AnalysisOverviewScreen(),
+                        ),
+                      );
                     }
                   },
                 ),
@@ -166,22 +173,41 @@ class _SummaryCard extends StatelessWidget {
           Positioned(
             left: 440,
             top: 65,
-            child: Container(
-              height: 38,
-              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
-              decoration: BoxDecoration(
-                border: Border.all(color: AppColors.outline),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  const Text(
-                    '소비 요약 보러가기',
-                    style: TextStyle(color: AppColors.background, fontSize: 20),
+            child: GestureDetector(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const AnalysisOverviewScreen(),
                   ),
-                  const SizedBox(width: 10),
-                  SvgPicture.asset(AppAssets.arrowSmall, width: 9, height: 10),
-                ],
+                );
+              },
+              child: Container(
+                height: 38,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.outline),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    const Text(
+                      '소비 요약 보러가기',
+                      style: TextStyle(
+                        color: AppColors.background,
+                        fontSize: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    SvgPicture.asset(
+                      AppAssets.arrowSmall,
+                      width: 9,
+                      height: 10,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

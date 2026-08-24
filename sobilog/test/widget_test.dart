@@ -164,7 +164,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(theme: AppTheme.dark, home: const DutchPeopleScreen()),
     );
-    expect(find.text('인원등록'), findsOneWidget);
+    expect(find.text('인원 등록'), findsOneWidget);
     expect(find.text('정산하기'), findsOneWidget);
   });
 

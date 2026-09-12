@@ -1,75 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/auth_widgets.dart';
 import '../../../shared/widgets/design_canvas.dart';
-import '../../../shared/widgets/editable_receipt_form.dart';
+import 'receipt_entry_form.dart';
 
 class RegisterDirectScreen extends StatelessWidget {
   const RegisterDirectScreen({super.key});
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: DesignCanvas(
         child: Stack(
           children: [
+            const ColoredBox(color: AppColors.background),
             Positioned(
-              left: 32,
-              top: 133,
-              child: GestureDetector(
-                onTap: () => Navigator.of(context).maybePop(),
-                child: SvgPicture.asset(
-                  AppAssets.arrowBackLight,
-                  width: 70,
-                  height: 70,
-                ),
+              left: 24,
+              top: 50,
+              width: 34,
+              height: 34,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: SvgPicture.asset(AppAssets.arrowBackLight),
               ),
             ),
             const Positioned(
-              top: 151,
-              width: 749,
+              left: 24,
+              top: 128,
               child: Text(
-                '등록',
-                textAlign: TextAlign.center,
+                '직접 등록',
                 style: TextStyle(
                   color: AppColors.text,
-                  fontSize: 25,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 27,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
             const Positioned(
-              left: 33,
-              top: 247,
-              child: EditableReceiptForm(draft: true),
+              left: 24,
+              top: 166,
+              width: 354,
+              child: ReceiptEntryForm(),
             ),
-            Positioned(
-              left: 46,
-              top: 1466,
-              child: Container(
-                width: 655,
-                height: 102,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFF252552), AppColors.main],
-                  ),
-                  borderRadius: BorderRadius.circular(30),
-                  border: Border.all(color: const Color(0x4DE2E2F9)),
-                ),
-                child: const Text(
-                  '저장',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 30,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
+            AuthBottomAction(
+              label: '저장',
+              onPressed: () =>
+                  Navigator.of(context).popUntil((route) => route.isFirst),
             ),
           ],
         ),

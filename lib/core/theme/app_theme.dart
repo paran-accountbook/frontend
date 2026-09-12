@@ -11,7 +11,7 @@ abstract final class AppTheme {
         primary: AppColors.main,
         surface: AppColors.background,
       ),
-      fontFamily: 'Apple SD Gothic Neo',
+      fontFamily: 'Pretendard',
       splashFactory: NoSplash.splashFactory,
       highlightColor: Colors.transparent,
     );

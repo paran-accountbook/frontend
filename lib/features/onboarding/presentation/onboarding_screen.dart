@@ -24,6 +24,8 @@ class OnboardingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: DesignCanvas(
+        width: 749,
+        height: 1628,
         child: ColoredBox(
           color: AppColors.background,
           child: Stack(

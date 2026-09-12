@@ -15,6 +15,8 @@ dependencies:
   image_picker: ^1.2.3
   logger: ^2.7.0
   path_provider: ^2.1.6
+  http: ^1.6.0
+  flutter_secure_storage: ^11.1.1
 
 dev_dependencies:
   flutter_test:
@@ -27,9 +29,19 @@ flutter:
     - .env.example
     - assets/icons/
     - assets/icons/navigation/
+    - assets/images/background/
+    - assets/images/splash/
     - assets/images/home/
     - assets/images/auth/
   fonts:
+    - family: Pretendard
+      fonts:
+        - asset: assets/fonts/Pretendard-Regular.otf
+          weight: 400
+        - asset: assets/fonts/Pretendard-Medium.otf
+          weight: 500
+        - asset: assets/fonts/Pretendard-SemiBold.otf
+          weight: 600
     - family: BujangnimNunchi
       fonts:
         - asset: assets/fonts/BujangnimNunchi-Regular.ttf

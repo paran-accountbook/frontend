@@ -1,8 +1,12 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 abstract final class AppConfig {
-  static String get environment => dotenv.env['APP_ENV'] ?? 'development';
-  static String get apiBaseUrl => dotenv.env['API_BASE_URL'] ?? '';
+  static String get environment => dotenv.isInitialized
+      ? dotenv.env['APP_ENV'] ?? 'development'
+      : 'development';
+  static String get apiBaseUrl => dotenv.isInitialized
+      ? dotenv.env['API_BASE_URL'] ?? ''
+      : 'https://api.sobilog.kr/';
 
   static bool get isDevelopment => environment == 'development';
   static bool get isProduction => environment == 'production';

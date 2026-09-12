@@ -10,6 +10,7 @@ import '../../../core/logging/app_logger.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../../finance/data/finance_service.dart';
 import 'receipt_scan_loading_screen.dart';
 import 'register_direct_screen.dart';
 
@@ -21,18 +22,23 @@ class RegisterMethodScreen extends StatelessWidget {
     this.onDirect,
     this.onPickImage,
     this.onImageSelected,
+    this.financeService,
   });
 
   final VoidCallback? onDirect;
   final PickImageCallback? onPickImage;
   final ValueChanged<XFile>? onImageSelected;
+  final FinanceService? financeService;
 
   @override
   Widget build(BuildContext context) {
     final direct =
         onDirect ??
         () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const RegisterDirectScreen()),
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                RegisterDirectScreen(financeService: financeService),
+          ),
         );
     return Scaffold(
       body: DesignCanvas(
@@ -125,7 +131,10 @@ class RegisterMethodScreen extends StatelessWidget {
       }
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => ReceiptScanLoadingScreen(imagePath: image.path),
+          builder: (_) => ReceiptScanLoadingScreen(
+            imagePath: image.path,
+            financeService: financeService,
+          ),
         ),
       );
     } on PlatformException catch (error, stackTrace) {

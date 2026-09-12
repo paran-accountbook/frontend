@@ -1,39 +1,55 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/constants/app_assets.dart';
+import '../../../core/network/api_exception.dart';
+import '../../../core/network/app_services.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../../finance/data/finance_service.dart';
 import 'receipt_result_screen.dart';
 
 class ReceiptScanLoadingScreen extends StatefulWidget {
-  const ReceiptScanLoadingScreen({required this.imagePath, super.key});
+  const ReceiptScanLoadingScreen({
+    required this.imagePath,
+    this.financeService,
+    this.autoRecognize = true,
+    super.key,
+  });
   final String imagePath;
+  final FinanceService? financeService;
+  final bool autoRecognize;
   @override
   State<ReceiptScanLoadingScreen> createState() =>
       _ReceiptScanLoadingScreenState();
 }
 
 class _ReceiptScanLoadingScreenState extends State<ReceiptScanLoadingScreen> {
-  Timer? _timer;
+  String? _error;
   @override
   void initState() {
     super.initState();
-    _timer = Timer(const Duration(milliseconds: 1200), () {
+    if (widget.autoRecognize) _recognize();
+  }
+
+  Future<void> _recognize() async {
+    setState(() => _error = null);
+    try {
+      final result = await (widget.financeService ?? AppServices.finance)
+          .recognizeReceipt(widget.imagePath);
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
-          builder: (_) => ReceiptResultScreen(imagePath: widget.imagePath),
+          builder: (_) => ReceiptResultScreen(
+            imagePath: widget.imagePath,
+            initialData: result,
+            financeService: widget.financeService ?? AppServices.finance,
+          ),
         ),
       );
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    }
   }
 
   @override
@@ -57,14 +73,19 @@ class _ReceiptScanLoadingScreenState extends State<ReceiptScanLoadingScreen> {
                   child: SvgPicture.asset(AppAssets.receiptScannerCheck),
                 ),
                 const SizedBox(height: 20),
-                const Text(
-                  '영수증 인식중',
+                Text(
+                  _error ?? '영수증 인식중',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.text,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
+                if (_error != null) ...[
+                  const SizedBox(height: 16),
+                  TextButton(onPressed: _recognize, child: const Text('다시 시도')),
+                ],
               ],
             ),
           ],

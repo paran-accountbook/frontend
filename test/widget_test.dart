@@ -188,8 +188,8 @@ void main() {
       MaterialApp(theme: AppTheme.dark, home: const RegisterIncomeScreen()),
     );
 
-    expect(find.text('용돈'), findsOneWidget);
-    expect(find.text('수입일'), findsOneWidget);
+    expect(find.text('수입 등록'), findsOneWidget);
+    expect(find.text('금액'), findsOneWidget);
     expect(find.text('저장'), findsOneWidget);
   });
 

@@ -6,14 +6,40 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../analysis/presentation/analysis_overview_screen.dart';
+import '../../finance/data/finance_service.dart';
 import '../../ledger/presentation/ledger_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../register/presentation/register_type_screen.dart';
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key, this.onNavigationSelected});
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key, this.onNavigationSelected, this.financeService});
 
   final ValueChanged<int>? onNavigationSelected;
+  final FinanceService? financeService;
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  Map<String, dynamic>? _data;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final service = widget.financeService;
+    if (service == null) return;
+    try {
+      final data = await service.home();
+      if (mounted) setState(() => _data = data);
+    } catch (_) {
+      // The static preview remains visible; authenticated retry is available on refresh/re-entry.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,10 +79,14 @@ class HomeScreen extends StatelessWidget {
                 behavior: HitTestBehavior.opaque,
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => const AnalysisOverviewScreen(),
+                    builder: (_) => AnalysisOverviewScreen(
+                      financeService: widget.financeService,
+                    ),
                   ),
                 ),
-                child: const _SummaryReceipt(),
+                child: _SummaryReceipt(
+                  summary: _data?['summary'] as Map<String, dynamic>?,
+                ),
               ),
             ),
             const Positioned(
@@ -71,11 +101,11 @@ class HomeScreen extends StatelessWidget {
                 ],
               ),
             ),
-            const Positioned(
+            Positioned(
               left: 24,
               top: 489,
-              child: Column(
-                children: [_RecentRow(), _RecentRow(), _RecentRow()],
+              child: _RecentList(
+                data: _data?['recent'] as Map<String, dynamic>?,
               ),
             ),
             Positioned(
@@ -93,15 +123,15 @@ class HomeScreen extends StatelessWidget {
   }
 
   void _navigate(BuildContext context, int index) {
-    if (onNavigationSelected case final callback?) {
+    if (widget.onNavigationSelected case final callback?) {
       callback(index);
       return;
     }
     final Widget? page = switch (index) {
-      1 => const LedgerScreen(),
-      2 => const RegisterTypeScreen(),
-      3 => const AnalysisOverviewScreen(),
-      4 => const ProfileScreen(),
+      1 => LedgerScreen(financeService: widget.financeService),
+      2 => RegisterTypeScreen(financeService: widget.financeService),
+      3 => AnalysisOverviewScreen(financeService: widget.financeService),
+      4 => ProfileScreen(financeService: widget.financeService),
       _ => null,
     };
     if (page == null) return;
@@ -121,10 +151,22 @@ const _smallText = TextStyle(
 );
 
 class _SummaryReceipt extends StatelessWidget {
-  const _SummaryReceipt();
+  const _SummaryReceipt({this.summary});
+  final Map<String, dynamic>? summary;
 
   @override
   Widget build(BuildContext context) {
+    final total = summary?['total_expense_amount'] as int? ?? 150000;
+    final changeAmount = summary?['change_amount'] as int? ?? 2500;
+    final changeRate = summary?['change_rate'] as num? ?? 12;
+    final goal = summary?['goal'] as Map<String, dynamic>?;
+    final month = summary?['month'] as int? ?? 8;
+    final income = summary?['total_income_amount'] as int? ?? 30000;
+    final balance = summary?['balance'] as int? ?? 10000;
+    final changeColor = changeAmount > 0
+        ? const Color(0xFFCF376A)
+        : const Color(0xFF4777D9);
+    final sign = changeAmount > 0 ? '+' : '';
     return Stack(
       children: [
         Positioned.fill(
@@ -133,7 +175,7 @@ class _SummaryReceipt extends StatelessWidget {
             fit: BoxFit.fill,
           ),
         ),
-        const Positioned(
+        Positioned(
           top: 27,
           width: 354,
           child: Text(
@@ -142,7 +184,7 @@ class _SummaryReceipt extends StatelessWidget {
             style: _receiptLabel,
           ),
         ),
-        const Positioned(
+        Positioned(
           top: 66,
           width: 354,
           child: Text(
@@ -164,24 +206,24 @@ class _SummaryReceipt extends StatelessWidget {
             child: SvgPicture.asset(AppAssets.receiptAsteriskDivider),
           ),
         ),
-        const Positioned(
+        Positioned(
           top: 105,
           width: 354,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('총 ', style: _receiptLabel),
-              Text('150,000', style: _receiptAmountLarge),
-              SizedBox(width: 4),
-              Padding(
+              const Text('총 ', style: _receiptLabel),
+              Text(_formatAmount(total), style: _receiptAmountLarge),
+              const SizedBox(width: 4),
+              const Padding(
                 padding: EdgeInsets.only(bottom: 3),
                 child: _WonIcon(dark: true, width: 19, height: 20),
               ),
             ],
           ),
         ),
-        const Positioned(
+        Positioned(
           left: 17,
           right: 17,
           top: 188,
@@ -190,40 +232,47 @@ class _SummaryReceipt extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  '전월 동일 시점 대비 +12%',
+                  '전월 동일 시점 대비 $sign${changeRate.toStringAsFixed(changeRate is int ? 0 : 1)}%',
                   maxLines: 1,
                   overflow: TextOverflow.clip,
                   style: _receiptBody,
                 ),
               ),
-              _ReceiptPrice(amount: '+2,500', color: Color(0xFFCF376A)),
+              _ReceiptPrice(
+                amount: '$sign${_formatAmount(changeAmount)}',
+                color: changeColor,
+              ),
             ],
           ),
         ),
-        const Positioned(
-          left: 17,
-          right: 17,
-          top: 229,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('8월 목표', style: _receiptBody),
-              _ReceiptPrice(amount: '40,000'),
-            ],
+        if (summary == null || goal != null)
+          Positioned(
+            left: 17,
+            right: 17,
+            top: 229,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('$month월 목표', style: _receiptBody),
+                _ReceiptPrice(
+                  amount: _formatAmount(goal?['amount'] as int? ?? 40000),
+                ),
+              ],
+            ),
           ),
-        ),
-        const Positioned(
-          left: 17,
-          right: 17,
-          top: 281,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('수입 30,000원', style: _receiptLabel),
-              Text('잔액 10,000원', style: _receiptLabel),
-            ],
+        if (summary == null || summary?['total_income_amount'] != null)
+          Positioned(
+            left: 17,
+            right: 17,
+            top: 281,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('수입 ${_formatAmount(income)}원', style: _receiptLabel),
+                Text('잔액 ${_formatAmount(balance)}원', style: _receiptLabel),
+              ],
+            ),
           ),
-        ),
       ],
     );
   }
@@ -242,11 +291,47 @@ const _receiptAmountLarge = TextStyle(
   height: 1,
 );
 
-class _RecentRow extends StatelessWidget {
-  const _RecentRow();
+class _RecentList extends StatelessWidget {
+  const _RecentList({this.data});
+  final Map<String, dynamic>? data;
 
   @override
   Widget build(BuildContext context) {
+    final entries = (data?['entries'] as List?)
+        ?.whereType<Map<String, dynamic>>()
+        .toList();
+    if (data != null && (entries == null || entries.isEmpty)) {
+      return Container(
+        width: 354,
+        height: 72,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: Color(0x0DE2E2F9))),
+        ),
+        child: const Text('첫 소비를 등록해보세요', style: _smallText),
+      );
+    }
+    final visible =
+        entries ?? List.generate(3, (_) => const <String, dynamic>{});
+    return Column(
+      children: visible
+          .take(3)
+          .map((entry) => _RecentRow(entry: entry))
+          .toList(),
+    );
+  }
+}
+
+class _RecentRow extends StatelessWidget {
+  const _RecentRow({required this.entry});
+  final Map<String, dynamic> entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final rawDate = entry['date'] as String?;
+    final date = rawDate == null ? null : DateTime.tryParse(rawDate);
+    final isIncome = entry['type'] == 'income';
+    final amount = entry['amount'] as int? ?? 150000;
     return Container(
       width: 354,
       height: 72,
@@ -255,8 +340,8 @@ class _RecentRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Text(
-            '8/19',
+          Text(
+            date == null ? '8/19' : '${date.month}/${date.day}',
             style: TextStyle(
               color: AppColors.text50,
               fontFamily: 'Amarante',
@@ -266,26 +351,29 @@ class _RecentRow extends StatelessWidget {
           const SizedBox(width: 13),
           SvgPicture.asset(AppAssets.categoryFood, width: 26, height: 26),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '아주대학교 카페',
+                  entry['label'] as String? ?? '아주대학교 카페',
                   maxLines: 1,
                   overflow: TextOverflow.clip,
                   style: _smallText,
                 ),
-                SizedBox(height: 7),
-                Text(
+                const SizedBox(height: 7),
+                const Text(
                   '오전 10:30',
                   style: TextStyle(color: AppColors.text50, fontSize: 12),
                 ),
               ],
             ),
           ),
-          const _LightPrice(amount: '150,000'),
+          _LightPrice(
+            amount: '${isIncome ? '+' : ''}${_formatAmount(amount)}',
+            color: isIncome ? const Color(0xFF6E9CFF) : AppColors.text,
+          ),
         ],
       ),
     );
@@ -344,9 +432,10 @@ class _ReceiptPrice extends StatelessWidget {
 }
 
 class _LightPrice extends StatelessWidget {
-  const _LightPrice({required this.amount});
+  const _LightPrice({required this.amount, this.color = AppColors.text});
 
   final String amount;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -355,15 +444,22 @@ class _LightPrice extends StatelessWidget {
       children: [
         Text(
           amount,
-          style: const TextStyle(
-            color: AppColors.text,
-            fontFamily: 'Amarante',
-            fontSize: 20,
-          ),
+          style: TextStyle(color: color, fontFamily: 'Amarante', fontSize: 20),
         ),
         const SizedBox(width: 4),
-        const _WonIcon(dark: false),
+        _WonIcon(dark: false, color: color),
       ],
     );
   }
+}
+
+String _formatAmount(int amount) {
+  final negative = amount < 0;
+  final digits = amount.abs().toString();
+  final buffer = StringBuffer();
+  for (var index = 0; index < digits.length; index++) {
+    if (index > 0 && (digits.length - index) % 3 == 0) buffer.write(',');
+    buffer.write(digits[index]);
+  }
+  return '${negative ? '-' : ''}$buffer';
 }

@@ -5,6 +5,7 @@ abstract interface class FinanceService {
   Future<Map<String, dynamic>> ledger({
     required String period,
     required DateTime anchor,
+    String type = 'all',
   });
   Future<Map<String, dynamic>> expenseDetail(String id);
   Future<Map<String, dynamic>> analysis({
@@ -38,12 +39,14 @@ class FinanceApiService implements FinanceService {
   Future<Map<String, dynamic>> ledger({
     required String period,
     required DateTime anchor,
+    String type = 'all',
   }) async =>
       await _client.get(
             '/expenses',
             query: {
               'period': period,
               'date': anchor.toIso8601String().substring(0, 10),
+              'type': type,
             },
           )
           as Map<String, dynamic>;

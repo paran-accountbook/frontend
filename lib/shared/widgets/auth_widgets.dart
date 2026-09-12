@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/constants/app_assets.dart';
@@ -62,6 +63,7 @@ class AuthTextField extends StatelessWidget {
     this.obscureText = false,
     this.onChanged,
     this.textInputAction,
+    this.inputFormatters,
   });
 
   final TextEditingController controller;
@@ -70,6 +72,7 @@ class AuthTextField extends StatelessWidget {
   final bool obscureText;
   final ValueChanged<String>? onChanged;
   final TextInputAction? textInputAction;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) {
@@ -82,6 +85,7 @@ class AuthTextField extends StatelessWidget {
         obscureText: obscureText,
         onChanged: onChanged,
         textInputAction: textInputAction,
+        inputFormatters: inputFormatters,
         style: const TextStyle(
           color: AppColors.text,
           fontSize: 14,

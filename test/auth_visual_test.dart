@@ -21,6 +21,7 @@ import 'package:sobilog/features/profile/presentation/profile_screen.dart';
 import 'package:sobilog/features/register/presentation/register_type_screen.dart';
 import 'package:sobilog/features/register/presentation/register_method_screen.dart';
 import 'package:sobilog/features/register/presentation/register_direct_screen.dart';
+import 'package:sobilog/features/register/presentation/register_income_screen.dart';
 import 'package:sobilog/features/register/presentation/receipt_scan_loading_screen.dart';
 import 'package:sobilog/features/register/presentation/receipt_result_screen.dart';
 import 'package:sobilog/features/splash/presentation/splash_screen.dart';
@@ -196,7 +197,10 @@ void main() {
     await configureViewport(tester);
     await pumpScreen(
       tester,
-      const ReceiptScanLoadingScreen(imagePath: 'receipt.jpg'),
+      const ReceiptScanLoadingScreen(
+        imagePath: 'receipt.jpg',
+        autoRecognize: false,
+      ),
     );
     await expectLater(
       find.byType(Scaffold),
@@ -222,6 +226,15 @@ void main() {
     await expectLater(
       find.byType(Scaffold),
       matchesGoldenFile('goldens/register_direct.png'),
+    );
+  });
+
+  testWidgets('income register matches its visual baseline', (tester) async {
+    await configureViewport(tester);
+    await pumpScreen(tester, const RegisterIncomeScreen());
+    await expectLater(
+      find.byType(Scaffold),
+      matchesGoldenFile('goldens/register_income.png'),
     );
   });
 

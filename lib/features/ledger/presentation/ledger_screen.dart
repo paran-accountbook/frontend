@@ -6,15 +6,17 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../analysis/presentation/analysis_overview_screen.dart';
+import '../../finance/data/finance_service.dart';
 import '../../home/presentation/home_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../register/presentation/register_type_screen.dart';
 import 'ledger_detail_screen.dart';
 
 class LedgerScreen extends StatefulWidget {
-  const LedgerScreen({super.key, this.onEntrySelected});
+  const LedgerScreen({super.key, this.onEntrySelected, this.financeService});
 
   final VoidCallback? onEntrySelected;
+  final FinanceService? financeService;
 
   @override
   State<LedgerScreen> createState() => _LedgerScreenState();
@@ -23,14 +25,50 @@ class LedgerScreen extends StatefulWidget {
 class _LedgerScreenState extends State<LedgerScreen> {
   int _period = 0;
   int _type = 0;
+  late DateTime _anchor;
+  Map<String, dynamic>? _data;
+
+  @override
+  void initState() {
+    super.initState();
+    _anchor = widget.financeService == null
+        ? DateTime(2026, 8, 19)
+        : DateTime.now();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final service = widget.financeService;
+    if (service == null) return;
+    try {
+      final data = await service.ledger(
+        period: const ['month', 'week', 'day'][_period],
+        anchor: _anchor,
+        type: const ['all', 'expense', 'income'][_type],
+      );
+      if (mounted) setState(() => _data = data);
+    } catch (_) {
+      // Keep the last successfully rendered state when the request cannot complete.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final openDetail =
-        widget.onEntrySelected ??
-        () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const LedgerDetailScreen()),
-        );
+    void openDetail(String? id) {
+      if (widget.onEntrySelected case final callback?) {
+        callback();
+        return;
+      }
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => LedgerDetailScreen(
+            expenseId: id,
+            financeService: widget.financeService,
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       body: DesignCanvas(
         child: Stack(
@@ -58,17 +96,24 @@ class _LedgerScreenState extends State<LedgerScreen> {
                     child: _Chip(
                       label: const ['월', '주', '일'][index],
                       selected: _period == index,
-                      onTap: () => setState(() => _period = index),
+                      onTap: () {
+                        setState(() => _period = index);
+                        _load();
+                      },
                     ),
                   );
                 }),
               ),
             ),
-            const Positioned(
+            Positioned(
               left: 24,
               top: 272,
               width: 354,
-              child: _MonthSelector(),
+              child: _MonthSelector(
+                anchor: _anchor,
+                onPrevious: () => _movePeriod(-1),
+                onNext: () => _movePeriod(1),
+              ),
             ),
             const Positioned(
               left: 24,
@@ -76,7 +121,12 @@ class _LedgerScreenState extends State<LedgerScreen> {
               width: 354,
               child: _AsteriskDivider(),
             ),
-            const Positioned(left: 24, top: 353, width: 354, child: _Totals()),
+            Positioned(
+              left: 24,
+              top: 353,
+              width: 354,
+              child: _Totals(data: _data),
+            ),
             const Positioned(
               left: 24,
               top: 483,
@@ -94,7 +144,10 @@ class _LedgerScreenState extends State<LedgerScreen> {
                       child: _Chip(
                         label: const ['전체', '지출', '수입'][index],
                         selected: _type == index,
-                        onTap: () => setState(() => _type = index),
+                        onTap: () {
+                          setState(() => _type = index);
+                          _load();
+                        },
                       ),
                     );
                   }),
@@ -105,7 +158,7 @@ class _LedgerScreenState extends State<LedgerScreen> {
             Positioned(
               left: 24,
               top: 588,
-              child: _Entries(onTap: openDetail, type: _type),
+              child: _Entries(onTap: openDetail, type: _type, data: _data),
             ),
             Positioned(
               left: 0,
@@ -121,12 +174,23 @@ class _LedgerScreenState extends State<LedgerScreen> {
     );
   }
 
+  void _movePeriod(int direction) {
+    setState(() {
+      _anchor = switch (_period) {
+        0 => DateTime(_anchor.year, _anchor.month + direction, 1),
+        1 => _anchor.add(Duration(days: 7 * direction)),
+        _ => _anchor.add(Duration(days: direction)),
+      };
+    });
+    _load();
+  }
+
   void _navigate(BuildContext context, int index) {
     final Widget? page = switch (index) {
-      0 => const HomeScreen(),
-      2 => const RegisterTypeScreen(),
-      3 => const AnalysisOverviewScreen(),
-      4 => const ProfileScreen(),
+      0 => HomeScreen(financeService: widget.financeService),
+      2 => RegisterTypeScreen(financeService: widget.financeService),
+      3 => AnalysisOverviewScreen(financeService: widget.financeService),
+      4 => ProfileScreen(financeService: widget.financeService),
       _ => null,
     };
     if (page == null) return;
@@ -174,40 +238,67 @@ class _Chip extends StatelessWidget {
 }
 
 class _MonthSelector extends StatelessWidget {
-  const _MonthSelector();
+  const _MonthSelector({
+    required this.anchor,
+    required this.onPrevious,
+    required this.onNext,
+  });
+  final DateTime anchor;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        SvgPicture.asset(AppAssets.monthArrowActive, width: 10, height: 12),
-        const Row(
+        GestureDetector(
+          onTap: onPrevious,
+          child: SvgPicture.asset(
+            AppAssets.monthArrowActive,
+            width: 10,
+            height: 12,
+          ),
+        ),
+        Row(
           children: [
             Text(
-              '2026',
+              '${anchor.year}',
               style: TextStyle(
                 color: AppColors.text,
                 fontFamily: 'Amarante',
                 fontSize: 24,
               ),
             ),
-            SizedBox(width: 4),
-            Text('년', style: TextStyle(color: AppColors.text, fontSize: 14)),
-            SizedBox(width: 20),
+            const SizedBox(width: 4),
+            const Text(
+              '년',
+              style: TextStyle(color: AppColors.text, fontSize: 14),
+            ),
+            const SizedBox(width: 20),
             Text(
-              '8',
+              '${anchor.month}',
               style: TextStyle(
                 color: AppColors.text,
                 fontFamily: 'Amarante',
                 fontSize: 24,
               ),
             ),
-            SizedBox(width: 4),
-            Text('월', style: TextStyle(color: AppColors.text, fontSize: 14)),
+            const SizedBox(width: 4),
+            const Text(
+              '월',
+              style: TextStyle(color: AppColors.text, fontSize: 14),
+            ),
           ],
         ),
-        SvgPicture.asset(AppAssets.monthArrowDim, width: 10, height: 12),
+        GestureDetector(
+          onTap: onNext,
+          child: SvgPicture.asset(
+            AppAssets.monthArrowDim,
+            width: 10,
+            height: 12,
+          ),
+        ),
       ],
     );
   }
@@ -227,17 +318,25 @@ class _AsteriskDivider extends StatelessWidget {
 }
 
 class _Totals extends StatelessWidget {
-  const _Totals();
+  const _Totals({this.data});
+  final Map<String, dynamic>? data;
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    final expense = data?['total_expense_amount'] as int? ?? 150000;
+    final income = data?['total_income_amount'] as int? ?? 150000;
+    final balance = data?['balance'] as int? ?? 150000;
+    return Column(
       children: [
-        _TotalRow(label: '총 지출', amount: '-150,000 ₩'),
-        SizedBox(height: 18),
-        _TotalRow(label: '총 수입', amount: '+150,000 ₩'),
-        SizedBox(height: 18),
-        _TotalRow(label: '잔액', amount: '+150,000 ₩', accent: true),
+        _TotalRow(label: '총 지출', amount: '-${_formatAmount(expense)} ₩'),
+        const SizedBox(height: 18),
+        _TotalRow(label: '총 수입', amount: '+${_formatAmount(income)} ₩'),
+        const SizedBox(height: 18),
+        _TotalRow(
+          label: '잔액',
+          amount: '${balance >= 0 ? '+' : ''}${_formatAmount(balance)} ₩',
+          accent: true,
+        ),
       ],
     );
   }
@@ -270,13 +369,30 @@ class _TotalRow extends StatelessWidget {
 }
 
 class _Entries extends StatelessWidget {
-  const _Entries({required this.onTap, required this.type});
+  const _Entries({required this.onTap, required this.type, this.data});
 
-  final VoidCallback onTap;
+  final ValueChanged<String?> onTap;
   final int type;
+  final Map<String, dynamic>? data;
 
   @override
   Widget build(BuildContext context) {
+    final days = (data?['days'] as List?)
+        ?.whereType<Map<String, dynamic>>()
+        .toList();
+    if (days != null && days.isNotEmpty) return _buildRemote(days);
+    if (data != null) {
+      return const SizedBox(
+        width: 354,
+        height: 120,
+        child: Center(
+          child: Text(
+            '등록된 내역이 없어요',
+            style: TextStyle(color: AppColors.text50, fontSize: 14),
+          ),
+        ),
+      );
+    }
     final amounts = type == 2
         ? const ['+150,000', '+150,000', '+150,000', '+150,000']
         : const ['-4,500', '-4,500', '-4,500', '-4,500'];
@@ -292,19 +408,72 @@ class _Entries extends StatelessWidget {
           const SizedBox(height: 14),
           ...List.generate(
             4,
-            (index) => _Entry(amount: amounts[index], onTap: onTap),
+            (index) => _Entry(amount: amounts[index], onTap: () => onTap(null)),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildRemote(List<Map<String, dynamic>> days) {
+    final widgets = <Widget>[];
+    for (final day in days) {
+      final date = DateTime.tryParse(day['date'] as String? ?? '');
+      widgets.add(
+        Text(
+          date == null ? '' : '${date.month}월 ${date.day}일',
+          style: const TextStyle(color: AppColors.text50, fontSize: 14),
+        ),
+      );
+      widgets.add(const SizedBox(height: 14));
+      for (final item
+          in (day['expenses'] as List? ?? const [])
+              .whereType<Map<String, dynamic>>()) {
+        widgets.add(
+          _Entry(
+            amount: '-${_formatAmount(item['amount'] as int? ?? 0)}',
+            onTap: () => onTap(item['id'] as String?),
+            title: item['store_name'] as String?,
+            subtitle:
+                '${item['representative_item_name'] ?? item['category']}  ·  ${item['payment_method']}',
+          ),
+        );
+      }
+      for (final item
+          in (day['incomes'] as List? ?? const [])
+              .whereType<Map<String, dynamic>>()) {
+        widgets.add(
+          _Entry(
+            amount: '+${_formatAmount(item['amount'] as int? ?? 0)}',
+            onTap: () => onTap(null),
+            title: item['category'] as String?,
+            subtitle: item['memo'] as String? ?? '수입',
+          ),
+        );
+      }
+    }
+    return SizedBox(
+      width: 354,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: widgets,
       ),
     );
   }
 }
 
 class _Entry extends StatelessWidget {
-  const _Entry({required this.amount, required this.onTap});
+  const _Entry({
+    required this.amount,
+    required this.onTap,
+    this.title,
+    this.subtitle,
+  });
 
   final String amount;
   final VoidCallback onTap;
+  final String? title;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -320,23 +489,26 @@ class _Entry extends StatelessWidget {
           children: [
             SvgPicture.asset(AppAssets.categoryFood, width: 26, height: 26),
             const SizedBox(width: 10),
-            const Expanded(
+            Expanded(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '아주대학교 카페',
+                    title ?? '아주대학교 카페',
                     style: TextStyle(
                       color: AppColors.text,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  SizedBox(height: 7),
+                  const SizedBox(height: 7),
                   Text(
-                    '카페  ·  카드  ·  오전 10:30',
-                    style: TextStyle(color: AppColors.text50, fontSize: 12),
+                    subtitle ?? '카페  ·  카드  ·  오전 10:30',
+                    style: const TextStyle(
+                      color: AppColors.text50,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -352,6 +524,17 @@ class _Entry extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatAmount(int amount) {
+  final negative = amount < 0;
+  final digits = amount.abs().toString();
+  final buffer = StringBuffer();
+  for (var index = 0; index < digits.length; index++) {
+    if (index > 0 && (digits.length - index) % 3 == 0) buffer.write(',');
+    buffer.write(digits[index]);
+  }
+  return '${negative ? '-' : ''}$buffer';
 }
 
 class _Price extends StatelessWidget {

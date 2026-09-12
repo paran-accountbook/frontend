@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -58,6 +59,7 @@ class ApiClient {
     String path, {
     required String filePath,
     String field = 'file',
+    bool retrying = false,
   }) async {
     final token = await sessionStore.readAccessToken();
     final request = http.MultipartRequest('POST', Uri.parse('$_baseUrl$path'));
@@ -70,9 +72,19 @@ class ApiClient {
         const Duration(seconds: 30),
       );
       final response = await http.Response.fromStream(streamed);
+      if (response.statusCode == 401 && !retrying && await _refresh()) {
+        return multipartPost(
+          path,
+          filePath: filePath,
+          field: field,
+          retrying: true,
+        );
+      }
       return _decode(response);
     } on SocketException {
       throw const ApiException(message: '네트워크 연결을 확인해 주세요');
+    } on TimeoutException {
+      throw const ApiException(message: '서버 응답이 지연되고 있습니다. 다시 시도해 주세요');
     }
   }
 
@@ -121,6 +133,8 @@ class ApiClient {
       throw const ApiException(message: '네트워크 연결을 확인해 주세요');
     } on http.ClientException {
       throw const ApiException(message: '서버에 연결할 수 없습니다');
+    } on TimeoutException {
+      throw const ApiException(message: '서버 응답이 지연되고 있습니다. 다시 시도해 주세요');
     }
   }
 

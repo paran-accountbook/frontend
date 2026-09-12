@@ -5,26 +5,39 @@ import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../../finance/data/finance_service.dart';
 import 'register_income_screen.dart';
 import 'register_method_screen.dart';
 
 class RegisterTypeScreen extends StatelessWidget {
-  const RegisterTypeScreen({super.key, this.onExpense, this.onIncome});
+  const RegisterTypeScreen({
+    super.key,
+    this.onExpense,
+    this.onIncome,
+    this.financeService,
+  });
 
   final VoidCallback? onExpense;
   final VoidCallback? onIncome;
+  final FinanceService? financeService;
 
   @override
   Widget build(BuildContext context) {
     final expense =
         onExpense ??
         () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const RegisterMethodScreen()),
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                RegisterMethodScreen(financeService: financeService),
+          ),
         );
     final income =
         onIncome ??
         () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const RegisterIncomeScreen()),
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                RegisterIncomeScreen(financeService: financeService),
+          ),
         );
     return Scaffold(
       body: DesignCanvas(

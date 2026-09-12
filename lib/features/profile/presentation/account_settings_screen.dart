@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_assets.dart';
+import '../../../core/config/app_config.dart';
+import '../../../core/network/app_services.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../auth/presentation/login_screen.dart';
@@ -8,7 +11,8 @@ import 'account_delete_screen.dart';
 import 'password_change_screen.dart';
 
 class AccountSettingsScreen extends StatelessWidget {
-  const AccountSettingsScreen({super.key});
+  const AccountSettingsScreen({super.key, this.provider = 'email'});
+  final String provider;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -44,17 +48,28 @@ class AccountSettingsScreen extends StatelessWidget {
               top: 186,
               child: Column(
                 children: [
-                  _SettingRow(
-                    label: '비밀번호 변경',
-                    value: '*********',
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const PasswordChangeScreen(),
+                  if (provider == 'email')
+                    _SettingRow(
+                      label: '비밀번호 변경',
+                      value: '*********',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => PasswordChangeScreen(
+                            authService: AppServices.auth,
+                          ),
+                        ),
                       ),
                     ),
+                  _SettingRow(
+                    label: '서비스 이용약관',
+                    value: '보기',
+                    onTap: () => _openTerms(context),
                   ),
-                  const _SettingRow(label: '서비스 이용약관', value: '보기'),
-                  const _SettingRow(label: '개인정보 처리방침', value: '보기'),
+                  _SettingRow(
+                    label: '개인정보 처리방침',
+                    value: '보기',
+                    onTap: () => _openTerms(context),
+                  ),
                   const _SettingRow(label: '앱버전', value: '1.0'),
                   const SizedBox(height: 20),
                   _ActionButton(label: '로그아웃', onTap: () => _logout(context)),
@@ -64,7 +79,10 @@ class AccountSettingsScreen extends StatelessWidget {
                     danger: true,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) => const AccountDeleteScreen(),
+                        builder: (_) => AccountDeleteScreen(
+                          authService: AppServices.auth,
+                          provider: provider,
+                        ),
                       ),
                     ),
                   ),
@@ -89,14 +107,31 @@ class AccountSettingsScreen extends StatelessWidget {
             child: const Text('취소'),
           ),
           TextButton(
-            onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
-              (_) => false,
-            ),
+            onPressed: () async {
+              await AppServices.auth.logout();
+              if (!context.mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+                (_) => false,
+              );
+            },
             child: const Text('로그아웃'),
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _openTerms(BuildContext context) async {
+    final url = Uri.tryParse(AppConfig.termsDocumentUrl.trim());
+    if (url != null &&
+        url.hasScheme &&
+        await launchUrl(url, mode: LaunchMode.inAppBrowserView)) {
+      return;
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('약관을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요')),
     );
   }
 }

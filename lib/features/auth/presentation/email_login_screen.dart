@@ -9,6 +9,7 @@ import '../../../shared/widgets/auth_widgets.dart';
 import '../data/auth_service.dart';
 import '../../home/presentation/home_screen.dart';
 import 'password_reset_email_screen.dart';
+import 'pending_deletion_screen.dart';
 
 class EmailLoginScreen extends StatefulWidget {
   const EmailLoginScreen({super.key, this.onForgotPassword, this.authService});
@@ -48,13 +49,27 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
       _apiError = null;
     });
     try {
-      await (widget.authService ?? AppServices.auth).login(
+      final service = widget.authService ?? AppServices.auth;
+      final data = await service.login(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
       if (!mounted) return;
+      final pendingAt = DateTime.tryParse(
+        data['pending_deletion_at'] as String? ?? '',
+      );
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
+        MaterialPageRoute<void>(
+          builder: (_) {
+            if (pendingAt != null) {
+              return PendingDeletionScreen(
+                scheduledAt: pendingAt,
+                authService: service,
+              );
+            }
+            return HomeScreen(financeService: AppServices.finance);
+          },
+        ),
         (_) => false,
       );
     } on ApiException catch (error) {

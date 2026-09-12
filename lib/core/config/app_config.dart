@@ -7,6 +7,8 @@ abstract final class AppConfig {
   static String get apiBaseUrl => dotenv.isInitialized
       ? dotenv.env['API_BASE_URL'] ?? ''
       : 'https://api.sobilog.kr/';
+  static String get termsDocumentUrl =>
+      dotenv.isInitialized ? dotenv.env['TERMS_DOCUMENT_URL'] ?? '' : '';
 
   static bool get isDevelopment => environment == 'development';
   static bool get isProduction => environment == 'production';

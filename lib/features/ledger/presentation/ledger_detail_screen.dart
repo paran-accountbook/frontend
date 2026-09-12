@@ -3,9 +3,38 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../../finance/data/finance_service.dart';
 
-class LedgerDetailScreen extends StatelessWidget {
-  const LedgerDetailScreen({super.key});
+class LedgerDetailScreen extends StatefulWidget {
+  const LedgerDetailScreen({super.key, this.expenseId, this.financeService});
+  final String? expenseId;
+  final FinanceService? financeService;
+
+  @override
+  State<LedgerDetailScreen> createState() => _LedgerDetailScreenState();
+}
+
+class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
+  Map<String, dynamic>? _data;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final id = widget.expenseId;
+    final service = widget.financeService;
+    if (id == null || service == null) return;
+    try {
+      final data = await service.expenseDetail(id);
+      if (mounted) setState(() => _data = data);
+    } catch (_) {
+      // Keep the detail skeleton visible if the request fails.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -47,7 +76,7 @@ class LedgerDetailScreen extends StatelessWidget {
               top: 112,
               width: 354,
               height: 622,
-              child: _ReceiptDetail(),
+              child: _ReceiptDetail(data: _data),
             ),
           ],
         ),
@@ -57,8 +86,20 @@ class LedgerDetailScreen extends StatelessWidget {
 }
 
 class _ReceiptDetail extends StatelessWidget {
+  const _ReceiptDetail({this.data});
+  final Map<String, dynamic>? data;
   @override
   Widget build(BuildContext context) {
+    final items = (data?['items'] as List?)
+        ?.whereType<Map<String, dynamic>>()
+        .toList();
+    final visibleItems = items == null || items.isEmpty
+        ? const [
+            {'item_name': '아메리카노', 'quantity': 3, 'unit_price': 4500},
+            {'item_name': '카페라떼', 'quantity': 1, 'unit_price': 4500},
+            {'item_name': '아메리카노', 'quantity': 3, 'unit_price': 4500},
+          ]
+        : items;
     return Stack(
       children: [
         Positioned.fill(
@@ -67,7 +108,7 @@ class _ReceiptDetail extends StatelessWidget {
             fit: BoxFit.fill,
           ),
         ),
-        const Positioned(
+        Positioned(
           left: 17,
           right: 17,
           top: 30,
@@ -76,56 +117,80 @@ class _ReceiptDetail extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('총 ', style: _darkLabel),
-                  Text('40,500', style: _darkAmount),
-                  SizedBox(width: 4),
-                  Text('원', style: _darkLabel),
+                  const Text('총 ', style: _darkLabel),
+                  Text(
+                    _formatAmount(data?['total_amount'] as int? ?? 40500),
+                    style: _darkAmount,
+                  ),
+                  const SizedBox(width: 4),
+                  const Text('원', style: _darkLabel),
                 ],
               ),
-              SizedBox(height: 20),
-              _DarkAsterisks(),
-              SizedBox(height: 16),
-              _DetailRow(label: '가맹점 명', value: '아주대학교 카페'),
-              _DetailRow(label: '결제일시', value: '2026년 9월 1일 오후 3:20'),
-              _DetailRow(label: '카테고리', value: '식비'),
-              _DetailRow(label: '결제수단', value: '현금'),
-              SizedBox(height: 10),
-              _DarkAsterisks(),
-              SizedBox(height: 12),
+              const SizedBox(height: 20),
+              const _DarkAsterisks(),
+              const SizedBox(height: 16),
+              _DetailRow(
+                label: '가맹점 명',
+                value: data?['store_name'] as String? ?? '아주대학교 카페',
+              ),
+              _DetailRow(
+                label: '결제일시',
+                value: _dateLabel(data?['paid_at'] as String?),
+              ),
+              _DetailRow(
+                label: '카테고리',
+                value: data?['category'] as String? ?? '식비',
+              ),
+              _DetailRow(
+                label: '결제수단',
+                value: data?['payment_method'] as String? ?? '현금',
+              ),
+              const SizedBox(height: 10),
+              const _DarkAsterisks(),
+              const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('품목   3', style: _darkMuted),
-                  Text(
+                  Text('품목   ${visibleItems.length}', style: _darkMuted),
+                  const Text(
                     '수정  〉',
                     style: TextStyle(color: AppColors.main, fontSize: 12),
                   ),
                 ],
               ),
-              SizedBox(height: 8),
-              _DetailItem(name: '아메리카노', quantity: 3),
-              _DetailItem(name: '카페라떼', quantity: 1),
-              _DetailItem(name: '아메리카노', quantity: 3),
-              SizedBox(height: 8),
-              _DarkAsterisks(),
-              SizedBox(height: 12),
-              Align(
+              const SizedBox(height: 8),
+              ...visibleItems
+                  .take(3)
+                  .map(
+                    (item) => _DetailItem(
+                      name: item['item_name'] as String? ?? '품목',
+                      quantity: item['quantity'] as int? ?? 1,
+                      unitPrice: item['unit_price'] as int? ?? 0,
+                    ),
+                  ),
+              const SizedBox(height: 8),
+              const _DarkAsterisks(),
+              const SizedBox(height: 12),
+              const Align(
                 alignment: Alignment.centerLeft,
                 child: Text('소비사진  1', style: _darkMuted),
               ),
-              SizedBox(height: 8),
-              Align(
+              const SizedBox(height: 8),
+              const Align(
                 alignment: Alignment.centerLeft,
                 child: _PhotoPlaceholder(),
               ),
-              SizedBox(height: 10),
-              _DarkAsterisks(),
-              SizedBox(height: 10),
+              const SizedBox(height: 10),
+              const _DarkAsterisks(),
+              const SizedBox(height: 10),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('메모', style: _darkMuted),
-                  Text('과제하다가 친구랑 마심', style: _darkLabel),
+                  const Text('메모', style: _darkMuted),
+                  Text(
+                    data?['memo'] as String? ?? '과제하다가 친구랑 마심',
+                    style: _darkLabel,
+                  ),
                 ],
               ),
             ],
@@ -176,9 +241,14 @@ class _DetailRow extends StatelessWidget {
 }
 
 class _DetailItem extends StatelessWidget {
-  const _DetailItem({required this.name, required this.quantity});
+  const _DetailItem({
+    required this.name,
+    required this.quantity,
+    required this.unitPrice,
+  });
   final String name;
   final int quantity;
+  final int unitPrice;
   @override
   Widget build(BuildContext context) => Container(
     height: 52,
@@ -194,7 +264,10 @@ class _DetailItem extends StatelessWidget {
             children: [
               Text(name, style: _darkLabel),
               const SizedBox(height: 5),
-              const Text('단가   4,500원    13,500원', style: _darkMuted),
+              Text(
+                '단가   ${_formatAmount(unitPrice)}원    ${_formatAmount(unitPrice * quantity)}원',
+                style: _darkMuted,
+              ),
             ],
           ),
         ),
@@ -202,6 +275,24 @@ class _DetailItem extends StatelessWidget {
       ],
     ),
   );
+}
+
+String _formatAmount(int amount) {
+  final digits = amount.abs().toString();
+  final buffer = StringBuffer();
+  for (var index = 0; index < digits.length; index++) {
+    if (index > 0 && (digits.length - index) % 3 == 0) buffer.write(',');
+    buffer.write(digits[index]);
+  }
+  return '${amount < 0 ? '-' : ''}$buffer';
+}
+
+String _dateLabel(String? raw) {
+  final value = DateTime.tryParse(raw ?? '')?.toLocal();
+  if (value == null) return '2026년 9월 1일 오후 3:20';
+  final period = value.hour < 12 ? '오전' : '오후';
+  final hour = value.hour % 12 == 0 ? 12 : value.hour % 12;
+  return '${value.year}년 ${value.month}월 ${value.day}일 $period $hour:${value.minute.toString().padLeft(2, '0')}';
 }
 
 class _PhotoPlaceholder extends StatelessWidget {

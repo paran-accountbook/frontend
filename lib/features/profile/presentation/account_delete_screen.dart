@@ -7,8 +7,13 @@ import '../../auth/data/auth_service.dart';
 import '../../auth/presentation/login_screen.dart';
 
 class AccountDeleteScreen extends StatefulWidget {
-  const AccountDeleteScreen({super.key, this.authService});
+  const AccountDeleteScreen({
+    super.key,
+    this.authService,
+    this.provider = 'email',
+  });
   final AuthService? authService;
+  final String provider;
   @override
   State<AccountDeleteScreen> createState() => _AccountDeleteScreenState();
 }
@@ -31,7 +36,7 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
     });
     try {
       await (widget.authService ?? AppServices.auth).deleteAccount(
-        password: _password.text,
+        password: widget.provider == 'email' ? _password.text : null,
       );
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
@@ -89,8 +94,8 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
               const SizedBox(height: 28),
               AuthTextField(
                 controller: _password,
-                hintText: '비밀번호 재입력',
-                obscureText: true,
+                hintText: widget.provider == 'email' ? '비밀번호 재입력' : '탈퇴 입력',
+                obscureText: widget.provider == 'email',
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 16),
@@ -117,7 +122,12 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
         ),
         AuthBottomAction(
           label: _isLoading ? '신청 중...' : '탈퇴 신청',
-          onPressed: _understood && _password.text.isNotEmpty && !_isLoading
+          onPressed:
+              _understood &&
+                  (widget.provider == 'email'
+                      ? _password.text.isNotEmpty
+                      : _password.text.trim() == '탈퇴') &&
+                  !_isLoading
               ? _submit
               : null,
         ),

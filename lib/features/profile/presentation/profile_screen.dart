@@ -6,15 +6,28 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../analysis/presentation/analysis_overview_screen.dart';
+import '../../finance/data/finance_service.dart';
 import '../../home/presentation/home_screen.dart';
 import '../../ledger/presentation/ledger_screen.dart';
 import '../../register/presentation/register_type_screen.dart';
 import 'account_settings_screen.dart';
 import 'profile_edit_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key, this.onNavigationSelected});
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({
+    super.key,
+    this.onNavigationSelected,
+    this.financeService,
+  });
   final ValueChanged<int>? onNavigationSelected;
+  final FinanceService? financeService;
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  Map<String, dynamic>? _profile;
 
   static const _menuItems = [
     _ProfileMenuData('출석 현황', AppAssets.profileAttendance),
@@ -22,6 +35,23 @@ class ProfileScreen extends StatelessWidget {
     _ProfileMenuData('알림 설정', AppAssets.profileNotifications),
     _ProfileMenuData('계정 설정', AppAssets.profileAccount),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final service = widget.financeService;
+    if (service == null) return;
+    try {
+      final profile = await service.profile();
+      if (mounted) setState(() => _profile = profile);
+    } catch (_) {
+      // Preserve the last rendered profile while offline.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,10 +78,13 @@ class ProfileScreen extends StatelessWidget {
               child: GestureDetector(
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => const ProfileEditScreen(),
+                    builder: (_) => ProfileEditScreen(
+                      initialData: _profile,
+                      financeService: widget.financeService,
+                    ),
                   ),
                 ),
-                child: const _ProfileSummary(),
+                child: _ProfileSummary(name: _profile?['nickname'] as String?),
               ),
             ),
             Positioned(
@@ -65,7 +98,10 @@ class ProfileScreen extends StatelessWidget {
                     onTap: index == 3
                         ? () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
-                              builder: (_) => const AccountSettingsScreen(),
+                              builder: (_) => AccountSettingsScreen(
+                                provider:
+                                    _profile?['provider'] as String? ?? 'email',
+                              ),
                             ),
                           )
                         : null,
@@ -88,15 +124,15 @@ class ProfileScreen extends StatelessWidget {
   }
 
   void _handleNavigation(BuildContext context, int index) {
-    if (onNavigationSelected case final callback?) {
+    if (widget.onNavigationSelected case final callback?) {
       callback(index);
       return;
     }
     final Widget? destination = switch (index) {
-      0 => const HomeScreen(),
-      1 => const LedgerScreen(),
-      2 => const RegisterTypeScreen(),
-      3 => const AnalysisOverviewScreen(),
+      0 => HomeScreen(financeService: widget.financeService),
+      1 => LedgerScreen(financeService: widget.financeService),
+      2 => RegisterTypeScreen(financeService: widget.financeService),
+      3 => AnalysisOverviewScreen(financeService: widget.financeService),
       _ => null,
     };
     if (destination == null) return;
@@ -107,7 +143,8 @@ class ProfileScreen extends StatelessWidget {
 }
 
 class _ProfileSummary extends StatelessWidget {
-  const _ProfileSummary();
+  const _ProfileSummary({this.name});
+  final String? name;
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -122,21 +159,21 @@ class _ProfileSummary extends StatelessWidget {
         children: [
           SvgPicture.asset(AppAssets.profileAvatar, width: 34, height: 34),
           const SizedBox(width: 16),
-          const Expanded(
+          Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '소비로그 님',
+                  '${name?.isNotEmpty == true ? name : '소비로그'} 님',
                   style: TextStyle(
                     color: AppColors.text,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                SizedBox(height: 8),
-                Text(
+                const SizedBox(height: 8),
+                const Text(
                   '프로필 관리',
                   style: TextStyle(color: AppColors.text50, fontSize: 12),
                 ),

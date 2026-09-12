@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_assets.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/app_services.dart';
 import '../../../core/theme/app_colors.dart';
@@ -41,6 +43,19 @@ class _TermsScreenState extends State<TermsScreen> {
 
   bool get _allSelected => _selected.every((selected) => selected);
   bool get _requiredSelected => _selected[0] && _selected[1];
+
+  Future<void> _openTerms() async {
+    final rawUrl = AppConfig.termsDocumentUrl.trim();
+    final url = Uri.tryParse(rawUrl);
+    if (url == null ||
+        !url.hasScheme ||
+        !await launchUrl(url, mode: LaunchMode.inAppBrowserView)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('약관을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요')),
+      );
+    }
+  }
 
   void _toggleItem(int index) {
     setState(() {
@@ -89,7 +104,11 @@ class _TermsScreenState extends State<TermsScreen> {
       if (!mounted) return;
     }
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
+      MaterialPageRoute<void>(
+        builder: (_) => widget.signupDraft == null
+            ? const HomeScreen()
+            : HomeScreen(financeService: AppServices.finance),
+      ),
       (_) => false,
     );
   }
@@ -155,7 +174,7 @@ class _TermsScreenState extends State<TermsScreen> {
                         label: _labels[index],
                         selected: _selected[index],
                         onPressed: () => _toggleItem(index),
-                        onViewPressed: () {},
+                        onViewPressed: _openTerms,
                       ),
                     );
                   }),

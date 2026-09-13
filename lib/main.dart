@@ -29,7 +29,7 @@ import 'features/splash/presentation/splash_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  await dotenv.load(fileName: '.env.example');
+  await dotenv.load(fileName: '.env');
 
   AppLogger.info(
     'Sobilog started | env=${AppConfig.environment} | api=${AppConfig.apiBaseUrl}',

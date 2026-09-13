@@ -4,7 +4,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
-import 'verification_screen.dart';
+import 'email_login_screen.dart';
+import 'email_signup_screen.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key, this.onEmailPressed, this.onKakaoPressed});
@@ -19,7 +20,13 @@ class LoginScreen extends StatelessWidget {
     }
     Navigator.of(
       context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const VerificationScreen()));
+    ).push(MaterialPageRoute<void>(builder: (_) => const EmailLoginScreen()));
+  }
+
+  void _openSignup(BuildContext context) {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const EmailSignupScreen()));
   }
 
   @override
@@ -62,7 +69,7 @@ class LoginScreen extends StatelessWidget {
                 top: 940,
                 width: 749,
                 child: GestureDetector(
-                  onTap: () => _openVerification(context),
+                  onTap: () => _openSignup(context),
                   child: Text(
                     '이메일로 회원가입',
                     textAlign: TextAlign.center,

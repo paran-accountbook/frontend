@@ -4,8 +4,8 @@ class DesignCanvas extends StatelessWidget {
   const DesignCanvas({
     required this.child,
     super.key,
-    this.width = 749,
-    this.height = 1628,
+    this.width = 402,
+    this.height = 874,
   });
 
   final Widget child;

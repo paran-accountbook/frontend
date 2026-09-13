@@ -23,6 +23,8 @@ class DutchPeopleScreen extends StatelessWidget {
 
     return Scaffold(
       body: DesignCanvas(
+        width: 749,
+        height: 1628,
         child: Stack(
           children: [
             Positioned(

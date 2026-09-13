@@ -22,6 +22,8 @@ abstract final class AppAssets {
   static const String checkLight = '$_iconRoot/check_light.svg';
   static const String signupComplete = '$_iconRoot/signup_complete.svg';
   static const String passwordChanged = '$_iconRoot/password_changed.svg';
+  static const String deleteDot = '$_iconRoot/delete_dot.svg';
+  static const String pendingDeletion = '$_iconRoot/pending_deletion.svg';
   static const String termsArrowRight = '$_iconRoot/terms_arrow_right.svg';
   static const String avatarSelf = '$_iconRoot/avatar_self.svg';
   static const String editLight = '$_iconRoot/edit_light.svg';
@@ -30,10 +32,18 @@ abstract final class AppAssets {
   static const String spendUp = '$_iconRoot/spend_up.svg';
   static const String categoryFood = '$_iconRoot/category_food.svg';
   static const String categoryShopping = '$_iconRoot/category_shopping.svg';
+  static const String categoryCafe = '$_iconRoot/category_cafe.svg';
   static const String categoryTransport = '$_iconRoot/category_transport.svg';
   static const String categoryMedical = '$_iconRoot/category_medical.svg';
   static const String categoryCulture = '$_iconRoot/category_culture.svg';
+  static const String categoryEducation = '$_iconRoot/category_education.svg';
+  static const String categoryOther = '$_iconRoot/category_other.svg';
   static const String analysisLocked = '$_iconRoot/analysis_locked.svg';
+  static const String analysisPattern = '$_iconRoot/analysis_pattern.svg';
+  static const String analysisAi = '$_iconRoot/analysis_ai.svg';
+  static const String analysisRepurchase = '$_iconRoot/analysis_repurchase.svg';
+  static const String analysisArrowRight =
+      '$_iconRoot/analysis_arrow_right.svg';
   static const String profileAvatar = '$_iconRoot/profile_avatar.svg';
   static const String profileAttendance = '$_iconRoot/profile_attendance.svg';
   static const String profileRewards = '$_iconRoot/profile_rewards.svg';

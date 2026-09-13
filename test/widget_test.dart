@@ -61,7 +61,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(LoginScreen), findsOneWidget);
-    expect(find.text('카카오로 로그인'), findsOneWidget);
+    expect(find.text('카카오로 시작하기'), findsOneWidget);
     expect(find.text('이메일로 로그인'), findsOneWidget);
   });
 

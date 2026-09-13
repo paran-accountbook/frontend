@@ -33,59 +33,86 @@ class LoginScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: DesignCanvas(
+        width: 402,
+        height: 874,
         child: ColoredBox(
           color: AppColors.background,
           child: Stack(
             children: [
               Positioned(
-                left: 58,
-                top: 656,
+                left: -110,
+                top: 0,
+                width: 623,
+                height: 874,
+                child: Image.asset(AppAssets.authBackground, fit: BoxFit.cover),
+              ),
+              Positioned(
+                left: 162,
+                top: 306,
+                width: 78,
+                height: 100,
+                child: SvgPicture.asset(AppAssets.splashLogoSymbol),
+              ),
+              Positioned(
+                left: 162,
+                top: 418,
+                width: 78,
+                height: 19,
+                child: SvgPicture.asset(AppAssets.splashLogoWordmark),
+              ),
+              const Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 231,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0x00121215), Color(0xE6121215)],
+                      stops: [0, 0.8],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 24,
+                top: 668,
                 child: _LoginButton(
-                  label: '카카오로 로그인',
-                  backgroundColor: const Color(0xFFFEE500),
+                  label: '카카오로 시작하기',
+                  backgroundColor: const Color(0xFFFEE601),
                   foregroundColor: const Color(0xFF1A1601),
                   asset: AppAssets.kakao,
-                  iconWidth: 36,
-                  iconHeight: 33,
+                  iconWidth: 20,
+                  iconHeight: 18,
                   onPressed: onKakaoPressed ?? () {},
                 ),
               ),
               Positioned(
-                left: 58,
-                top: 798,
+                left: 24,
+                top: 744,
                 child: _LoginButton(
                   label: '이메일로 로그인',
                   backgroundColor: AppColors.selected,
                   foregroundColor: AppColors.text,
                   asset: AppAssets.mail,
-                  iconWidth: 32,
-                  iconHeight: 35,
+                  iconWidth: 18,
+                  iconHeight: 19,
                   borderColor: AppColors.text30,
                   onPressed: () => _openVerification(context),
                 ),
               ),
               Positioned(
                 left: 0,
-                top: 940,
-                width: 749,
+                top: 820,
+                width: 402,
                 child: GestureDetector(
                   onTap: () => _openSignup(context),
                   child: Text(
                     '이메일로 회원가입',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.text80, fontSize: 25),
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 303,
-                top: 1469,
-                child: Text(
-                  '팀 로고',
-                  style: TextStyle(
-                    color: AppColors.text50,
-                    fontSize: 50,
-                    fontWeight: FontWeight.w600,
+                    style: TextStyle(color: AppColors.text80, fontSize: 12),
                   ),
                 ),
               ),
@@ -123,25 +150,25 @@ class _LoginButton extends StatelessWidget {
     return GestureDetector(
       onTap: onPressed,
       child: Container(
-        width: 633,
-        height: 102,
+        width: 354,
+        height: 56,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: backgroundColor,
-          borderRadius: BorderRadius.circular(30),
+          borderRadius: BorderRadius.circular(20),
           border: borderColor == null ? null : Border.all(color: borderColor!),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             SvgPicture.asset(asset, width: iconWidth, height: iconHeight),
-            const SizedBox(width: 18),
+            const SizedBox(width: 10),
             Text(
               label,
               style: TextStyle(
                 color: foregroundColor,
-                fontSize: 25,
-                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],

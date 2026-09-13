@@ -14,6 +14,8 @@ class DutchResultScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
     body: DesignCanvas(
+      width: 749,
+      height: 1628,
       child: Stack(
         children: [
           Positioned(

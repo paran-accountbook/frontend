@@ -55,84 +55,83 @@ class _AnalysisOverviewScreenState extends State<AnalysisOverviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final reportMode = _tab == 0;
     return Scaffold(
-      body: DesignCanvas(
-        child: Stack(
-          children: [
-            const ColoredBox(color: AppColors.background),
-            Positioned(
-              left: 24,
-              top: 87,
-              child: Text(
-                '소비분석',
-                style: TextStyle(
-                  color: AppColors.text,
-                  fontSize: 27,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+      body: reportMode
+          ? ScrollableDesignCanvas(
+              width: 402,
+              height: 1490,
+              child: _buildCanvas(height: 1490),
+            )
+          : DesignCanvas(
+              width: 402,
+              height: 874,
+              child: _buildCanvas(height: 874),
             ),
-            Positioned(
-              left: 16,
-              top: 132,
-              child: Row(
-                children: List.generate(
-                  4,
-                  (index) => Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: _TabChip(
-                      label: const ['요약', '패턴', '반복지출', 'AI'][index],
-                      selected: _tab == index,
-                      onTap: () => setState(() => _tab = index),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              left: 24,
-              top: 194,
-              width: 354,
-              child: _MonthSelector(
-                month: _month,
-                onPrevious: () => _moveMonth(-1),
-                onNext: () => _moveMonth(1),
-              ),
-            ),
-            Positioned(
-              left: 16,
-              right: 16,
-              top: 225,
-              bottom: 84,
-              child: _content(),
-            ),
-            Positioned(
-              left: 0,
-              bottom: 0,
-              child: AppBottomNavigation(
-                selectedIndex: 3,
-                onSelected: (index) => _navigate(context, index),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
+  Widget _buildCanvas({required double height}) => Stack(
+    children: [
+      const ColoredBox(color: AppColors.background),
+      Positioned(
+        left: 24,
+        top: 125,
+        child: Text(
+          '소비분석',
+          style: TextStyle(
+            color: AppColors.text,
+            fontSize: 27,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      Positioned(
+        left: 24,
+        top: 192,
+        child: Row(
+          children: List.generate(
+            2,
+            (index) => Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: _TabChip(
+                label: const ['리포트', 'AI분석'][index],
+                selected: _tab == index,
+                onTap: () => setState(() => _tab = index),
+              ),
+            ),
+          ),
+        ),
+      ),
+      Positioned(
+        left: 24,
+        top: 272,
+        width: 354,
+        child: _MonthSelector(
+          month: _month,
+          onPrevious: () => _moveMonth(-1),
+          onNext: () => _moveMonth(1),
+        ),
+      ),
+      Positioned(left: 24, top: 325, width: 354, child: _content()),
+      Positioned(
+        left: 0,
+        top: height - 84,
+        child: AppBottomNavigation(
+          selectedIndex: 3,
+          onSelected: (index) => _navigate(context, index),
+        ),
+      ),
+    ],
+  );
+
   Widget _content() => switch (_tab) {
     0 => _Report(data: _report, month: _month.month),
-    1 => const _LockedList(items: [('소비 패턴 분석', '연속 7일 기록하면 열려요 0/7 일')]),
-    2 => const _LockedList(
-      items: [
-        ('재구매 분석', '연속 20일 기록하면 열려요 0/20 일'),
-        ('정기 지출 감지', '충분한 내역이 쌓이면 알려드려요'),
-      ],
-    ),
     _ => const _LockedList(
       items: [
+        ('소비 패턴 분석', '연속 7일 기록하면 열려요 0/7 일'),
         ('AI 소비 의견', '연속 14일 기록하면 열려요 0/14 일'),
-        ('절약 대안 힌트', '소비 패턴을 바탕으로 제안해 드려요'),
+        ('재구매 분석', '연속 20일 기록하면 열려요 0/20 일'),
       ],
     ),
   };
@@ -169,8 +168,8 @@ class _TabChip extends StatelessWidget {
   Widget build(BuildContext context) => GestureDetector(
     onTap: onTap,
     child: Container(
-      height: 36,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: selected ? const Color(0xFFA8A3FF) : AppColors.selected,
@@ -181,7 +180,7 @@ class _TabChip extends StatelessWidget {
         label,
         style: TextStyle(
           color: selected ? const Color(0xFF1B1B1B) : AppColors.text50,
-          fontSize: 13,
+          fontSize: 14,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -217,13 +216,13 @@ class _MonthSelector extends StatelessWidget {
             style: TextStyle(
               color: AppColors.text,
               fontFamily: 'Amarante',
-              fontSize: 20,
+              fontSize: 24,
             ),
           ),
           const SizedBox(width: 4),
           const Text(
             '년',
-            style: TextStyle(color: AppColors.text, fontSize: 12),
+            style: TextStyle(color: AppColors.text, fontSize: 14),
           ),
           const SizedBox(width: 18),
           Text(
@@ -231,13 +230,13 @@ class _MonthSelector extends StatelessWidget {
             style: TextStyle(
               color: AppColors.text,
               fontFamily: 'Amarante',
-              fontSize: 20,
+              fontSize: 24,
             ),
           ),
           const SizedBox(width: 4),
           const Text(
             '월',
-            style: TextStyle(color: AppColors.text, fontSize: 12),
+            style: TextStyle(color: AppColors.text, fontSize: 14),
           ),
         ],
       ),
@@ -256,10 +255,12 @@ class _Report extends StatelessWidget {
   static const categories = [
     ('식비', '53%', '4,500', AppAssets.categoryFood),
     ('쇼핑', '30%', '4,500', AppAssets.categoryShopping),
-    ('카페', '8%', '4,500', AppAssets.categoryCulture),
+    ('카페', '8%', '4,500', AppAssets.categoryCafe),
     ('의료', '4%', '4,500', AppAssets.categoryMedical),
     ('교통', '3%', '4,500', AppAssets.categoryTransport),
     ('문화', '2%', '4,500', AppAssets.categoryCulture),
+    ('교육', '2%', '4,500', AppAssets.categoryEducation),
+    ('기타', '2%', '4,500', AppAssets.categoryOther),
   ];
   @override
   Widget build(BuildContext context) {
@@ -285,169 +286,168 @@ class _Report extends StatelessWidget {
               )
               .toList();
     final goal = data?['goal'] as Map<String, dynamic>?;
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _Asterisks(),
-          const SizedBox(height: 14),
-          const Text(
-            '총 지출',
-            style: TextStyle(color: AppColors.text50, fontSize: 12),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _Asterisks(),
+        const SizedBox(height: 14),
+        const Text(
+          '총 지출',
+          style: TextStyle(color: AppColors.text50, fontSize: 12),
+        ),
+        const SizedBox(height: 5),
+        _PriceText(value: _formatAmount(total), size: 26),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Text(
+              '${change >= 0 ? '▲' : '▼'} ${_formatAmount(change.abs())}',
+              style: TextStyle(
+                color: change >= 0
+                    ? const Color(0xFFCF376A)
+                    : const Color(0xFF4777D9),
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '전월 대비 ${changeRate.toString()}%',
+              style: const TextStyle(color: AppColors.text50, fontSize: 9),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _Metric(label: '일 평균 지출액', value: _formatAmount(daily)),
+        _Metric(label: '총 수입', value: _formatAmount(income)),
+        _Metric(
+          label: '잔액',
+          value: '${balance >= 0 ? '+' : ''}${_formatAmount(balance)}',
+          accent: true,
+        ),
+        const SizedBox(height: 16),
+        const _Asterisks(),
+        const SizedBox(height: 24),
+        const Text(
+          '카테고리별 비중',
+          style: TextStyle(color: AppColors.text50, fontSize: 12),
+        ),
+        const SizedBox(height: 24),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: const Row(
+            children: [
+              _BarSegment(flex: 31, color: Color(0xFFFA9441)),
+              _BarSegment(flex: 22, color: Color(0xFFE53180)),
+              _BarSegment(flex: 16, color: Color(0xFF3BBEFF)),
+              _BarSegment(flex: 12, color: Color(0xFFE74646)),
+              _BarSegment(flex: 8, color: Color(0xFFB5ABAB)),
+              _BarSegment(flex: 11, color: AppColors.main),
+            ],
           ),
-          const SizedBox(height: 5),
-          _PriceText(value: _formatAmount(total), size: 26),
-          const SizedBox(height: 4),
+        ),
+        const SizedBox(height: 16),
+        ...visibleCategories.map(
+          (item) => SizedBox(
+            height: 64,
+            child: Row(
+              children: [
+                SvgPicture.asset(item.$4, width: 26, height: 26),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.$1,
+                        style: const TextStyle(
+                          color: AppColors.text,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        item.$2,
+                        style: const TextStyle(
+                          color: AppColors.text50,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _PriceText(value: item.$3, size: 20),
+              ],
+            ),
+          ),
+        ),
+        if (data == null || goal != null) ...[
+          const _Asterisks(),
+          const SizedBox(height: 24),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '${change >= 0 ? '▲' : '▼'} ${_formatAmount(change.abs())}',
-                style: TextStyle(
-                  color: change >= 0
-                      ? const Color(0xFFCF376A)
-                      : const Color(0xFF4777D9),
-                  fontSize: 16,
-                ),
+                '$month월 지출 목표',
+                style: const TextStyle(color: AppColors.text50, fontSize: 12),
               ),
-              const SizedBox(width: 8),
               Text(
-                '전월 대비 ${changeRate.toString()}%',
-                style: const TextStyle(color: AppColors.text50, fontSize: 9),
+                '${_formatAmount(goal?['amount'] as int? ?? 0)}원 중 ${_formatAmount(total)}원 사용',
+                style: const TextStyle(color: AppColors.text, fontSize: 10),
               ),
             ],
           ),
-          const SizedBox(height: 15),
-          _Metric(label: '일 평균 지출액', value: _formatAmount(daily)),
-          _Metric(label: '총 수입', value: _formatAmount(income)),
-          _Metric(
-            label: '잔액',
-            value: '${balance >= 0 ? '+' : ''}${_formatAmount(balance)}',
-            accent: true,
-          ),
-          const SizedBox(height: 12),
-          const _Asterisks(),
           const SizedBox(height: 14),
-          const Text(
-            '카테고리별 비중',
-            style: TextStyle(color: AppColors.text50, fontSize: 12),
-          ),
-          const SizedBox(height: 14),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: const Row(
-              children: [
-                Expanded(
-                  flex: 53,
-                  child: ColoredBox(
-                    color: Color(0xFFFF9345),
-                    child: SizedBox(height: 12),
-                  ),
+          Row(
+            children: [
+              Text(
+                '${goal?['usage_rate'] ?? 20}%',
+                style: const TextStyle(
+                  color: AppColors.text,
+                  fontFamily: 'Amarante',
+                  fontSize: 18,
                 ),
-                Expanded(
-                  flex: 30,
-                  child: ColoredBox(
-                    color: Color(0xFFD92B80),
-                    child: SizedBox(height: 12),
-                  ),
-                ),
-                Expanded(
-                  flex: 17,
-                  child: ColoredBox(
-                    color: AppColors.main,
-                    child: SizedBox(height: 12),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          ...visibleCategories.map(
-            (item) => SizedBox(
-              height: 45,
-              child: Row(
-                children: [
-                  SvgPicture.asset(item.$4, width: 26, height: 26),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.$1,
-                          style: const TextStyle(
-                            color: AppColors.text,
-                            fontSize: 12,
-                          ),
-                        ),
-                        Text(
-                          item.$2,
-                          style: const TextStyle(
-                            color: AppColors.text50,
-                            fontSize: 9,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  _PriceText(value: item.$3, size: 16),
-                ],
               ),
-            ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: LinearProgressIndicator(
+                  value: ((goal?['usage_rate'] as num? ?? 20) / 100)
+                      .clamp(0, 1)
+                      .toDouble(),
+                  minHeight: 10,
+                  color: AppColors.main,
+                  backgroundColor: AppColors.selected,
+                  borderRadius: BorderRadius.all(Radius.circular(6)),
+                ),
+              ),
+            ],
           ),
-          if (data == null || goal != null) ...[
-            const _Asterisks(),
-            const SizedBox(height: 14),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '$month월 지출 목표',
-                  style: const TextStyle(color: AppColors.text50, fontSize: 12),
-                ),
-                Text(
-                  '${_formatAmount(goal?['amount'] as int? ?? 0)}원 중 ${_formatAmount(total)}원 사용',
-                  style: const TextStyle(color: AppColors.text, fontSize: 10),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Text(
-                  '${goal?['usage_rate'] ?? 20}%',
-                  style: const TextStyle(
-                    color: AppColors.text,
-                    fontFamily: 'Amarante',
-                    fontSize: 18,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: LinearProgressIndicator(
-                    value: ((goal?['usage_rate'] as num? ?? 20) / 100)
-                        .clamp(0, 1)
-                        .toDouble(),
-                    minHeight: 10,
-                    color: AppColors.main,
-                    backgroundColor: AppColors.selected,
-                    borderRadius: BorderRadius.all(Radius.circular(6)),
-                  ),
-                ),
-              ],
-            ),
-          ],
         ],
-      ),
+      ],
     );
   }
 }
 
+class _BarSegment extends StatelessWidget {
+  const _BarSegment({required this.flex, required this.color});
+
+  final int flex;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    flex: flex,
+    child: ColoredBox(color: color, child: const SizedBox(height: 16)),
+  );
+}
+
 String _categoryAsset(String? category) => switch (category) {
   '쇼핑' => AppAssets.categoryShopping,
+  '카페' => AppAssets.categoryCafe,
   '의료' => AppAssets.categoryMedical,
   '교통' => AppAssets.categoryTransport,
   '문화' => AppAssets.categoryCulture,
+  '교육' => AppAssets.categoryEducation,
+  '기타' => AppAssets.categoryOther,
   _ => AppAssets.categoryFood,
 };
 
@@ -517,10 +517,15 @@ class _PriceText extends StatelessWidget {
 class _Asterisks extends StatelessWidget {
   const _Asterisks();
   @override
-  Widget build(BuildContext context) => Text(
-    List.filled(18, '*').join('   '),
-    maxLines: 1,
-    style: const TextStyle(color: AppColors.text20, fontSize: 10),
+  Widget build(BuildContext context) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: List.generate(
+      18,
+      (_) => const Text(
+        '*',
+        style: TextStyle(color: AppColors.text20, fontSize: 10),
+      ),
+    ),
   );
 }
 
@@ -532,15 +537,24 @@ class _LockedList extends StatelessWidget {
     children: [
       const _Asterisks(),
       const SizedBox(height: 12),
-      ...items.map(
-        (item) => Container(
+      ...List.generate(
+        items.length,
+        (index) => Container(
           height: 80,
           decoration: const BoxDecoration(
             border: Border(bottom: BorderSide(color: Color(0x0DE2E2F9))),
           ),
           child: Row(
             children: [
-              SvgPicture.asset(AppAssets.analysisLocked, width: 28, height: 28),
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: SvgPicture.asset(switch (index) {
+                  0 => AppAssets.analysisPattern,
+                  1 => AppAssets.analysisAi,
+                  _ => AppAssets.analysisRepurchase,
+                }),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -548,7 +562,7 @@ class _LockedList extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      item.$1,
+                      items[index].$1,
                       style: const TextStyle(
                         color: AppColors.text,
                         fontSize: 14,
@@ -556,7 +570,7 @@ class _LockedList extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      item.$2,
+                      items[index].$2,
                       style: const TextStyle(
                         color: AppColors.text50,
                         fontSize: 12,
@@ -565,9 +579,10 @@ class _LockedList extends StatelessWidget {
                   ],
                 ),
               ),
-              const Text(
-                '〉',
-                style: TextStyle(color: AppColors.text, fontSize: 22),
+              SvgPicture.asset(
+                AppAssets.analysisArrowRight,
+                width: 24,
+                height: 24,
               ),
             ],
           ),

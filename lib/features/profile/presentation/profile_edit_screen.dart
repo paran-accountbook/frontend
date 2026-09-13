@@ -36,26 +36,28 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   }
 
   Future<String?> _ask(String title, String initialValue) async {
-    final controller = TextEditingController(text: initialValue);
-    final result = await showDialog<String>(
+    var value = initialValue;
+    return showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(title),
-        content: TextField(controller: controller, autofocus: true),
+        content: TextFormField(
+          initialValue: initialValue,
+          autofocus: true,
+          onChanged: (next) => value = next,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('취소'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            onPressed: () => Navigator.pop(context, value.trim()),
             child: const Text('저장'),
           ),
         ],
       ),
     );
-    controller.dispose();
-    return result;
   }
 
   Future<void> _editNickname() async {

@@ -30,6 +30,7 @@ void main() {
       paymentMethods: const ['현금', '카드'],
     );
     await service.updateExpense('expense-1', {'store_name': '소비로그 카페'});
+    await service.deleteExpense('expense-1');
     await service.analysis(year: 2026, month: 9);
 
     expect(requests[0].url.path, '/home/summary');
@@ -44,7 +45,9 @@ void main() {
     expect(requests[3].method, 'PATCH');
     expect(requests[3].url.path, '/expenses/expense-1');
     expect(jsonDecode(requests[3].body), {'store_name': '소비로그 카페'});
-    expect(requests[4].url.queryParameters, {'month': '2026-09'});
+    expect(requests[4].method, 'DELETE');
+    expect(requests[4].url.path, '/expenses/expense-1');
+    expect(requests[5].url.queryParameters, {'month': '2026-09'});
     expect(
       requests.every(
         (request) => request.headers['authorization'] == 'Bearer access',

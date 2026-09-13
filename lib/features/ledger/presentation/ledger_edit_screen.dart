@@ -8,6 +8,8 @@ import '../../../shared/widgets/design_canvas.dart';
 import '../../../shared/widgets/editable_receipt_form.dart';
 import '../../finance/data/finance_service.dart';
 
+enum LedgerEditResult { updated, deleted }
+
 class LedgerEditScreen extends StatefulWidget {
   const LedgerEditScreen({
     super.key,
@@ -26,7 +28,7 @@ class LedgerEditScreen extends StatefulWidget {
 
 class _LedgerEditScreenState extends State<LedgerEditScreen> {
   final _formKey = GlobalKey<EditableReceiptFormState>();
-  bool _isSaving = false;
+  bool _isSubmitting = false;
   String? _error;
 
   Future<void> _save() async {
@@ -42,7 +44,7 @@ class _LedgerEditScreenState extends State<LedgerEditScreen> {
       return;
     }
     setState(() {
-      _isSaving = true;
+      _isSubmitting = true;
       _error = null;
     });
     try {
@@ -51,9 +53,50 @@ class _LedgerEditScreenState extends State<LedgerEditScreen> {
       if (mounted) setState(() => _error = error.message);
       return;
     } finally {
-      if (mounted) setState(() => _isSaving = false);
+      if (mounted) setState(() => _isSubmitting = false);
     }
-    if (mounted) Navigator.of(context).pop(true);
+    if (mounted) Navigator.of(context).pop(LedgerEditResult.updated);
+  }
+
+  Future<void> _delete() async {
+    final service = widget.financeService;
+    final id = widget.expenseId;
+    if (service == null || id == null || _isSubmitting) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('내역 삭제'),
+        content: const Text('삭제한 내역은 되돌릴 수 없습니다. 삭제할까요?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            key: const Key('confirm-delete-ledger-entry'),
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFFF6B7A),
+            ),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() {
+      _isSubmitting = true;
+      _error = null;
+    });
+    try {
+      await service.deleteExpense(id);
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+      return;
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+    if (mounted) Navigator.of(context).pop(LedgerEditResult.deleted);
   }
 
   @override
@@ -92,10 +135,15 @@ class _LedgerEditScreenState extends State<LedgerEditScreen> {
             Positioned(
               right: 32,
               top: 133,
-              child: SizedBox(
-                width: 70,
-                height: 70,
-                child: SvgPicture.asset(AppAssets.deleteRed),
+              child: GestureDetector(
+                key: const Key('delete-ledger-entry'),
+                behavior: HitTestBehavior.opaque,
+                onTap: _isSubmitting ? null : _delete,
+                child: SizedBox(
+                  width: 70,
+                  height: 70,
+                  child: SvgPicture.asset(AppAssets.deleteRed),
+                ),
               ),
             ),
             Positioned(
@@ -127,7 +175,7 @@ class _LedgerEditScreenState extends State<LedgerEditScreen> {
               left: 46,
               top: 1466,
               child: GestureDetector(
-                onTap: _isSaving ? null : _save,
+                onTap: _isSubmitting ? null : _save,
                 child: Container(
                   width: 655,
                   height: 102,
@@ -142,7 +190,7 @@ class _LedgerEditScreenState extends State<LedgerEditScreen> {
                     border: Border.all(color: const Color(0x4DE2E2F9)),
                   ),
                   child: Text(
-                    _isSaving ? '저장 중...' : '저장',
+                    _isSubmitting ? '처리 중...' : '저장',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 30,

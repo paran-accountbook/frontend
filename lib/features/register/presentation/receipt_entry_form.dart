@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/app_chevron.dart';
 
 class ReceiptEntryForm extends StatefulWidget {
   const ReceiptEntryForm({
@@ -325,7 +326,7 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
     }
     return {
       'store_name': _storeName.trim(),
-      'paid_at': _paidAt.toIso8601String(),
+      'paid_at': _paidAt.toUtc().toIso8601String(),
       'category': _category,
       'payment_method': const ['현금', '카드', '미지정'][_paymentMethod],
       'items': items,
@@ -374,10 +375,7 @@ class _InfoRow extends StatelessWidget {
               children: [
                 Text(value, style: _valueStyle),
                 const SizedBox(width: 6),
-                const Text(
-                  '〉',
-                  style: TextStyle(color: AppColors.text, fontSize: 20),
-                ),
+                const AppChevron(size: 20),
               ],
             ),
           ],

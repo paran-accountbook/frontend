@@ -25,6 +25,8 @@ abstract final class AppAssets {
   static const String deleteDot = '$_iconRoot/delete_dot.svg';
   static const String pendingDeletion = '$_iconRoot/pending_deletion.svg';
   static const String termsArrowRight = '$_iconRoot/terms_arrow_right.svg';
+  static const String arrowRightLight = termsArrowRight;
+  static const String filterLight = '$_iconRoot/filter_light.svg';
   static const String avatarSelf = '$_iconRoot/avatar_self.svg';
   static const String editLight = '$_iconRoot/edit_light.svg';
   static const String monthArrowActive = '$_iconRoot/month_arrow_active.svg';
@@ -72,6 +74,17 @@ abstract final class AppAssets {
   static const String receiptAddItem = '$_iconRoot/receipt_add_item.svg';
   static const String receiptRemoveItem = '$_iconRoot/receipt_remove_item.svg';
   static const String receiptDeleteItem = '$_iconRoot/receipt_delete_item.svg';
+
+  static String categoryIconFor(String? category) => switch (category) {
+    '쇼핑' => categoryShopping,
+    '카페' || '카페/간식' => categoryCafe,
+    '교통' || '교통/차량' => categoryTransport,
+    '의료' || '건강' || '의료/건강' => categoryMedical,
+    '문화' || '문화/여가' => categoryCulture,
+    '교육' => categoryEducation,
+    '기타' => categoryOther,
+    _ => categoryFood,
+  };
 
   static const String navHome = '$_iconRoot/navigation/home.svg';
   static const String navLedger = '$_iconRoot/navigation/bookmark.svg';

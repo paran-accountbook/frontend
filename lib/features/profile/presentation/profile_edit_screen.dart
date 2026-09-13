@@ -5,6 +5,7 @@ import '../../../core/constants/app_assets.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
+import '../../../shared/widgets/app_chevron.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../finance/data/finance_service.dart';
 
@@ -222,14 +223,25 @@ class _ProfileRow extends StatelessWidget {
             style: const TextStyle(color: AppColors.text50, fontSize: 14),
           ),
           Flexible(
-            child: Text(
-              '$value${arrow ? '  〉' : ''}',
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.text,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    value,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.text,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                if (arrow) ...[
+                  const SizedBox(width: 6),
+                  const AppChevron(size: 20),
+                ],
+              ],
             ),
           ),
         ],

@@ -6,6 +6,7 @@ import '../../../core/config/app_config.dart';
 import '../../../core/network/app_services.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../../../shared/widgets/app_chevron.dart';
 import '../../auth/presentation/login_screen.dart';
 import 'account_delete_screen.dart';
 import 'password_change_screen.dart';
@@ -161,10 +162,7 @@ class _SettingRow extends StatelessWidget {
             style: const TextStyle(color: AppColors.text, fontSize: 14),
           ),
           const SizedBox(width: 8),
-          const Text(
-            '〉',
-            style: TextStyle(color: AppColors.text, fontSize: 20),
-          ),
+          const AppChevron(size: 20),
         ],
       ),
     ),

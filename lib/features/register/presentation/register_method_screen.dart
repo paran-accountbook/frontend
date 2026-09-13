@@ -9,6 +9,7 @@ import '../../../core/constants/app_assets.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
+import '../../../shared/widgets/app_chevron.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../finance/data/finance_service.dart';
 import 'receipt_scan_loading_screen.dart';
@@ -78,7 +79,7 @@ class RegisterMethodScreen extends StatelessWidget {
             ),
             Positioned(
               left: 24,
-              top: 392,
+              top: 366,
               child: Column(
                 children: [
                   _MethodChoice(
@@ -174,10 +175,7 @@ class _MethodChoice extends StatelessWidget {
               ),
             ),
             const Spacer(),
-            const Text(
-              '〉',
-              style: TextStyle(color: AppColors.text80, fontSize: 24),
-            ),
+            const AppChevron(color: AppColors.text80),
           ],
         ),
       ),

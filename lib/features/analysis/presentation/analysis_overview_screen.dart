@@ -76,7 +76,7 @@ class _AnalysisOverviewScreenState extends State<AnalysisOverviewScreen> {
       const ColoredBox(color: AppColors.background),
       Positioned(
         left: 24,
-        top: 125,
+        top: 128,
         child: Text(
           '소비분석',
           style: TextStyle(
@@ -105,7 +105,7 @@ class _AnalysisOverviewScreenState extends State<AnalysisOverviewScreen> {
       ),
       Positioned(
         left: 24,
-        top: 272,
+        top: 264,
         width: 354,
         child: _MonthSelector(
           month: _month,
@@ -113,7 +113,7 @@ class _AnalysisOverviewScreenState extends State<AnalysisOverviewScreen> {
           onNext: () => _moveMonth(1),
         ),
       ),
-      Positioned(left: 24, top: 325, width: 354, child: _content()),
+      Positioned(left: 24, top: 321, width: 354, child: _content()),
       Positioned(
         left: 0,
         top: height - 84,
@@ -169,7 +169,7 @@ class _TabChip extends StatelessWidget {
     onTap: onTap,
     child: Container(
       height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 26),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: selected ? const Color(0xFFA8A3FF) : AppColors.selected,
@@ -180,7 +180,7 @@ class _TabChip extends StatelessWidget {
         label,
         style: TextStyle(
           color: selected ? const Color(0xFF1B1B1B) : AppColors.text50,
-          fontSize: 14,
+          fontSize: 15,
           fontWeight: FontWeight.w600,
         ),
       ),

@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
+import '../../../shared/widgets/app_category_icon.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../finance/data/finance_service.dart';
 import '../../home/presentation/home_screen.dart';
@@ -253,14 +254,14 @@ class _Report extends StatelessWidget {
   final Map<String, dynamic>? data;
   final int month;
   static const categories = [
-    ('식비', '53%', '4,500', AppAssets.categoryFood),
-    ('쇼핑', '30%', '4,500', AppAssets.categoryShopping),
-    ('카페', '8%', '4,500', AppAssets.categoryCafe),
-    ('의료', '4%', '4,500', AppAssets.categoryMedical),
-    ('교통', '3%', '4,500', AppAssets.categoryTransport),
-    ('문화', '2%', '4,500', AppAssets.categoryCulture),
-    ('교육', '2%', '4,500', AppAssets.categoryEducation),
-    ('기타', '2%', '4,500', AppAssets.categoryOther),
+    ('식비', '53%', '4,500'),
+    ('쇼핑', '30%', '4,500'),
+    ('카페', '8%', '4,500'),
+    ('의료', '4%', '4,500'),
+    ('교통', '3%', '4,500'),
+    ('문화', '2%', '4,500'),
+    ('교육', '2%', '4,500'),
+    ('기타', '2%', '4,500'),
   ];
   @override
   Widget build(BuildContext context) {
@@ -281,7 +282,6 @@ class _Report extends StatelessWidget {
                   item['category'] as String? ?? '기타',
                   '${item['percentage'] ?? 0}%',
                   _formatAmount(item['amount'] as int? ?? 0),
-                  _categoryAsset(item['category'] as String?),
                 ),
               )
               .toList();
@@ -351,7 +351,7 @@ class _Report extends StatelessWidget {
             height: 64,
             child: Row(
               children: [
-                SvgPicture.asset(item.$4, width: 26, height: 26),
+                AppCategoryIcon(category: item.$1),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -439,17 +439,6 @@ class _BarSegment extends StatelessWidget {
     child: ColoredBox(color: color, child: const SizedBox(height: 16)),
   );
 }
-
-String _categoryAsset(String? category) => switch (category) {
-  '쇼핑' => AppAssets.categoryShopping,
-  '카페' => AppAssets.categoryCafe,
-  '의료' => AppAssets.categoryMedical,
-  '교통' => AppAssets.categoryTransport,
-  '문화' => AppAssets.categoryCulture,
-  '교육' => AppAssets.categoryEducation,
-  '기타' => AppAssets.categoryOther,
-  _ => AppAssets.categoryFood,
-};
 
 String _formatAmount(int amount) {
   final negative = amount < 0;

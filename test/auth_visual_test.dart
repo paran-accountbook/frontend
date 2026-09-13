@@ -4,8 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sobilog/core/theme/app_theme.dart';
 import 'package:sobilog/features/auth/presentation/email_login_screen.dart';
 import 'package:sobilog/features/auth/presentation/email_signup_screen.dart';
+import 'package:sobilog/features/auth/presentation/login_screen.dart';
+import 'package:sobilog/features/auth/presentation/password_reset_email_screen.dart';
 import 'package:sobilog/features/auth/presentation/password_reset_complete_screen.dart';
 import 'package:sobilog/features/auth/presentation/password_reset_password_screen.dart';
+import 'package:sobilog/features/auth/presentation/pending_deletion_screen.dart';
 import 'package:sobilog/features/auth/presentation/signup_name_screen.dart';
 import 'package:sobilog/features/auth/presentation/signup_password_screen.dart';
 import 'package:sobilog/features/auth/presentation/terms_screen.dart';
@@ -13,7 +16,9 @@ import 'package:sobilog/features/auth/presentation/verification_screen.dart';
 import 'package:sobilog/features/home/presentation/home_screen.dart';
 import 'package:sobilog/features/analysis/presentation/analysis_overview_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_detail_screen.dart';
+import 'package:sobilog/features/ledger/presentation/ledger_edit_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_screen.dart';
+import 'package:sobilog/features/profile/presentation/account_delete_screen.dart';
 import 'package:sobilog/features/profile/presentation/account_settings_screen.dart';
 import 'package:sobilog/features/profile/presentation/password_change_screen.dart';
 import 'package:sobilog/features/profile/presentation/profile_edit_screen.dart';
@@ -60,6 +65,16 @@ void main() {
     await expectLater(
       find.byType(Scaffold),
       matchesGoldenFile('goldens/splash.png'),
+    );
+  });
+
+  testWidgets('login matches its visual baseline', (tester) async {
+    await configureViewport(tester);
+    await pumpScreen(tester, const LoginScreen());
+
+    await expectLater(
+      find.byType(Scaffold),
+      matchesGoldenFile('goldens/login.png'),
     );
   });
 
@@ -139,6 +154,16 @@ void main() {
     await expectLater(
       find.byType(Scaffold),
       matchesGoldenFile('goldens/password_reset.png'),
+    );
+  });
+
+  testWidgets('reset email matches its visual baseline', (tester) async {
+    await configureViewport(tester);
+    await pumpScreen(tester, const PasswordResetEmailScreen());
+
+    await expectLater(
+      find.byType(Scaffold).first,
+      matchesGoldenFile('goldens/password_reset_email.png'),
     );
   });
 
@@ -247,12 +272,51 @@ void main() {
     );
   });
 
+  testWidgets('ledger edit matches its visual baseline', (tester) async {
+    await configureViewport(tester);
+    await pumpScreen(tester, const LedgerEditScreen());
+
+    await expectLater(
+      find.byType(Scaffold),
+      matchesGoldenFile('goldens/ledger_edit.png'),
+    );
+  });
+
   testWidgets('analysis matches its visual baseline', (tester) async {
     await configureViewport(tester);
     await pumpScreen(tester, const AnalysisOverviewScreen());
     await expectLater(
       find.byType(Scaffold),
       matchesGoldenFile('goldens/analysis.png'),
+    );
+  });
+
+  testWidgets('AI analysis matches its visual baseline', (tester) async {
+    await configureViewport(tester);
+    await pumpScreen(tester, const AnalysisOverviewScreen());
+    await tester.tap(find.text('AI분석'));
+    await tester.pump();
+
+    await expectLater(
+      find.byType(Scaffold),
+      matchesGoldenFile('goldens/analysis_ai.png'),
+    );
+  });
+
+  testWidgets('analysis report bottom matches its visual baseline', (
+    tester,
+  ) async {
+    await configureViewport(tester);
+    await pumpScreen(tester, const AnalysisOverviewScreen());
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -900),
+    );
+    await tester.pump();
+
+    await expectLater(
+      find.byType(Scaffold),
+      matchesGoldenFile('goldens/analysis_bottom.png'),
     );
   });
 
@@ -289,6 +353,45 @@ void main() {
     await expectLater(
       find.byType(Scaffold),
       matchesGoldenFile('goldens/password_change.png'),
+    );
+  });
+
+  testWidgets('account delete matches its visual baseline', (tester) async {
+    await configureViewport(tester);
+    await pumpScreen(tester, const AccountDeleteScreen());
+
+    await expectLater(
+      find.byType(Scaffold).first,
+      matchesGoldenFile('goldens/account_delete.png'),
+    );
+  });
+
+  testWidgets('account delete confirmation matches its visual baseline', (
+    tester,
+  ) async {
+    await configureViewport(tester);
+    await pumpScreen(tester, const AccountDeleteScreen());
+    await tester.tap(find.text('다음'));
+    await tester.pump();
+
+    await expectLater(
+      find.byType(Scaffold),
+      matchesGoldenFile('goldens/account_delete_confirmation.png'),
+    );
+  });
+
+  testWidgets('pending deletion matches its visual baseline', (tester) async {
+    await configureViewport(tester);
+    await pumpScreen(
+      tester,
+      PendingDeletionScreen(
+        scheduledAt: DateTime.now().add(const Duration(days: 4)),
+      ),
+    );
+
+    await expectLater(
+      find.byType(Scaffold).first,
+      matchesGoldenFile('goldens/pending_deletion.png'),
     );
   });
 }

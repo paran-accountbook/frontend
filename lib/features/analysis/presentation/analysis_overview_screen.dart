@@ -1,50 +1,117 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../../finance/data/finance_service.dart';
 import '../../home/presentation/home_screen.dart';
 import '../../ledger/presentation/ledger_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../register/presentation/register_type_screen.dart';
 
-class AnalysisOverviewScreen extends StatelessWidget {
-  const AnalysisOverviewScreen({super.key, this.onNavigationSelected});
-
+class AnalysisOverviewScreen extends StatefulWidget {
+  const AnalysisOverviewScreen({
+    super.key,
+    this.onNavigationSelected,
+    this.financeService,
+  });
   final ValueChanged<int>? onNavigationSelected;
+  final FinanceService? financeService;
+  @override
+  State<AnalysisOverviewScreen> createState() => _AnalysisOverviewScreenState();
+}
+
+class _AnalysisOverviewScreenState extends State<AnalysisOverviewScreen> {
+  int _tab = 0;
+  late DateTime _month;
+  Map<String, dynamic>? _report;
+
+  @override
+  void initState() {
+    super.initState();
+    _month = widget.financeService == null ? DateTime(2026, 8) : DateTime.now();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final service = widget.financeService;
+    if (service == null) return;
+    try {
+      final report = await service.analysis(
+        year: _month.year,
+        month: _month.month,
+      );
+      if (mounted) setState(() => _report = report);
+    } catch (_) {
+      // Preserve the latest report while a transient request fails.
+    }
+  }
+
+  void _moveMonth(int direction) {
+    setState(() => _month = DateTime(_month.year, _month.month + direction));
+    _load();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: ScrollableDesignCanvas(
-        height: 2151,
+      body: DesignCanvas(
         child: Stack(
           children: [
-            const Positioned(
-              left: 46,
-              top: 214,
+            const ColoredBox(color: AppColors.background),
+            Positioned(
+              left: 24,
+              top: 87,
               child: Text(
                 '소비분석',
                 style: TextStyle(
                   color: AppColors.text,
-                  fontFamily: 'BujangnimNunchi',
-                  fontSize: 75,
-                  height: 1,
+                  fontSize: 27,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
-            const Positioned(left: 0, top: 307, child: _MonthSelector()),
-            const Positioned(left: 0, top: 427, child: _SpendSummary()),
-            const Positioned(left: 0, top: 740, child: _IncomeAndBalance()),
-            const Positioned(left: 0, top: 958, child: _CategorySection()),
+            Positioned(
+              left: 16,
+              top: 132,
+              child: Row(
+                children: List.generate(
+                  4,
+                  (index) => Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: _TabChip(
+                      label: const ['요약', '패턴', '반복지출', 'AI'][index],
+                      selected: _tab == index,
+                      onTap: () => setState(() => _tab = index),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 24,
+              top: 194,
+              width: 354,
+              child: _MonthSelector(
+                month: _month,
+                onPrevious: () => _moveMonth(-1),
+                onNext: () => _moveMonth(1),
+              ),
+            ),
+            Positioned(
+              left: 16,
+              right: 16,
+              top: 225,
+              bottom: 84,
+              child: _content(),
+            ),
             Positioned(
               left: 0,
-              top: 1982,
+              bottom: 0,
               child: AppBottomNavigation(
                 selectedIndex: 3,
-                onSelected: (index) => _handleNavigation(context, index),
+                onSelected: (index) => _navigate(context, index),
               ),
             ),
           ],
@@ -53,486 +120,459 @@ class AnalysisOverviewScreen extends StatelessWidget {
     );
   }
 
-  void _handleNavigation(BuildContext context, int index) {
-    if (onNavigationSelected case final callback?) {
+  Widget _content() => switch (_tab) {
+    0 => _Report(data: _report, month: _month.month),
+    1 => const _LockedList(items: [('소비 패턴 분석', '연속 7일 기록하면 열려요 0/7 일')]),
+    2 => const _LockedList(
+      items: [
+        ('재구매 분석', '연속 20일 기록하면 열려요 0/20 일'),
+        ('정기 지출 감지', '충분한 내역이 쌓이면 알려드려요'),
+      ],
+    ),
+    _ => const _LockedList(
+      items: [
+        ('AI 소비 의견', '연속 14일 기록하면 열려요 0/14 일'),
+        ('절약 대안 힌트', '소비 패턴을 바탕으로 제안해 드려요'),
+      ],
+    ),
+  };
+
+  void _navigate(BuildContext context, int index) {
+    if (widget.onNavigationSelected case final callback?) {
       callback(index);
       return;
     }
-
-    final Widget? destination = switch (index) {
-      0 => const HomeScreen(),
-      1 => const LedgerScreen(),
-      2 => const RegisterTypeScreen(),
-      4 => const ProfileScreen(),
+    final Widget? page = switch (index) {
+      0 => HomeScreen(financeService: widget.financeService),
+      1 => LedgerScreen(financeService: widget.financeService),
+      2 => RegisterTypeScreen(financeService: widget.financeService),
+      4 => ProfileScreen(financeService: widget.financeService),
       _ => null,
     };
-    if (destination == null) return;
-
+    if (page == null) return;
     Navigator.of(
       context,
-    ).pushReplacement(MaterialPageRoute<void>(builder: (_) => destination));
+    ).pushReplacement(MaterialPageRoute<void>(builder: (_) => page));
   }
+}
+
+class _TabChip extends StatelessWidget {
+  const _TabChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: selected ? const Color(0xFFA8A3FF) : AppColors.selected,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.outline, width: .5),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: selected ? const Color(0xFF1B1B1B) : AppColors.text50,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+  );
 }
 
 class _MonthSelector extends StatelessWidget {
-  const _MonthSelector();
-
+  const _MonthSelector({
+    required this.month,
+    required this.onPrevious,
+    required this.onNext,
+  });
+  final DateTime month;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
   @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 749,
-      height: 97,
-      child: Stack(
+  Widget build(BuildContext context) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      GestureDetector(
+        onTap: onPrevious,
+        child: SvgPicture.asset(
+          AppAssets.monthArrowActive,
+          width: 10,
+          height: 12,
+        ),
+      ),
+      Row(
         children: [
-          Positioned(
-            left: 79,
-            top: 37,
-            width: 21,
-            height: 23,
-            child: Transform.rotate(
-              angle: 3.141592653589793,
-              child: SvgPicture.asset(AppAssets.monthArrowActive),
+          Text(
+            '${month.year}',
+            style: TextStyle(
+              color: AppColors.text,
+              fontFamily: 'Amarante',
+              fontSize: 20,
             ),
           ),
-          Positioned(
-            left: 672,
-            top: 37,
-            width: 21,
-            height: 23,
-            child: SvgPicture.asset(AppAssets.monthArrowDim),
+          const SizedBox(width: 4),
+          const Text(
+            '년',
+            style: TextStyle(color: AppColors.text, fontSize: 12),
           ),
-          const Positioned(
-            left: 253,
-            top: 17,
-            child: Text(
-              '2026',
-              style: TextStyle(
-                color: AppColors.text,
-                fontFamily: 'Amarante',
-                fontSize: 50,
-                height: 1,
-              ),
+          const SizedBox(width: 18),
+          Text(
+            '${month.month}',
+            style: TextStyle(
+              color: AppColors.text,
+              fontFamily: 'Amarante',
+              fontSize: 20,
             ),
           ),
-          const Positioned(
-            left: 376,
-            top: 31,
-            child: Text(
-              '년',
-              style: TextStyle(
-                color: AppColors.text,
-                fontSize: 25,
-                fontWeight: FontWeight.w600,
-                height: 1,
-              ),
-            ),
-          ),
-          const Positioned(
-            left: 434,
-            top: 17,
-            child: Text(
-              '8',
-              style: TextStyle(
-                color: AppColors.text,
-                fontFamily: 'Amarante',
-                fontSize: 50,
-                height: 1,
-              ),
-            ),
-          ),
-          const Positioned(
-            left: 475,
-            top: 31,
-            child: Text(
-              '월',
-              style: TextStyle(
-                color: AppColors.text,
-                fontSize: 25,
-                fontWeight: FontWeight.w600,
-                height: 1,
-              ),
-            ),
+          const SizedBox(width: 4),
+          const Text(
+            '월',
+            style: TextStyle(color: AppColors.text, fontSize: 12),
           ),
         ],
       ),
-    );
-  }
+      GestureDetector(
+        onTap: onNext,
+        child: SvgPicture.asset(AppAssets.monthArrowDim, width: 10, height: 12),
+      ),
+    ],
+  );
 }
 
-class _SpendSummary extends StatelessWidget {
-  const _SpendSummary();
-
+class _Report extends StatelessWidget {
+  const _Report({this.data, required this.month});
+  final Map<String, dynamic>? data;
+  final int month;
+  static const categories = [
+    ('식비', '53%', '4,500', AppAssets.categoryFood),
+    ('쇼핑', '30%', '4,500', AppAssets.categoryShopping),
+    ('카페', '8%', '4,500', AppAssets.categoryCulture),
+    ('의료', '4%', '4,500', AppAssets.categoryMedical),
+    ('교통', '3%', '4,500', AppAssets.categoryTransport),
+    ('문화', '2%', '4,500', AppAssets.categoryCulture),
+  ];
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 749,
-      height: 283,
-      child: Stack(
+    final total = data?['total_expense_amount'] as int? ?? 150000;
+    final daily = data?['daily_average_expense'] as int? ?? 40000;
+    final income = data?['total_income_amount'] as int? ?? 150000;
+    final balance = data?['balance'] as int? ?? 150000;
+    final change = data?['change_amount'] as int? ?? 2500;
+    final changeRate = data?['change_rate'] as num? ?? 12;
+    final remoteCategories = (data?['category_breakdown'] as List?)
+        ?.whereType<Map<String, dynamic>>()
+        .toList();
+    final visibleCategories = data == null
+        ? categories
+        : (remoteCategories ?? const <Map<String, dynamic>>[])
+              .map(
+                (item) => (
+                  item['category'] as String? ?? '기타',
+                  '${item['percentage'] ?? 0}%',
+                  _formatAmount(item['amount'] as int? ?? 0),
+                  _categoryAsset(item['category'] as String?),
+                ),
+              )
+              .toList();
+    final goal = data?['goal'] as Map<String, dynamic>?;
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Positioned(left: 46, top: 0, child: _LightDivider()),
-          const Positioned(
-            left: 46,
-            top: 54,
-            child: Text(
-              '총 지출',
-              style: TextStyle(
-                color: Color(0x80E2E2F9),
-                fontSize: 23,
-                fontWeight: FontWeight.w600,
-                height: 1,
+          const _Asterisks(),
+          const SizedBox(height: 14),
+          const Text(
+            '총 지출',
+            style: TextStyle(color: AppColors.text50, fontSize: 12),
+          ),
+          const SizedBox(height: 5),
+          _PriceText(value: _formatAmount(total), size: 26),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Text(
+                '${change >= 0 ? '▲' : '▼'} ${_formatAmount(change.abs())}',
+                style: TextStyle(
+                  color: change >= 0
+                      ? const Color(0xFFCF376A)
+                      : const Color(0xFF4777D9),
+                  fontSize: 16,
+                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              Text(
+                '전월 대비 ${changeRate.toString()}%',
+                style: const TextStyle(color: AppColors.text50, fontSize: 9),
+              ),
+            ],
           ),
-          Positioned(
-            left: 46,
-            top: 97,
-            child: _Amount(
-              value: '150,000',
-              fontSize: 55,
-              iconWidth: 37,
-              iconHeight: 40,
-            ),
+          const SizedBox(height: 15),
+          _Metric(label: '일 평균 지출액', value: _formatAmount(daily)),
+          _Metric(label: '총 수입', value: _formatAmount(income)),
+          _Metric(
+            label: '잔액',
+            value: '${balance >= 0 ? '+' : ''}${_formatAmount(balance)}',
+            accent: true,
           ),
-          Positioned(
-            left: 46,
-            top: 179,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+          const SizedBox(height: 12),
+          const _Asterisks(),
+          const SizedBox(height: 14),
+          const Text(
+            '카테고리별 비중',
+            style: TextStyle(color: AppColors.text50, fontSize: 12),
+          ),
+          const SizedBox(height: 14),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: const Row(
               children: [
-                RotatedBox(
-                  quarterTurns: 3,
-                  child: SvgPicture.asset(
-                    AppAssets.spendUp,
-                    width: 18,
-                    height: 19,
+                Expanded(
+                  flex: 53,
+                  child: ColoredBox(
+                    color: Color(0xFFFF9345),
+                    child: SizedBox(height: 12),
                   ),
                 ),
-                const SizedBox(width: 12),
-                _Amount(
-                  value: '2,500',
-                  color: AppColors.main,
-                  fontSize: 40,
-                  iconWidth: 29,
-                  iconHeight: 31,
+                Expanded(
+                  flex: 30,
+                  child: ColoredBox(
+                    color: Color(0xFFD92B80),
+                    child: SizedBox(height: 12),
+                  ),
+                ),
+                Expanded(
+                  flex: 17,
+                  child: ColoredBox(
+                    color: AppColors.main,
+                    child: SizedBox(height: 12),
+                  ),
                 ),
               ],
             ),
           ),
-          const Positioned(
-            left: 223,
-            top: 189,
-            child: Text(
-              '전월 대비 12%',
-              style: TextStyle(
-                color: Color(0x80E2E2F9),
-                fontSize: 23,
-                height: 1,
+          const SizedBox(height: 8),
+          ...visibleCategories.map(
+            (item) => SizedBox(
+              height: 45,
+              child: Row(
+                children: [
+                  SvgPicture.asset(item.$4, width: 26, height: 26),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.$1,
+                          style: const TextStyle(
+                            color: AppColors.text,
+                            fontSize: 12,
+                          ),
+                        ),
+                        Text(
+                          item.$2,
+                          style: const TextStyle(
+                            color: AppColors.text50,
+                            fontSize: 9,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _PriceText(value: item.$3, size: 16),
+                ],
               ),
             ),
           ),
-          const Positioned(left: 46, top: 268, child: _LightDivider()),
+          if (data == null || goal != null) ...[
+            const _Asterisks(),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '$month월 지출 목표',
+                  style: const TextStyle(color: AppColors.text50, fontSize: 12),
+                ),
+                Text(
+                  '${_formatAmount(goal?['amount'] as int? ?? 0)}원 중 ${_formatAmount(total)}원 사용',
+                  style: const TextStyle(color: AppColors.text, fontSize: 10),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Text(
+                  '${goal?['usage_rate'] ?? 20}%',
+                  style: const TextStyle(
+                    color: AppColors.text,
+                    fontFamily: 'Amarante',
+                    fontSize: 18,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: LinearProgressIndicator(
+                    value: ((goal?['usage_rate'] as num? ?? 20) / 100)
+                        .clamp(0, 1)
+                        .toDouble(),
+                    minHeight: 10,
+                    color: AppColors.main,
+                    backgroundColor: AppColors.selected,
+                    borderRadius: BorderRadius.all(Radius.circular(6)),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
   }
 }
 
-class _LightDivider extends StatelessWidget {
-  const _LightDivider();
+String _categoryAsset(String? category) => switch (category) {
+  '쇼핑' => AppAssets.categoryShopping,
+  '의료' => AppAssets.categoryMedical,
+  '교통' => AppAssets.categoryTransport,
+  '문화' => AppAssets.categoryCulture,
+  _ => AppAssets.categoryFood,
+};
 
-  @override
-  Widget build(BuildContext context) {
-    return SvgPicture.asset(
-      AppAssets.asteriskDividerDark,
-      width: 657,
-      height: 15,
-      fit: BoxFit.fill,
-      colorFilter: const ColorFilter.mode(Color(0x33E2E2F9), BlendMode.srcIn),
-    );
+String _formatAmount(int amount) {
+  final negative = amount < 0;
+  final digits = amount.abs().toString();
+  final buffer = StringBuffer();
+  for (var index = 0; index < digits.length; index++) {
+    if (index > 0 && (digits.length - index) % 3 == 0) buffer.write(',');
+    buffer.write(digits[index]);
   }
+  return '${negative ? '-' : ''}$buffer';
 }
 
-class _IncomeAndBalance extends StatelessWidget {
-  const _IncomeAndBalance();
-
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox(
-      width: 749,
-      height: 188,
-      child: Stack(
-        children: [
-          Positioned(
-            left: 46,
-            top: 0,
-            right: 46,
-            child: _MetricRow(label: '총 수입', value: '+150,000'),
-          ),
-          Positioned(
-            left: 46,
-            top: 101,
-            right: 46,
-            child: _MetricRow(label: '잔액', value: '150,000'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MetricRow extends StatelessWidget {
-  const _MetricRow({required this.label, required this.value});
-
+class _Metric extends StatelessWidget {
+  const _Metric({
+    required this.label,
+    required this.value,
+    this.accent = false,
+  });
   final String label;
   final String value;
-
+  final bool accent;
   @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 87,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xCCE2E2F9),
-              fontSize: 30,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          _Amount(value: value, fontSize: 40, iconWidth: 29, iconHeight: 31),
-        ],
-      ),
-    );
-  }
-}
-
-class _CategorySection extends StatelessWidget {
-  const _CategorySection();
-
-  static const _items = [
-    _CategoryData('식비', '53%', AppAssets.categoryFood, 36, 36),
-    _CategoryData('쇼핑', '12%', AppAssets.categoryShopping, 36, 34),
-    _CategoryData('교통', '50%', AppAssets.categoryTransport, 40, 40),
-    _CategoryData('의료', '50%', AppAssets.categoryMedical, 42, 42),
-    _CategoryData('문화', '50%', AppAssets.categoryCulture, 40, 40),
-    _CategoryData('기타', '50%', null, 26, 26),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppColors.secondary,
-      child: SizedBox(
-        width: 749,
-        height: 950,
-        child: Stack(
-          children: [
-            const Positioned(
-              left: 46,
-              top: 37,
-              child: Text(
-                '카테고리별 비중',
-                style: TextStyle(
-                  color: AppColors.text,
-                  fontSize: 30,
-                  fontWeight: FontWeight.w600,
-                  height: 1,
-                ),
-              ),
-            ),
-            const Positioned(left: 46, top: 86, child: _CategoryBar()),
-            for (var index = 0; index < _items.length; index++)
-              Positioned(
-                left: 0,
-                top: 153 + (index * 132),
-                child: _CategoryRow(data: _items[index]),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CategoryBar extends StatelessWidget {
-  const _CategoryBar();
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: const SizedBox(
-        width: 657,
-        height: 32,
-        child: Row(
-          children: [
-            SizedBox(
-              width: 204,
-              height: 32,
-              child: ColoredBox(color: Color(0xFFFA9441)),
-            ),
-            SizedBox(
-              width: 144,
-              height: 32,
-              child: ColoredBox(color: Color(0xFFE53180)),
-            ),
-            SizedBox(
-              width: 104,
-              height: 32,
-              child: ColoredBox(color: Color(0xFF3BBEFF)),
-            ),
-            SizedBox(
-              width: 77,
-              height: 32,
-              child: ColoredBox(color: Color(0xFFE74646)),
-            ),
-            SizedBox(
-              width: 52,
-              height: 32,
-              child: ColoredBox(color: Color(0xFFB5ABAB)),
-            ),
-            SizedBox(
-              width: 76,
-              height: 32,
-              child: ColoredBox(color: Color(0xFF5E56FF)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CategoryRow extends StatelessWidget {
-  const _CategoryRow({required this.data});
-
-  final _CategoryData data;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 749,
-      height: 118,
-      child: Stack(
-        children: [
-          Positioned(
-            left: 34,
-            top: 27,
-            width: 64,
-            height: 64,
-            child: Center(
-              child: data.asset == null
-                  ? const DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: AppColors.main,
-                        shape: BoxShape.circle,
-                      ),
-                      child: SizedBox.square(dimension: 26),
-                    )
-                  : SvgPicture.asset(
-                      data.asset!,
-                      width: data.iconWidth,
-                      height: data.iconHeight,
-                    ),
-            ),
-          ),
-          Positioned(
-            left: 111,
-            top: 19,
-            child: Text(
-              data.name,
-              style: const TextStyle(
-                color: AppColors.text,
-                fontSize: 30,
-                fontWeight: FontWeight.w600,
-                height: 1,
-              ),
-            ),
-          ),
-          Positioned(
-            left: 111,
-            top: 69,
-            child: Text(
-              data.percent,
-              style: const TextStyle(
-                color: Color(0x80E2E2F9),
-                fontSize: 23,
-                height: 1,
-              ),
-            ),
-          ),
-          Positioned(
-            right: 46,
-            top: 35,
-            child: _Amount(
-              value: '150,000',
-              fontSize: 40,
-              iconWidth: 29,
-              iconHeight: 31,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CategoryData {
-  const _CategoryData(
-    this.name,
-    this.percent,
-    this.asset,
-    this.iconWidth,
-    this.iconHeight,
-  );
-
-  final String name;
-  final String percent;
-  final String? asset;
-  final double iconWidth;
-  final double iconHeight;
-}
-
-class _Amount extends StatelessWidget {
-  const _Amount({
-    required this.value,
-    required this.fontSize,
-    required this.iconWidth,
-    required this.iconHeight,
-    this.color = AppColors.text,
-  });
-
-  final String value;
-  final double fontSize;
-  final double iconWidth;
-  final double iconHeight;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
+  Widget build(BuildContext context) => SizedBox(
+    height: 34,
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
-          value,
-          style: TextStyle(
-            color: color,
-            fontFamily: 'Amarante',
-            fontSize: fontSize,
-            height: 1,
+          label,
+          style: const TextStyle(color: AppColors.text50, fontSize: 12),
+        ),
+        _PriceText(value: value, size: 16, accent: accent),
+      ],
+    ),
+  );
+}
+
+class _PriceText extends StatelessWidget {
+  const _PriceText({
+    required this.value,
+    required this.size,
+    this.accent = false,
+  });
+  final String value;
+  final double size;
+  final bool accent;
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        value,
+        style: TextStyle(
+          color: accent ? const Color(0xFFA8A3FF) : AppColors.text,
+          fontFamily: 'Amarante',
+          fontSize: size,
+        ),
+      ),
+      const SizedBox(width: 4),
+      SvgPicture.asset(AppAssets.wonLight, width: 12, height: 13),
+    ],
+  );
+}
+
+class _Asterisks extends StatelessWidget {
+  const _Asterisks();
+  @override
+  Widget build(BuildContext context) => Text(
+    List.filled(18, '*').join('   '),
+    maxLines: 1,
+    style: const TextStyle(color: AppColors.text20, fontSize: 10),
+  );
+}
+
+class _LockedList extends StatelessWidget {
+  const _LockedList({required this.items});
+  final List<(String, String)> items;
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      const _Asterisks(),
+      const SizedBox(height: 12),
+      ...items.map(
+        (item) => Container(
+          height: 80,
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0x0DE2E2F9))),
+          ),
+          child: Row(
+            children: [
+              SvgPicture.asset(AppAssets.analysisLocked, width: 28, height: 28),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.$1,
+                      style: const TextStyle(
+                        color: AppColors.text,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      item.$2,
+                      style: const TextStyle(
+                        color: AppColors.text50,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Text(
+                '〉',
+                style: TextStyle(color: AppColors.text, fontSize: 22),
+              ),
+            ],
           ),
         ),
-        const SizedBox(width: 5),
-        SvgPicture.asset(
-          AppAssets.wonLight,
-          width: iconWidth,
-          height: iconHeight,
-          colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-        ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
 }

@@ -9,7 +9,8 @@ abstract final class AppColors {
   static const Color text = Color(0xFFE2E2F9);
   static const Color resource = Colors.white;
 
-  static Color get text80 => text.withValues(alpha: 0.8);
-  static Color get text50 => text.withValues(alpha: 0.5);
-  static Color get text30 => text.withValues(alpha: 0.3);
+  static const Color text80 = Color(0xCCE2E2F9);
+  static const Color text50 = Color(0x80E2E2F9);
+  static const Color text30 = Color(0x4DE2E2F9);
+  static const Color text20 = Color(0x33E2E2F9);
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:sobilog/core/theme/app_theme.dart';
+import 'package:sobilog/features/auth/presentation/email_login_screen.dart';
 import 'package:sobilog/features/auth/presentation/login_screen.dart';
 import 'package:sobilog/features/auth/presentation/terms_screen.dart';
 import 'package:sobilog/features/auth/presentation/verification_screen.dart';
@@ -36,16 +37,19 @@ void main() {
     expect(find.byType(SplashScreen), findsOneWidget);
   });
 
-  testWidgets('advances from splash to onboarding', (tester) async {
+  testWidgets('advances from splash to login', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.dark, home: const SplashScreen()),
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: const SplashScreen(restoreSession: false),
+      ),
     );
 
     await tester.pump(const Duration(milliseconds: 2500));
     await tester.pumpAndSettle();
 
-    expect(find.byType(OnboardingScreen), findsOneWidget);
-    expect(find.text('소비 습관'), findsOneWidget);
+    expect(find.byType(LoginScreen), findsOneWidget);
+    expect(find.text('이메일로 로그인'), findsOneWidget);
   });
 
   testWidgets('opens login from onboarding', (tester) async {
@@ -61,7 +65,7 @@ void main() {
     expect(find.text('이메일로 로그인'), findsOneWidget);
   });
 
-  testWidgets('opens verification from email login', (tester) async {
+  testWidgets('opens the email login form', (tester) async {
     await tester.pumpWidget(
       MaterialApp(theme: AppTheme.dark, home: const LoginScreen()),
     );
@@ -69,21 +73,23 @@ void main() {
     await tester.tap(find.text('이메일로 로그인'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(VerificationScreen), findsOneWidget);
-    expect(find.text('인증번호를 입력하세요'), findsOneWidget);
+    expect(find.byType(EmailLoginScreen), findsOneWidget);
+    expect(find.text('비밀번호를 잊으셨나요?'), findsOneWidget);
   });
 
-  testWidgets('opens terms from verification', (tester) async {
+  testWidgets('submits a six-digit verification code', (tester) async {
+    var verified = false;
     await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.dark, home: const VerificationScreen()),
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: VerificationScreen(onVerified: () => verified = true),
+      ),
     );
 
-    await tester.tap(find.text('1'));
-    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '123456');
+    await tester.pump();
 
-    expect(find.byType(TermsScreen), findsOneWidget);
-    expect(find.text('약관동의'), findsOneWidget);
-    expect(find.text('예시'), findsNWidgets(5));
+    expect(verified, isTrue);
   });
 
   testWidgets('opens home after terms agreement', (tester) async {
@@ -91,6 +97,7 @@ void main() {
       MaterialApp(theme: AppTheme.dark, home: const TermsScreen()),
     );
 
+    await tester.tap(find.text('전체 동의하기'));
     await tester.tap(find.text('동의합니다'));
     await tester.pumpAndSettle();
 
@@ -113,9 +120,9 @@ void main() {
       MaterialApp(theme: AppTheme.dark, home: const LedgerDetailScreen()),
     );
 
-    expect(find.text('상세 내역'), findsOneWidget);
+    expect(find.text('가맹점 명'), findsOneWidget);
     expect(find.text('더치페이 하기'), findsOneWidget);
-    expect(find.text('메모 남기기'), findsOneWidget);
+    expect(find.text('메모'), findsOneWidget);
   });
 
   testWidgets('renders ledger edit receipt', (tester) async {
@@ -171,9 +178,9 @@ void main() {
       MaterialApp(theme: AppTheme.dark, home: const RegisterDirectScreen()),
     );
 
-    expect(find.text('소비로그'), findsOneWidget);
+    expect(find.text('직접 등록'), findsOneWidget);
     expect(find.text('저장'), findsOneWidget);
-    expect(find.text('커피'), findsNWidgets(5));
+    expect(find.text('아메리카노'), findsNWidgets(3));
   });
 
   testWidgets('renders income receipt', (tester) async {
@@ -181,8 +188,8 @@ void main() {
       MaterialApp(theme: AppTheme.dark, home: const RegisterIncomeScreen()),
     );
 
-    expect(find.text('용돈'), findsOneWidget);
-    expect(find.text('수입일'), findsOneWidget);
+    expect(find.text('수입 등록'), findsOneWidget);
+    expect(find.text('금액'), findsOneWidget);
     expect(find.text('저장'), findsOneWidget);
   });
 
@@ -238,7 +245,7 @@ void main() {
       MaterialApp(theme: AppTheme.dark, home: const HomeScreen()),
     );
 
-    await tester.tap(find.text('소비 요약 보러가기'));
+    await tester.tap(find.text('소비요약'));
     await tester.pumpAndSettle();
 
     expect(find.byType(AnalysisOverviewScreen), findsOneWidget);
@@ -285,8 +292,8 @@ void main() {
       MaterialApp(theme: AppTheme.dark, home: const ProfileScreen()),
     );
 
-    expect(find.text('마이 페이지'), findsOneWidget);
-    expect(find.text('1111 님'), findsOneWidget);
+    expect(find.text('마이페이지'), findsOneWidget);
+    expect(find.text('소비로그 님'), findsOneWidget);
     expect(find.text('출석 현황'), findsOneWidget);
     expect(find.text('계정 설정'), findsOneWidget);
   });

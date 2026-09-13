@@ -14,6 +14,7 @@ abstract interface class FinanceService {
     String id,
     Map<String, Object?> body,
   );
+  Future<Map<String, dynamic>> deleteExpense(String id);
   Future<Map<String, dynamic>> analysis({
     required int year,
     required int month,
@@ -69,6 +70,9 @@ class FinanceApiService implements FinanceService {
     Map<String, Object?> body,
   ) async =>
       await _client.patch('/expenses/$id', body: body) as Map<String, dynamic>;
+  @override
+  Future<Map<String, dynamic>> deleteExpense(String id) async =>
+      await _client.delete('/expenses/$id') as Map<String, dynamic>;
   @override
   Future<Map<String, dynamic>> analysis({
     required int year,

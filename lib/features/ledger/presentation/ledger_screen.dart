@@ -58,19 +58,20 @@ class _LedgerScreenState extends State<LedgerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    void openDetail(String? id) {
+    Future<void> openDetail(String? id) async {
       if (widget.onEntrySelected case final callback?) {
         callback();
         return;
       }
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
+      final changed = await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(
           builder: (_) => LedgerDetailScreen(
             expenseId: id,
             financeService: widget.financeService,
           ),
         ),
       );
+      if (changed == true) await _load();
     }
 
     return Scaffold(

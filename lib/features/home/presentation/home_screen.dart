@@ -312,7 +312,13 @@ class _RecentList extends StatelessWidget {
       );
     }
     final visible =
-        entries ?? List.generate(3, (_) => const <String, dynamic>{});
+        entries ??
+        List.generate(
+          3,
+          (_) => const <String, dynamic>{
+            'paid_at': '2026-08-19T10:30:00+09:00',
+          },
+        );
     return Column(
       children: visible
           .take(3)
@@ -330,6 +336,7 @@ class _RecentRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final rawDate = entry['date'] as String?;
     final date = rawDate == null ? null : DateTime.tryParse(rawDate);
+    final time = _recentTimeLabel(entry);
     final isIncome = entry['type'] == 'income';
     final amount = entry['amount'] as int? ?? 150000;
     return Container(
@@ -362,11 +369,16 @@ class _RecentRow extends StatelessWidget {
                   overflow: TextOverflow.clip,
                   style: _smallText,
                 ),
-                const SizedBox(height: 7),
-                const Text(
-                  '오전 10:30',
-                  style: TextStyle(color: AppColors.text50, fontSize: 12),
-                ),
+                if (time != null) ...[
+                  const SizedBox(height: 7),
+                  Text(
+                    time,
+                    style: const TextStyle(
+                      color: AppColors.text50,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -378,6 +390,16 @@ class _RecentRow extends StatelessWidget {
       ),
     );
   }
+}
+
+String? _recentTimeLabel(Map<String, dynamic> entry) {
+  final raw = entry['paid_at'] ?? entry['occurred_at'] ?? entry['created_at'];
+  if (raw is! String) return null;
+  final value = DateTime.tryParse(raw)?.toLocal();
+  if (value == null) return null;
+  final period = value.hour < 12 ? '오전' : '오후';
+  final hour = value.hour % 12 == 0 ? 12 : value.hour % 12;
+  return '$period $hour:${value.minute.toString().padLeft(2, '0')}';
 }
 
 class _WonIcon extends StatelessWidget {

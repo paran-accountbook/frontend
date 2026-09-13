@@ -93,8 +93,8 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
     final service = widget.financeService;
     final data = _data;
     if (id == null || service == null || data == null) return;
-    final changed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+    final result = await Navigator.of(context).push<LedgerEditResult>(
+      MaterialPageRoute<LedgerEditResult>(
         builder: (_) => LedgerEditScreen(
           expenseId: id,
           financeService: service,
@@ -102,7 +102,12 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
         ),
       ),
     );
-    if (changed == true) await _load();
+    if (!mounted) return;
+    if (result == LedgerEditResult.deleted) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+    if (result == LedgerEditResult.updated) await _load();
   }
 }
 
@@ -122,6 +127,9 @@ class _ReceiptDetail extends StatelessWidget {
             {'item_name': '아메리카노', 'quantity': 3, 'unit_price': 4500},
           ]
         : items;
+    final receiptImageUrl = data?['receipt_image_url'] as String?;
+    final hasReceiptImage =
+        data == null || (receiptImageUrl != null && receiptImageUrl.isNotEmpty);
     return Stack(
       children: [
         Positioned.fill(
@@ -195,19 +203,21 @@ class _ReceiptDetail extends StatelessWidget {
                       unitPrice: item['unit_price'] as int? ?? 0,
                     ),
                   ),
-              const SizedBox(height: 8),
-              const _DarkAsterisks(),
-              const SizedBox(height: 12),
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text('소비사진  1', style: _darkMuted),
-              ),
-              const SizedBox(height: 8),
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: _PhotoPlaceholder(),
-              ),
-              const SizedBox(height: 10),
+              if (hasReceiptImage) ...[
+                const SizedBox(height: 8),
+                const _DarkAsterisks(),
+                const SizedBox(height: 12),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('소비사진  1', style: _darkMuted),
+                ),
+                const SizedBox(height: 8),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: _PhotoPlaceholder(),
+                ),
+                const SizedBox(height: 10),
+              ],
               const _DarkAsterisks(),
               const SizedBox(height: 10),
               Row(

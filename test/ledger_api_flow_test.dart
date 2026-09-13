@@ -8,7 +8,9 @@ import 'package:sobilog/core/network/api_client.dart';
 import 'package:sobilog/core/network/session_store.dart';
 import 'package:sobilog/core/theme/app_theme.dart';
 import 'package:sobilog/features/finance/data/finance_service.dart';
+import 'package:sobilog/features/home/presentation/home_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_detail_screen.dart';
+import 'package:sobilog/features/ledger/presentation/ledger_edit_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_screen.dart';
 
 void main() {
@@ -61,13 +63,21 @@ void main() {
     await tester.tap(edit);
     await tester.pumpAndSettle();
     expect(find.text('내역 수정'), findsOneWidget);
+
+    await tester.tap(find.text('테스트 카페'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), '수정된 카페');
+    await tester.tap(find.text('확인'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
     await tester.tap(find.text('저장'));
     await tester.pumpAndSettle();
 
     final patch = requests.singleWhere((request) => request.method == 'PATCH');
     expect(patch.url.path, '/expenses/11111111-1111-1111-1111-111111111111');
     final payload = jsonDecode(patch.body) as Map<String, dynamic>;
-    expect(payload['store_name'], '테스트 카페');
+    expect(payload['store_name'], '수정된 카페');
     expect(payload['category'], '카페');
     expect(payload['payment_method'], '카드');
     expect(payload['items'], hasLength(1));
@@ -79,6 +89,86 @@ void main() {
       ),
       hasLength(2),
     );
+  });
+
+  testWidgets('수정 화면의 삭제 확인 후 DELETE API를 호출한다', (tester) async {
+    final requests = <http.Request>[];
+    final service = _service(requests, (request) {
+      if (request.method == 'DELETE') return {'message': '삭제되었습니다'};
+      return _expenseData;
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: LedgerEditScreen(
+          expenseId: '11111111-1111-1111-1111-111111111111',
+          financeService: service,
+          initialData: _expenseData,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('delete-ledger-entry')));
+    await tester.pumpAndSettle();
+    expect(find.text('삭제한 내역은 되돌릴 수 없습니다. 삭제할까요?'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('confirm-delete-ledger-entry')));
+    await tester.pumpAndSettle();
+
+    final delete = requests.singleWhere(
+      (request) => request.method == 'DELETE',
+    );
+    expect(delete.url.path, '/expenses/11111111-1111-1111-1111-111111111111');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('영수증 이미지가 없는 상세에서는 사진 영역을 숨긴다', (tester) async {
+    final requests = <http.Request>[];
+    final service = _service(requests, (_) => _expenseData);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: LedgerDetailScreen(
+          expenseId: '11111111-1111-1111-1111-111111111111',
+          financeService: service,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('소비사진  1'), findsNothing);
+  });
+
+  testWidgets('홈 최근 내역은 실제 시각이 있을 때만 포맷해 표시한다', (tester) async {
+    final requests = <http.Request>[];
+    final service = _service(requests, (request) {
+      if (request.url.path == '/home/recent') {
+        return {
+          'entries': [
+            {
+              'id': '11111111-1111-1111-1111-111111111111',
+              'type': 'expense',
+              'label': '저녁 카페',
+              'amount': 4500,
+              'date': '2026-09-01',
+              'paid_at': '2026-09-01T19:42:00+09:00',
+            },
+          ],
+        };
+      }
+      return <String, dynamic>{};
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: HomeScreen(financeService: service),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('오후 7:42'), findsOneWidget);
+    expect(find.text('오전 10:30'), findsNothing);
   });
 }
 

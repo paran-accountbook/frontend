@@ -186,26 +186,28 @@ class EditableReceiptFormState extends State<EditableReceiptForm> {
   }
 
   Future<String?> _ask(String title, String initial) async {
-    final controller = TextEditingController(text: initial);
-    final result = await showDialog<String>(
+    var value = initial;
+    return showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(title),
-        content: TextField(controller: controller, autofocus: true),
+        content: TextFormField(
+          initialValue: initial,
+          autofocus: true,
+          onChanged: (next) => value = next,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('취소'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            onPressed: () => Navigator.pop(context, value.trim()),
             child: const Text('확인'),
           ),
         ],
       ),
     );
-    controller.dispose();
-    return result;
   }
 
   Future<void> _editStore() async {

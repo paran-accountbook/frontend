@@ -14,6 +14,43 @@ import 'package:sobilog/features/ledger/presentation/ledger_edit_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_screen.dart';
 
 void main() {
+  testWidgets('가계 내역에 API 카테고리 아이콘을 표시한다', (tester) async {
+    final requests = <http.Request>[];
+    final service = _service(
+      requests,
+      (_) => {
+        'total_expense_amount': 28000,
+        'total_income_amount': 0,
+        'balance': -28000,
+        'days': [
+          {
+            'date': '2026-09-12',
+            'expenses': [
+              {
+                'id': '11111111-1111-1111-1111-111111111111',
+                'store_name': '영화관',
+                'category': '문화',
+                'payment_method': '현금',
+                'amount': 28000,
+              },
+            ],
+            'incomes': <Map<String, dynamic>>[],
+          },
+        ],
+      },
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: LedgerScreen(financeService: service),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('ledger-category-문화')), findsOneWidget);
+  });
+
   testWidgets('카테고리·결제수단 필터를 복수 쿼리로 조회한다', (tester) async {
     final requests = <http.Request>[];
     final service = _service(requests, (_) => _ledgerData);
@@ -26,7 +63,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('▽ 필터'));
+    await tester.tap(find.text('필터'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('ledger-filter-식비')));
     await tester.tap(find.byKey(const Key('ledger-filter-카페')));
@@ -140,7 +177,7 @@ void main() {
     expect(find.text('소비사진  1'), findsNothing);
   });
 
-  testWidgets('홈 최근 내역은 실제 시각이 있을 때만 포맷해 표시한다', (tester) async {
+  testWidgets('홈 최근 내역은 등록 시각의 날짜와 시간을 표시한다', (tester) async {
     final requests = <http.Request>[];
     final service = _service(requests, (request) {
       if (request.url.path == '/home/recent') {
@@ -151,8 +188,7 @@ void main() {
               'type': 'expense',
               'label': '저녁 카페',
               'amount': 4500,
-              'date': '2026-09-01',
-              'paid_at': '2026-09-01T19:42:00+09:00',
+              'registered_at': '2026-09-14T19:42:00+09:00',
             },
           ],
         };
@@ -167,6 +203,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('9/14'), findsOneWidget);
     expect(find.text('오후 7:42'), findsOneWidget);
     expect(find.text('오전 10:30'), findsNothing);
   });

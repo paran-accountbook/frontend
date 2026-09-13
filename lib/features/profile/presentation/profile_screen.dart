@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
+import '../../../shared/widgets/app_chevron.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../analysis/presentation/analysis_overview_screen.dart';
 import '../../finance/data/finance_service.dart';
@@ -180,10 +181,7 @@ class _ProfileSummary extends StatelessWidget {
               ],
             ),
           ),
-          const Text(
-            '〉',
-            style: TextStyle(color: AppColors.text, fontSize: 22),
-          ),
+          const AppChevron(),
         ],
       ),
     );
@@ -216,7 +214,7 @@ class _ProfileMenuRow extends StatelessWidget {
                 ),
               ),
             ),
-            SvgPicture.asset(AppAssets.profileArrow, width: 24, height: 24),
+            const AppChevron(),
           ],
         ),
       ),

@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
+import '../../../shared/widgets/app_chevron.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../analysis/presentation/analysis_overview_screen.dart';
 import '../../finance/data/finance_service.dart';
@@ -57,12 +58,16 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             Positioned(
               left: 24,
-              top: 66,
-              width: 132,
-              height: 25,
+              top: 67,
+              width: 100,
+              height: 20,
               child: Row(
                 children: [
-                  SvgPicture.asset(AppAssets.splashLogoSymbol, width: 20),
+                  SvgPicture.asset(
+                    AppAssets.splashLogoSymbol,
+                    width: 15,
+                    height: 20,
+                  ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: SvgPicture.asset(AppAssets.splashLogoWordmark),
@@ -89,15 +94,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            const Positioned(
+            Positioned(
               left: 24,
               top: 452,
               width: 354,
-              child: Row(
+              child: const Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('최근 등록 내역', style: _smallText),
-                  Text('전체 보기  〉', style: _smallText),
+                  Row(
+                    children: [
+                      Text('전체 보기', style: _smallText),
+                      SizedBox(width: 2),
+                      AppChevron(size: 18),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -316,7 +327,7 @@ class _RecentList extends StatelessWidget {
         List.generate(
           3,
           (_) => const <String, dynamic>{
-            'paid_at': '2026-08-19T10:30:00+09:00',
+            'registered_at': '2026-08-19T10:30:00+09:00',
           },
         );
     return Column(
@@ -334,8 +345,7 @@ class _RecentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rawDate = entry['date'] as String?;
-    final date = rawDate == null ? null : DateTime.tryParse(rawDate);
+    final date = _recentRegisteredAt(entry);
     final time = _recentTimeLabel(entry);
     final isIncome = entry['type'] == 'income';
     final amount = entry['amount'] as int? ?? 150000;
@@ -355,7 +365,7 @@ class _RecentRow extends StatelessWidget {
               fontSize: 14,
             ),
           ),
-          const SizedBox(width: 13),
+          const SizedBox(width: 10),
           SvgPicture.asset(AppAssets.categoryFood, width: 26, height: 26),
           const SizedBox(width: 10),
           Expanded(
@@ -393,13 +403,22 @@ class _RecentRow extends StatelessWidget {
 }
 
 String? _recentTimeLabel(Map<String, dynamic> entry) {
-  final raw = entry['paid_at'] ?? entry['occurred_at'] ?? entry['created_at'];
-  if (raw is! String) return null;
-  final value = DateTime.tryParse(raw)?.toLocal();
+  final value = _recentRegisteredAt(entry);
   if (value == null) return null;
   final period = value.hour < 12 ? '오전' : '오후';
   final hour = value.hour % 12 == 0 ? 12 : value.hour % 12;
   return '$period $hour:${value.minute.toString().padLeft(2, '0')}';
+}
+
+DateTime? _recentRegisteredAt(Map<String, dynamic> entry) {
+  final raw =
+      entry['registered_at'] ??
+      entry['date'] ??
+      entry['paid_at'] ??
+      entry['occurred_at'] ??
+      entry['created_at'];
+  if (raw is! String) return null;
+  return DateTime.tryParse(raw)?.toLocal();
 }
 
 class _WonIcon extends StatelessWidget {

@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
+import '../../../shared/widgets/app_chevron.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../analysis/presentation/analysis_overview_screen.dart';
 import '../../finance/data/finance_service.dart';
@@ -157,7 +158,9 @@ class _LedgerScreenState extends State<LedgerScreen> {
                     );
                   }),
                   _Chip(
-                    label: '▽ 필터',
+                    label: '필터',
+                    leadingAsset: AppAssets.filterLight,
+                    fixedWidth: 99,
                     selected:
                         _categories.isNotEmpty || _paymentMethods.isNotEmpty,
                     onTap: _showFilters,
@@ -415,11 +418,19 @@ class _FilterChoice extends StatelessWidget {
 }
 
 class _Chip extends StatelessWidget {
-  const _Chip({required this.label, this.selected = false, this.onTap});
+  const _Chip({
+    required this.label,
+    this.selected = false,
+    this.onTap,
+    this.leadingAsset,
+    this.fixedWidth,
+  });
 
   final String label;
   final bool selected;
   final VoidCallback? onTap;
+  final String? leadingAsset;
+  final double? fixedWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -427,21 +438,32 @@ class _Chip extends StatelessWidget {
       onTap: onTap,
       child: Container(
         height: 48,
+        width: fixedWidth,
         constraints: const BoxConstraints(minWidth: 66),
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: EdgeInsets.symmetric(horizontal: fixedWidth == null ? 26 : 0),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: selected ? const Color(0xFFA8A3FF) : AppColors.selected,
           borderRadius: BorderRadius.circular(30),
           border: Border.all(color: AppColors.outline, width: 0.5),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? const Color(0xFF1B1B1B) : AppColors.text50,
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (leadingAsset != null) ...[
+              SvgPicture.asset(leadingAsset!, width: 18, height: 18),
+              const SizedBox(width: 2),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? const Color(0xFF1B1B1B) : AppColors.text50,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -540,9 +562,9 @@ class _Totals extends StatelessWidget {
     return Column(
       children: [
         _TotalRow(label: '총 지출', amount: '-${_formatAmount(expense)} ₩'),
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
         _TotalRow(label: '총 수입', amount: '+${_formatAmount(income)} ₩'),
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
         _TotalRow(
           label: '잔액',
           amount: '${balance >= 0 ? '+' : ''}${_formatAmount(balance)} ₩',
@@ -645,6 +667,7 @@ class _Entries extends StatelessWidget {
             amount: '-${_formatAmount(item['amount'] as int? ?? 0)}',
             onTap: () => onTap(item['id'] as String?),
             title: item['store_name'] as String?,
+            category: item['category'] as String?,
             subtitle:
                 '${item['representative_item_name'] ?? item['category']}  ·  ${item['payment_method']}',
           ),
@@ -679,12 +702,14 @@ class _Entry extends StatelessWidget {
     required this.onTap,
     this.title,
     this.subtitle,
+    this.category,
   });
 
   final String amount;
   final VoidCallback onTap;
   final String? title;
   final String? subtitle;
+  final String? category;
 
   @override
   Widget build(BuildContext context) {
@@ -698,7 +723,12 @@ class _Entry extends StatelessWidget {
         ),
         child: Row(
           children: [
-            SvgPicture.asset(AppAssets.categoryFood, width: 26, height: 26),
+            SvgPicture.asset(
+              AppAssets.categoryIconFor(category),
+              key: Key('ledger-category-${category ?? '식비'}'),
+              width: 26,
+              height: 26,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -725,11 +755,8 @@ class _Entry extends StatelessWidget {
               ),
             ),
             _Price(amount: amount),
-            const SizedBox(width: 8),
-            const Text(
-              '〉',
-              style: TextStyle(color: AppColors.text, fontSize: 22),
-            ),
+            const SizedBox(width: 6),
+            const AppChevron(),
           ],
         ),
       ),

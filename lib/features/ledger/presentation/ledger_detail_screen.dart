@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../../../shared/widgets/app_chevron.dart';
 import '../../finance/data/finance_service.dart';
 import 'ledger_edit_screen.dart';
 
@@ -186,9 +187,15 @@ class _ReceiptDetail extends StatelessWidget {
                     key: const Key('edit-ledger-entry'),
                     onTap: onEdit,
                     behavior: HitTestBehavior.opaque,
-                    child: const Text(
-                      '수정  〉',
-                      style: TextStyle(color: AppColors.main, fontSize: 12),
+                    child: const Row(
+                      children: [
+                        Text(
+                          '수정',
+                          style: TextStyle(color: AppColors.main, fontSize: 12),
+                        ),
+                        SizedBox(width: 2),
+                        AppChevron(color: AppColors.main, size: 18),
+                      ],
                     ),
                   ),
                 ],

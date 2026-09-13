@@ -41,16 +41,19 @@ class AppBottomNavigation extends StatelessWidget {
                 stops: [0, 0.8],
               ),
             ),
-            child: Align(
-              alignment: const Alignment(0, -0.15),
-              child: SizedBox(
-                width: 318,
-                height: 42,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: List.generate(5, _buildItem),
+            child: Stack(
+              children: [
+                Positioned(
+                  left: 42,
+                  bottom: 46,
+                  width: 318,
+                  height: 30,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: List.generate(5, _buildItem),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ),
@@ -70,7 +73,7 @@ class AppBottomNavigation extends StatelessWidget {
         onTap: () => onSelected?.call(index),
         child: SizedBox(
           width: isRegister ? 48 : 30,
-          height: 42,
+          height: 30,
           child: Stack(
             alignment: Alignment.center,
             clipBehavior: Clip.none,
@@ -96,7 +99,7 @@ class AppBottomNavigation extends StatelessWidget {
               ),
               if (selected && !isRegister)
                 const Positioned(
-                  bottom: -1,
+                  bottom: -5,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       color: Colors.white,

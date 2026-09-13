@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
+import '../../../shared/widgets/app_chevron.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../finance/data/finance_service.dart';
 import 'register_income_screen.dart';
@@ -81,12 +82,12 @@ class RegisterTypeScreen extends StatelessWidget {
             ),
             Positioned(
               left: 24,
-              top: 386,
+              top: 393,
               child: _RegisterChoice(label: '소비 등록', onTap: expense),
             ),
             Positioned(
               left: 24,
-              top: 440,
+              top: 447,
               child: _RegisterChoice(label: '수입 등록', onTap: income),
             ),
             const Positioned(
@@ -119,14 +120,19 @@ class _RegisterChoice extends StatelessWidget {
           height: 34,
           child: Row(
             children: [
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppColors.main,
-                  shape: BoxShape.circle,
+              const SizedBox.square(
+                dimension: 34,
+                child: Center(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.main,
+                      shape: BoxShape.circle,
+                    ),
+                    child: SizedBox.square(dimension: 14),
+                  ),
                 ),
-                child: SizedBox.square(dimension: 14),
               ),
-              const SizedBox(width: 20),
+              const SizedBox(width: 10),
               Text(
                 label,
                 style: const TextStyle(
@@ -136,10 +142,7 @@ class _RegisterChoice extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              const Text(
-                '〉',
-                style: TextStyle(color: AppColors.text80, fontSize: 24),
-              ),
+              const AppChevron(color: AppColors.text80),
             ],
           ),
         ),

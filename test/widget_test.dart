@@ -21,6 +21,7 @@ import 'package:sobilog/features/register/presentation/register_type_screen.dart
 import 'package:sobilog/features/register/presentation/register_method_screen.dart';
 import 'package:sobilog/features/register/presentation/register_direct_screen.dart';
 import 'package:sobilog/features/register/presentation/register_income_screen.dart';
+import 'package:sobilog/features/register/presentation/receipt_entry_form.dart';
 import 'package:sobilog/features/profile/presentation/profile_screen.dart';
 import 'package:sobilog/features/onboarding/presentation/onboarding_screen.dart';
 import 'package:sobilog/features/splash/presentation/splash_screen.dart';
@@ -181,6 +182,35 @@ void main() {
     expect(find.text('직접 등록'), findsOneWidget);
     expect(find.text('저장'), findsOneWidget);
     expect(find.text('아메리카노'), findsNWidgets(3));
+  });
+
+  testWidgets('serializes expense payment time as an absolute UTC instant', (
+    tester,
+  ) async {
+    final key = GlobalKey<ReceiptEntryFormState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(
+          body: ReceiptEntryForm(
+            key: key,
+            editable: true,
+            initialData: const {
+              'store_name': 'E2E TEST',
+              'paid_at': '2026-09-14T01:38:00+09:00',
+              'category': '교육',
+              'payment_method': '카드',
+              'items': [
+                {'item_name': 'E2E BOOK', 'quantity': 1, 'unit_price': 12345},
+              ],
+            },
+          ),
+        ),
+      ),
+    );
+
+    final payload = key.currentState!.buildPayload(source: 'manual')!;
+    expect(payload['paid_at'], '2026-09-13T16:38:00.000Z');
   });
 
   testWidgets('renders income receipt', (tester) async {

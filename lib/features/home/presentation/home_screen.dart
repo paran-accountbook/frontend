@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
+import '../../../shared/widgets/app_category_icon.dart';
 import '../../../shared/widgets/app_chevron.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../analysis/presentation/analysis_overview_screen.dart';
@@ -366,7 +367,7 @@ class _RecentRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          SvgPicture.asset(AppAssets.categoryFood, width: 26, height: 26),
+          const AppCategoryIcon(),
           const SizedBox(width: 10),
           Expanded(
             child: Column(

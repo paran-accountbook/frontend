@@ -204,10 +204,13 @@ class _MonthSelector extends StatelessWidget {
     children: [
       GestureDetector(
         onTap: onPrevious,
-        child: SvgPicture.asset(
-          AppAssets.monthArrowActive,
-          width: 10,
-          height: 12,
+        child: Transform.rotate(
+          angle: 3.141592653589793,
+          child: SvgPicture.asset(
+            AppAssets.monthArrowActive,
+            width: 10,
+            height: 12,
+          ),
         ),
       ),
       Row(
@@ -286,6 +289,9 @@ class _Report extends StatelessWidget {
               )
               .toList();
     final goal = data?['goal'] as Map<String, dynamic>?;
+    final goalAmount = goal?['amount'] as int? ?? 0;
+    final goalUsageRate =
+        goal?['usage_rate'] as num? ?? (data == null ? 20 : 0);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -293,26 +299,23 @@ class _Report extends StatelessWidget {
         const SizedBox(height: 14),
         const Text(
           '총 지출',
-          style: TextStyle(color: AppColors.text50, fontSize: 12),
+          style: TextStyle(color: AppColors.text50, fontSize: 14),
         ),
         const SizedBox(height: 5),
-        _PriceText(value: _formatAmount(total), size: 26),
+        _PriceText(
+          value: _formatAmount(total),
+          size: 30,
+          wonWidth: 20,
+          wonHeight: 22,
+        ),
         const SizedBox(height: 4),
         Row(
           children: [
-            Text(
-              '${change >= 0 ? '▲' : '▼'} ${_formatAmount(change.abs())}',
-              style: TextStyle(
-                color: change >= 0
-                    ? const Color(0xFFCF376A)
-                    : const Color(0xFF4777D9),
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(width: 8),
+            _ChangePrice(change: change),
+            const SizedBox(width: 12),
             Text(
               '전월 대비 ${changeRate.toString()}%',
-              style: const TextStyle(color: AppColors.text50, fontSize: 9),
+              style: const TextStyle(color: AppColors.text50, fontSize: 12),
             ),
           ],
         ),
@@ -380,48 +383,44 @@ class _Report extends StatelessWidget {
             ),
           ),
         ),
-        if (data == null || goal != null) ...[
-          const _Asterisks(),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '$month월 지출 목표',
-                style: const TextStyle(color: AppColors.text50, fontSize: 12),
+        const _Asterisks(),
+        const SizedBox(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '$month월 지출 목표',
+              style: const TextStyle(color: AppColors.text50, fontSize: 14),
+            ),
+            Text(
+              '${_formatAmount(goalAmount)}원 중 ${_formatAmount(total)}원 사용',
+              style: const TextStyle(color: AppColors.text, fontSize: 14),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Text(
+              '$goalUsageRate%',
+              style: const TextStyle(
+                color: AppColors.text,
+                fontFamily: 'Amarante',
+                fontSize: 20,
               ),
-              Text(
-                '${_formatAmount(goal?['amount'] as int? ?? 0)}원 중 ${_formatAmount(total)}원 사용',
-                style: const TextStyle(color: AppColors.text, fontSize: 10),
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: LinearProgressIndicator(
+                value: (goalUsageRate / 100).clamp(0, 1).toDouble(),
+                minHeight: 15,
+                color: AppColors.main,
+                backgroundColor: AppColors.selected,
+                borderRadius: BorderRadius.all(Radius.circular(5)),
               ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Text(
-                '${goal?['usage_rate'] ?? 20}%',
-                style: const TextStyle(
-                  color: AppColors.text,
-                  fontFamily: 'Amarante',
-                  fontSize: 18,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: LinearProgressIndicator(
-                  value: ((goal?['usage_rate'] as num? ?? 20) / 100)
-                      .clamp(0, 1)
-                      .toDouble(),
-                  minHeight: 10,
-                  color: AppColors.main,
-                  backgroundColor: AppColors.selected,
-                  borderRadius: BorderRadius.all(Radius.circular(6)),
-                ),
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -468,9 +467,9 @@ class _Metric extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(color: AppColors.text50, fontSize: 12),
+          style: const TextStyle(color: AppColors.text50, fontSize: 14),
         ),
-        _PriceText(value: value, size: 16, accent: accent),
+        _PriceText(value: value, size: 20, accent: accent),
       ],
     ),
   );
@@ -481,10 +480,14 @@ class _PriceText extends StatelessWidget {
     required this.value,
     required this.size,
     this.accent = false,
+    this.wonWidth = 14,
+    this.wonHeight = 15,
   });
   final String value;
   final double size;
   final bool accent;
+  final double wonWidth;
+  final double wonHeight;
   @override
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
@@ -498,9 +501,59 @@ class _PriceText extends StatelessWidget {
         ),
       ),
       const SizedBox(width: 4),
-      SvgPicture.asset(AppAssets.wonLight, width: 12, height: 13),
+      SvgPicture.asset(
+        AppAssets.wonLight,
+        width: wonWidth,
+        height: wonHeight,
+        colorFilter: accent
+            ? const ColorFilter.mode(Color(0xFFA8A3FF), BlendMode.srcIn)
+            : null,
+      ),
     ],
   );
+}
+
+class _ChangePrice extends StatelessWidget {
+  const _ChangePrice({required this.change});
+
+  final int change;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = change >= 0
+        ? const Color(0xFFCF376A)
+        : const Color(0xFF4777D9);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 10,
+          height: 9,
+          child: RotatedBox(
+            quarterTurns: change >= 0 ? 3 : 1,
+            child: SvgPicture.asset(
+              AppAssets.spendUp,
+              width: 9,
+              height: 10,
+              colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          _formatAmount(change.abs()),
+          style: TextStyle(color: color, fontFamily: 'Amarante', fontSize: 20),
+        ),
+        const SizedBox(width: 4),
+        SvgPicture.asset(
+          AppAssets.wonLight,
+          width: 14,
+          height: 15,
+          colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+        ),
+      ],
+    );
+  }
 }
 
 class _Asterisks extends StatelessWidget {

@@ -9,6 +9,7 @@ import 'package:sobilog/features/auth/presentation/verification_screen.dart';
 import 'package:sobilog/features/analysis/presentation/analysis_overview_screen.dart';
 import 'package:sobilog/features/analysis/presentation/analysis_detail_screen.dart';
 import 'package:sobilog/features/analysis/presentation/analysis_goal_screen.dart';
+import 'package:sobilog/features/finance/data/finance_service.dart';
 import 'package:sobilog/features/dutch/presentation/dutch_people_screen.dart';
 import 'package:sobilog/features/dutch/presentation/dutch_assignment_screen.dart';
 import 'package:sobilog/features/dutch/presentation/dutch_result_screen.dart';
@@ -270,6 +271,23 @@ void main() {
     expect(find.text('식비'), findsOneWidget);
   });
 
+  testWidgets('keeps spending goal visible when analysis omits goal', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: AnalysisOverviewScreen(
+          financeService: _AnalysisWithoutGoalService(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.textContaining('지출 목표'), findsOneWidget);
+    expect(find.text('0%'), findsOneWidget);
+  });
+
   testWidgets('opens analysis overview from home summary', (tester) async {
     await tester.pumpWidget(
       MaterialApp(theme: AppTheme.dark, home: const HomeScreen()),
@@ -327,4 +345,23 @@ void main() {
     expect(find.text('출석 현황'), findsOneWidget);
     expect(find.text('계정 설정'), findsOneWidget);
   });
+}
+
+class _AnalysisWithoutGoalService implements FinanceService {
+  @override
+  Future<Map<String, dynamic>> analysis({
+    required int year,
+    required int month,
+  }) async => {
+    'total_expense_amount': 150000,
+    'daily_average_expense': 40000,
+    'total_income_amount': 150000,
+    'balance': 150000,
+    'change_amount': 2500,
+    'change_rate': 12,
+    'category_breakdown': <Map<String, dynamic>>[],
+  };
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

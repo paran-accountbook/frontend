@@ -6,8 +6,14 @@ abstract interface class FinanceService {
     required String period,
     required DateTime anchor,
     String type = 'all',
+    List<String> categories = const [],
+    List<String> paymentMethods = const [],
   });
   Future<Map<String, dynamic>> expenseDetail(String id);
+  Future<Map<String, dynamic>> updateExpense(
+    String id,
+    Map<String, Object?> body,
+  );
   Future<Map<String, dynamic>> analysis({
     required int year,
     required int month,
@@ -40,6 +46,8 @@ class FinanceApiService implements FinanceService {
     required String period,
     required DateTime anchor,
     String type = 'all',
+    List<String> categories = const [],
+    List<String> paymentMethods = const [],
   }) async =>
       await _client.get(
             '/expenses',
@@ -47,12 +55,20 @@ class FinanceApiService implements FinanceService {
               'period': period,
               'date': anchor.toIso8601String().substring(0, 10),
               'type': type,
+              if (categories.isNotEmpty) 'category': categories,
+              if (paymentMethods.isNotEmpty) 'payment_method': paymentMethods,
             },
           )
           as Map<String, dynamic>;
   @override
   Future<Map<String, dynamic>> expenseDetail(String id) async =>
       await _client.get('/expenses/$id') as Map<String, dynamic>;
+  @override
+  Future<Map<String, dynamic>> updateExpense(
+    String id,
+    Map<String, Object?> body,
+  ) async =>
+      await _client.patch('/expenses/$id', body: body) as Map<String, dynamic>;
   @override
   Future<Map<String, dynamic>> analysis({
     required int year,

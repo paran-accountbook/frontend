@@ -27,6 +27,8 @@ class _LedgerScreenState extends State<LedgerScreen> {
   int _type = 0;
   late DateTime _anchor;
   Map<String, dynamic>? _data;
+  Set<String> _categories = {};
+  Set<String> _paymentMethods = {};
 
   @override
   void initState() {
@@ -45,6 +47,8 @@ class _LedgerScreenState extends State<LedgerScreen> {
         period: const ['month', 'week', 'day'][_period],
         anchor: _anchor,
         type: const ['all', 'expense', 'income'][_type],
+        categories: _categories.toList(),
+        paymentMethods: _paymentMethods.toList(),
       );
       if (mounted) setState(() => _data = data);
     } catch (_) {
@@ -151,7 +155,12 @@ class _LedgerScreenState extends State<LedgerScreen> {
                       ),
                     );
                   }),
-                  const _Chip(label: '▽ 필터'),
+                  _Chip(
+                    label: '▽ 필터',
+                    selected:
+                        _categories.isNotEmpty || _paymentMethods.isNotEmpty,
+                    onTap: _showFilters,
+                  ),
                 ],
               ),
             ),
@@ -185,6 +194,24 @@ class _LedgerScreenState extends State<LedgerScreen> {
     _load();
   }
 
+  Future<void> _showFilters() async {
+    final result = await showDialog<_LedgerFilters>(
+      context: context,
+      barrierColor: const Color(0xD9111216),
+      builder: (context) => _FilterDialog(
+        initialCategories: _categories,
+        initialPaymentMethods: _paymentMethods,
+        initialExpenseTotal: _data?['total_expense_amount'] as int? ?? 0,
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _categories = result.categories;
+      _paymentMethods = result.paymentMethods;
+    });
+    await _load();
+  }
+
   void _navigate(BuildContext context, int index) {
     final Widget? page = switch (index) {
       0 => HomeScreen(financeService: widget.financeService),
@@ -201,6 +228,189 @@ class _LedgerScreenState extends State<LedgerScreen> {
       Navigator.of(context).pushReplacement(route);
     }
   }
+}
+
+class _LedgerFilters {
+  const _LedgerFilters({
+    required this.categories,
+    required this.paymentMethods,
+  });
+
+  final Set<String> categories;
+  final Set<String> paymentMethods;
+}
+
+class _FilterDialog extends StatefulWidget {
+  const _FilterDialog({
+    required this.initialCategories,
+    required this.initialPaymentMethods,
+    required this.initialExpenseTotal,
+  });
+
+  final Set<String> initialCategories;
+  final Set<String> initialPaymentMethods;
+  final int initialExpenseTotal;
+
+  @override
+  State<_FilterDialog> createState() => _FilterDialogState();
+}
+
+class _FilterDialogState extends State<_FilterDialog> {
+  static const _categoryValues = [
+    '식비',
+    '카페',
+    '쇼핑',
+    '의료',
+    '문화',
+    '교통',
+    '교육',
+    '기타',
+  ];
+  static const _paymentValues = ['현금', '카드', '미지정'];
+
+  late final Set<String> _categories = {...widget.initialCategories};
+  late final Set<String> _paymentMethods = {...widget.initialPaymentMethods};
+
+  @override
+  Widget build(BuildContext context) => Dialog.fullscreen(
+    backgroundColor: Colors.transparent,
+    child: ColoredBox(
+      color: const Color(0xC9111216),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 64, 24, 40),
+          child: Column(
+            children: [
+              IconButton(
+                key: const Key('close-ledger-filter'),
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close, color: AppColors.text, size: 32),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '필터',
+                style: TextStyle(color: AppColors.text, fontSize: 16),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                '중복 선택 가능',
+                style: TextStyle(color: AppColors.text50, fontSize: 12),
+              ),
+              const SizedBox(height: 48),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                runSpacing: 10,
+                children: _categoryValues
+                    .map(
+                      (value) => _FilterChoice(
+                        value: value,
+                        selected: _categories.contains(value),
+                        onTap: () => _toggle(_categories, value),
+                      ),
+                    )
+                    .toList(),
+              ),
+              const SizedBox(height: 44),
+              const Text(
+                '지출에만 적용',
+                style: TextStyle(color: AppColors.text50, fontSize: 12),
+              ),
+              const SizedBox(height: 20),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                children: _paymentValues
+                    .map(
+                      (value) => _FilterChoice(
+                        value: value,
+                        selected: _paymentMethods.contains(value),
+                        onTap: () => _toggle(_paymentMethods, value),
+                      ),
+                    )
+                    .toList(),
+              ),
+              const Spacer(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '선택한 조건의 지출 합계',
+                    style: TextStyle(color: AppColors.text50, fontSize: 12),
+                  ),
+                  Text(
+                    '${_formatAmount(widget.initialExpenseTotal)} ₩',
+                    style: const TextStyle(
+                      color: AppColors.text,
+                      fontFamily: 'Amarante',
+                      fontSize: 22,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: FilledButton(
+                  key: const Key('apply-ledger-filter'),
+                  onPressed: () => Navigator.pop(
+                    context,
+                    _LedgerFilters(
+                      categories: {..._categories},
+                      paymentMethods: {..._paymentMethods},
+                    ),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF5C52FF),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  ),
+                  child: const Text('내역 보기'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+
+  void _toggle(Set<String> values, String value) => setState(() {
+    values.contains(value) ? values.remove(value) : values.add(value);
+  });
+}
+
+class _FilterChoice extends StatelessWidget {
+  const _FilterChoice({
+    required this.value,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String value;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => ChoiceChip(
+    key: Key('ledger-filter-$value'),
+    label: Text(value),
+    selected: selected,
+    onSelected: (_) => onTap(),
+    selectedColor: const Color(0xFFA8A3FF),
+    backgroundColor: AppColors.selected,
+    labelStyle: TextStyle(
+      color: selected ? const Color(0xFF1B1B1B) : AppColors.text50,
+      fontSize: 15,
+      fontWeight: FontWeight.w600,
+    ),
+    side: const BorderSide(color: AppColors.outline, width: 0.5),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    showCheckmark: false,
+  );
 }
 
 class _Chip extends StatelessWidget {

@@ -4,6 +4,7 @@ import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../finance/data/finance_service.dart';
+import 'ledger_edit_screen.dart';
 
 class LedgerDetailScreen extends StatefulWidget {
   const LedgerDetailScreen({super.key, this.expenseId, this.financeService});
@@ -76,18 +77,39 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
               top: 112,
               width: 354,
               height: 622,
-              child: _ReceiptDetail(data: _data),
+              child: _ReceiptDetail(
+                data: _data,
+                onEdit: _data == null ? null : _openEdit,
+              ),
             ),
           ],
         ),
       ),
     );
   }
+
+  Future<void> _openEdit() async {
+    final id = widget.expenseId;
+    final service = widget.financeService;
+    final data = _data;
+    if (id == null || service == null || data == null) return;
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => LedgerEditScreen(
+          expenseId: id,
+          financeService: service,
+          initialData: data,
+        ),
+      ),
+    );
+    if (changed == true) await _load();
+  }
 }
 
 class _ReceiptDetail extends StatelessWidget {
-  const _ReceiptDetail({this.data});
+  const _ReceiptDetail({this.data, this.onEdit});
   final Map<String, dynamic>? data;
+  final VoidCallback? onEdit;
   @override
   Widget build(BuildContext context) {
     final items = (data?['items'] as List?)
@@ -152,9 +174,14 @@ class _ReceiptDetail extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('품목   ${visibleItems.length}', style: _darkMuted),
-                  const Text(
-                    '수정  〉',
-                    style: TextStyle(color: AppColors.main, fontSize: 12),
+                  GestureDetector(
+                    key: const Key('edit-ledger-entry'),
+                    onTap: onEdit,
+                    behavior: HitTestBehavior.opaque,
+                    child: const Text(
+                      '수정  〉',
+                      style: TextStyle(color: AppColors.main, fontSize: 12),
+                    ),
                   ),
                 ],
               ),

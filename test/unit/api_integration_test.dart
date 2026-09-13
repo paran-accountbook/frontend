@@ -26,17 +26,25 @@ void main() {
       period: 'month',
       anchor: DateTime(2026, 9, 13),
       type: 'expense',
+      categories: const ['식비', '카페'],
+      paymentMethods: const ['현금', '카드'],
     );
+    await service.updateExpense('expense-1', {'store_name': '소비로그 카페'});
     await service.analysis(year: 2026, month: 9);
 
     expect(requests[0].url.path, '/home/summary');
     expect(requests[1].url.path, '/home/recent');
-    expect(requests[2].url.queryParameters, {
-      'period': 'month',
-      'date': '2026-09-13',
-      'type': 'expense',
+    expect(requests[2].url.queryParametersAll, {
+      'period': ['month'],
+      'date': ['2026-09-13'],
+      'type': ['expense'],
+      'category': ['식비', '카페'],
+      'payment_method': ['현금', '카드'],
     });
-    expect(requests[3].url.queryParameters, {'month': '2026-09'});
+    expect(requests[3].method, 'PATCH');
+    expect(requests[3].url.path, '/expenses/expense-1');
+    expect(jsonDecode(requests[3].body), {'store_name': '소비로그 카페'});
+    expect(requests[4].url.queryParameters, {'month': '2026-09'});
     expect(
       requests.every(
         (request) => request.headers['authorization'] == 'Bearer access',

@@ -33,7 +33,7 @@ class ApiClient {
 
   Future<Object?> get(
     String path, {
-    Map<String, String>? query,
+    Map<String, Object?>? query,
     bool authenticated = true,
   }) => _send('GET', path, query: query, authenticated: authenticated);
 
@@ -92,7 +92,7 @@ class ApiClient {
     String method,
     String path, {
     Object? body,
-    Map<String, String>? query,
+    Map<String, Object?>? query,
     required bool authenticated,
     bool retrying = false,
   }) async {

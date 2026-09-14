@@ -96,6 +96,32 @@ void main() {
     );
   });
 
+  testWidgets('analysis locked icons match the Figma geometry', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const AnalysisOverviewScreen()),
+    );
+
+    await tester.tap(find.text('AI분석'));
+    await tester.pump();
+
+    expect(
+      tester.getSize(find.byKey(const ValueKey('analysis-locked-icon-slot-0'))),
+      const Size.square(26),
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey('analysis-locked-icon-0'))),
+      const Size.square(18),
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey('analysis-locked-icon-1'))),
+      const Size.square(26),
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey('analysis-locked-icon-2'))),
+      const Size.square(26),
+    );
+  });
+
   testWidgets('renders the splash logo', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

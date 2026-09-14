@@ -588,16 +588,23 @@ class _LockedList extends StatelessWidget {
           ),
           child: Row(
             children: [
-              SizedBox(
-                width: 28,
-                height: 28,
-                child: SvgPicture.asset(switch (index) {
-                  0 => AppAssets.analysisPattern,
-                  1 => AppAssets.analysisAi,
-                  _ => AppAssets.analysisRepurchase,
-                }),
+              SizedBox.square(
+                key: ValueKey('analysis-locked-icon-slot-$index'),
+                dimension: 26,
+                child: Center(
+                  child: SizedBox(
+                    key: ValueKey('analysis-locked-icon-$index'),
+                    width: index == 0 ? 18 : 26,
+                    height: index == 0 ? 18 : 26,
+                    child: SvgPicture.asset(switch (index) {
+                      0 => AppAssets.analysisPattern,
+                      1 => AppAssets.analysisAi,
+                      _ => AppAssets.analysisRepurchase,
+                    }, fit: BoxFit.fill),
+                  ),
+                ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,

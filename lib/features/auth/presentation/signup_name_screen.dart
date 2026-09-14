@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
@@ -103,25 +102,13 @@ class _SignupNameScreenState extends State<SignupNameScreen> {
               ],
             ),
           ),
-          AuthBottomAction(label: '가입 완료', onPressed: _continue),
-          const Positioned(
-            left: 158,
-            bottom: 62,
-            width: 18,
-            height: 12,
-            child: IgnorePointer(child: _SignupCompleteIcon()),
+          AuthBottomAction(
+            label: '가입 완료',
+            leadingIconAsset: AppAssets.signupComplete,
+            onPressed: _continue,
           ),
         ],
       ),
     );
-  }
-}
-
-class _SignupCompleteIcon extends StatelessWidget {
-  const _SignupCompleteIcon();
-
-  @override
-  Widget build(BuildContext context) {
-    return SvgPicture.asset(AppAssets.signupComplete);
   }
 }

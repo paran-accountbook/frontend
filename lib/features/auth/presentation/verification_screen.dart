@@ -11,6 +11,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/auth_widgets.dart';
 import '../data/auth_service.dart';
 import 'signup_password_screen.dart';
+import 'terms_screen.dart';
 
 class VerificationScreen extends StatefulWidget {
   const VerificationScreen({
@@ -132,9 +133,23 @@ class _VerificationScreenState extends State<VerificationScreen> {
       callback();
       return;
     }
+    final email = widget.email ?? '';
+    final service = widget.authService;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => SignupPasswordScreen(email: widget.email ?? ''),
+        builder: (_) => TermsScreen(
+          onConsentCompleted: (marketingAgreed) {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => SignupPasswordScreen(
+                  email: email,
+                  marketingAgreed: marketingAgreed,
+                  authService: service,
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }

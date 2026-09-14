@@ -14,7 +14,7 @@ import '../../finance/data/finance_service.dart';
 import '../../home/presentation/home_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../register/presentation/register_type_screen.dart';
-import 'ledger_detail_screen.dart';
+import 'ledger_edit_screen.dart';
 
 class LedgerScreen extends StatefulWidget {
   const LedgerScreen({super.key, this.onEntrySelected, this.financeService});
@@ -67,15 +67,18 @@ class _LedgerScreenState extends State<LedgerScreen> {
         callback();
         return;
       }
-      final changed = await Navigator.of(context).push<bool>(
-        MaterialPageRoute<bool>(
-          builder: (_) => LedgerDetailScreen(
+      final result = await Navigator.of(context).push<LedgerEditResult>(
+        MaterialPageRoute<LedgerEditResult>(
+          builder: (_) => LedgerEditScreen(
             expenseId: id,
             financeService: widget.financeService,
           ),
         ),
       );
-      if (changed == true) await _load();
+      if (result == LedgerEditResult.updated ||
+          result == LedgerEditResult.deleted) {
+        await _load();
+      }
     }
 
     return Scaffold(

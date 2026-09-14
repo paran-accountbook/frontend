@@ -26,8 +26,37 @@ import 'package:sobilog/features/register/presentation/receipt_entry_form.dart';
 import 'package:sobilog/features/profile/presentation/profile_screen.dart';
 import 'package:sobilog/features/onboarding/presentation/onboarding_screen.dart';
 import 'package:sobilog/features/splash/presentation/splash_screen.dart';
+import 'package:sobilog/shared/widgets/app_bottom_navigation.dart';
 
 void main() {
+  testWidgets('bottom navigation matches the Figma item geometry', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: AppBottomNavigation(selectedIndex: 0)),
+      ),
+    );
+
+    expect(
+      tester.getSize(find.byKey(const ValueKey('bottom-navigation-item-2'))),
+      const Size(48, 36),
+    );
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey('bottom-navigation-register-icon')),
+      ),
+      const Size(36, 36),
+    );
+    final home = tester.getCenter(
+      find.byKey(const ValueKey('bottom-navigation-item-0')),
+    );
+    final ledger = tester.getCenter(
+      find.byKey(const ValueKey('bottom-navigation-item-1')),
+    );
+    expect(ledger.dx - home.dx, 58);
+  });
+
   testWidgets('renders the splash logo', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

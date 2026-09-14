@@ -47,10 +47,20 @@ class AppBottomNavigation extends StatelessWidget {
                   left: 42,
                   bottom: 46,
                   width: 318,
-                  height: 30,
+                  height: 36,
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: List.generate(5, _buildItem),
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildItem(0),
+                      const SizedBox(width: 28),
+                      _buildItem(1),
+                      const SizedBox(width: 28),
+                      _buildItem(2),
+                      const SizedBox(width: 28),
+                      _buildItem(3),
+                      const SizedBox(width: 28),
+                      _buildItem(4),
+                    ],
                   ),
                 ),
               ],
@@ -72,8 +82,9 @@ class AppBottomNavigation extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: () => onSelected?.call(index),
         child: SizedBox(
+          key: ValueKey('bottom-navigation-item-$index'),
           width: isRegister ? 48 : 30,
-          height: 30,
+          height: isRegister ? 36 : 30,
           child: Stack(
             alignment: Alignment.center,
             clipBehavior: Clip.none,
@@ -85,17 +96,25 @@ class AppBottomNavigation extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: AppColors.main,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.outline, width: 0.5),
+                    border: Border.all(
+                      color: const Color(0x40FFFFFF),
+                      width: 0.474,
+                    ),
                   ),
                 ),
               SvgPicture.asset(
                 _assets[index],
+                key: isRegister
+                    ? const ValueKey('bottom-navigation-register-icon')
+                    : null,
                 width: isRegister ? 36 : 30,
-                height: 30,
-                colorFilter: ColorFilter.mode(
-                  isRegister || selected ? Colors.white : Colors.white38,
-                  BlendMode.srcIn,
-                ),
+                height: isRegister ? 36 : 30,
+                colorFilter: isRegister
+                    ? null
+                    : ColorFilter.mode(
+                        selected ? Colors.white : Colors.white38,
+                        BlendMode.srcIn,
+                      ),
               ),
               if (selected && !isRegister)
                 const Positioned(

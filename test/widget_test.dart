@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:sobilog/core/theme/app_theme.dart';
 import 'package:sobilog/features/auth/presentation/email_login_screen.dart';
 import 'package:sobilog/features/auth/presentation/login_screen.dart';
+import 'package:sobilog/features/auth/presentation/signup_name_screen.dart';
 import 'package:sobilog/features/auth/presentation/terms_screen.dart';
 import 'package:sobilog/features/auth/presentation/verification_screen.dart';
 import 'package:sobilog/features/analysis/presentation/analysis_overview_screen.dart';
@@ -29,6 +30,40 @@ import 'package:sobilog/features/splash/presentation/splash_screen.dart';
 import 'package:sobilog/shared/widgets/app_bottom_navigation.dart';
 
 void main() {
+  testWidgets('signup completion content matches the Figma button layout', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(402, 874);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: const SignupNameScreen(
+          email: 'user@test.com',
+          password: 'Password1!',
+        ),
+      ),
+    );
+
+    final iconRect = tester.getRect(
+      find.byKey(const ValueKey('auth-bottom-action-leading-icon')),
+    );
+    final labelRect = tester.getRect(
+      find.byKey(const ValueKey('auth-bottom-action-label')),
+    );
+    expect(iconRect.size, const Size(18, 12));
+    expect(labelRect.left - iconRect.right, 10);
+
+    await tester.enterText(find.byType(TextField), '테스트');
+    await tester.tap(find.text('가입 완료'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TermsScreen), findsOneWidget);
+  });
+
   testWidgets('bottom navigation matches the Figma item geometry', (
     tester,
   ) async {

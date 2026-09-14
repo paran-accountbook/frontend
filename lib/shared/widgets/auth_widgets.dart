@@ -123,11 +123,13 @@ class AuthBottomAction extends StatelessWidget {
     required this.onPressed,
     super.key,
     this.bottom = 40,
+    this.leadingIconAsset,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final double bottom;
+  final String? leadingIconAsset;
 
   @override
   Widget build(BuildContext context) {
@@ -163,13 +165,36 @@ class AuthBottomAction extends StatelessWidget {
                   ),
                 ),
               ),
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              child: leadingIconAsset != null
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          key: const ValueKey(
+                            'auth-bottom-action-leading-icon',
+                          ),
+                          width: 18,
+                          height: 12,
+                          child: SvgPicture.asset(leadingIconAsset!),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          label,
+                          key: const ValueKey('auth-bottom-action-label'),
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
             ),
           ),
         ),

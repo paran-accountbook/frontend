@@ -87,10 +87,16 @@ abstract final class AppAssets {
   };
 
   static const String navHome = '$_iconRoot/navigation/home.svg';
+  static const String navHomeSelected = '$_iconRoot/navigation/home_on.svg';
   static const String navLedger = '$_iconRoot/navigation/bookmark.svg';
+  static const String navLedgerSelected =
+      '$_iconRoot/navigation/bookmark_on.svg';
   static const String navRegister = '$_iconRoot/navigation/receipt_add.svg';
   static const String navAnalysis = '$_iconRoot/navigation/search.svg';
+  static const String navAnalysisSelected =
+      '$_iconRoot/navigation/search_on.svg';
   static const String navProfile = '$_iconRoot/navigation/user.svg';
+  static const String navProfileSelected = '$_iconRoot/navigation/user_on.svg';
 
   static const String homeReceipt = '$_imageRoot/home/summary_receipt.svg';
   static const String homeReceiptCompact =

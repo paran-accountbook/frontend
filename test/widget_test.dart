@@ -57,6 +57,45 @@ void main() {
     expect(ledger.dx - home.dx, 58);
   });
 
+  testWidgets('bottom navigation swaps to the selected Figma variant', (
+    tester,
+  ) async {
+    var selectedIndex = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) => Scaffold(
+            body: AppBottomNavigation(
+              selectedIndex: selectedIndex,
+              onSelected: (index) => setState(() => selectedIndex = index),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const ValueKey('bottom-navigation-icon-0-on')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('bottom-navigation-icon-4-off')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('bottom-navigation-item-4')));
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('bottom-navigation-icon-0-off')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('bottom-navigation-icon-4-on')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('renders the splash logo', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

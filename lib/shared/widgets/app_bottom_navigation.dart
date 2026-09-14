@@ -17,11 +17,11 @@ class AppBottomNavigation extends StatelessWidget {
   final ValueChanged<int>? onSelected;
 
   static const _assets = [
-    AppAssets.navHome,
-    AppAssets.navLedger,
-    AppAssets.navRegister,
-    AppAssets.navAnalysis,
-    AppAssets.navProfile,
+    (off: AppAssets.navHome, on: AppAssets.navHomeSelected),
+    (off: AppAssets.navLedger, on: AppAssets.navLedgerSelected),
+    (off: AppAssets.navRegister, on: AppAssets.navRegister),
+    (off: AppAssets.navAnalysis, on: AppAssets.navAnalysisSelected),
+    (off: AppAssets.navProfile, on: AppAssets.navProfileSelected),
   ];
 
   @override
@@ -102,31 +102,19 @@ class AppBottomNavigation extends StatelessWidget {
                     ),
                   ),
                 ),
-              SvgPicture.asset(
-                _assets[index],
-                key: isRegister
-                    ? const ValueKey('bottom-navigation-register-icon')
-                    : null,
-                width: isRegister ? 36 : 30,
-                height: isRegister ? 36 : 30,
-                colorFilter: isRegister
-                    ? null
-                    : ColorFilter.mode(
-                        selected ? Colors.white : Colors.white38,
-                        BlendMode.srcIn,
-                      ),
-              ),
-              if (selected && !isRegister)
-                const Positioned(
-                  bottom: -5,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: SizedBox.square(dimension: 4),
+              Positioned(
+                top: 0,
+                child: SvgPicture.asset(
+                  selected ? _assets[index].on : _assets[index].off,
+                  key: ValueKey(
+                    isRegister
+                        ? 'bottom-navigation-register-icon'
+                        : 'bottom-navigation-icon-$index-${selected ? 'on' : 'off'}',
                   ),
+                  width: isRegister ? 36 : 30,
+                  height: isRegister ? 36 : (selected ? 35 : 30),
                 ),
+              ),
             ],
           ),
         ),

@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -101,6 +103,7 @@ class _LedgerScreenState extends State<LedgerScreen> {
                   return Padding(
                     padding: EdgeInsets.only(right: index == 2 ? 0 : 8),
                     child: _Chip(
+                      key: Key('ledger-period-$index'),
                       label: const ['월', '주', '일'][index],
                       selected: _period == index,
                       onTap: () {
@@ -116,8 +119,9 @@ class _LedgerScreenState extends State<LedgerScreen> {
               left: 24,
               top: 272,
               width: 354,
-              child: _MonthSelector(
+              child: _PeriodSelector(
                 anchor: _anchor,
+                period: _period,
                 onPrevious: () => _movePeriod(-1),
                 onNext: () => _movePeriod(1),
               ),
@@ -172,7 +176,13 @@ class _LedgerScreenState extends State<LedgerScreen> {
             Positioned(
               left: 24,
               top: 588,
-              child: _Entries(onTap: openDetail, type: _type, data: _data),
+              right: 24,
+              bottom: 100,
+              child: SingleChildScrollView(
+                key: const Key('ledger-entries-scroll'),
+                padding: const EdgeInsets.only(bottom: 24),
+                child: _Entries(onTap: openDetail, type: _type, data: _data),
+              ),
             ),
             Positioned(
               left: 0,
@@ -206,15 +216,20 @@ class _LedgerScreenState extends State<LedgerScreen> {
       builder: (context) => _FilterDialog(
         initialCategories: _categories,
         initialPaymentMethods: _paymentMethods,
-        initialExpenseTotal: _data?['total_expense_amount'] as int? ?? 0,
+        initialData: _data,
+        financeService: widget.financeService,
+        period: const ['month', 'week', 'day'][_period],
+        anchor: _anchor,
+        type: const ['all', 'expense', 'income'][_type],
       ),
     );
     if (result == null || !mounted) return;
     setState(() {
       _categories = result.categories;
       _paymentMethods = result.paymentMethods;
+      if (result.previewData != null) _data = result.previewData;
     });
-    await _load();
+    if (result.previewData == null) await _load();
   }
 
   void _navigate(BuildContext context, int index) {
@@ -239,22 +254,32 @@ class _LedgerFilters {
   const _LedgerFilters({
     required this.categories,
     required this.paymentMethods,
+    this.previewData,
   });
 
   final Set<String> categories;
   final Set<String> paymentMethods;
+  final Map<String, dynamic>? previewData;
 }
 
 class _FilterDialog extends StatefulWidget {
   const _FilterDialog({
     required this.initialCategories,
     required this.initialPaymentMethods,
-    required this.initialExpenseTotal,
+    required this.initialData,
+    required this.financeService,
+    required this.period,
+    required this.anchor,
+    required this.type,
   });
 
   final Set<String> initialCategories;
   final Set<String> initialPaymentMethods;
-  final int initialExpenseTotal;
+  final Map<String, dynamic>? initialData;
+  final FinanceService? financeService;
+  final String period;
+  final DateTime anchor;
+  final String type;
 
   @override
   State<_FilterDialog> createState() => _FilterDialogState();
@@ -275,87 +300,136 @@ class _FilterDialogState extends State<_FilterDialog> {
 
   late final Set<String> _categories = {...widget.initialCategories};
   late final Set<String> _paymentMethods = {...widget.initialPaymentMethods};
+  late Map<String, dynamic>? _previewData = widget.initialData;
+  bool _isLoading = false;
+  int _requestGeneration = 0;
+
+  int get _expenseTotal => _previewData?['total_expense_amount'] as int? ?? 0;
+
+  int get _entryCount =>
+      (_previewData?['expense_count'] as int? ?? 0) +
+      (_previewData?['income_count'] as int? ?? 0);
 
   @override
   Widget build(BuildContext context) => Dialog.fullscreen(
     backgroundColor: Colors.transparent,
-    child: ColoredBox(
-      color: const Color(0xC9111216),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 64, 24, 40),
-          child: Column(
+    child: DesignCanvas(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+        child: ColoredBox(
+          color: const Color(0x99121215),
+          child: Stack(
             children: [
-              IconButton(
-                key: const Key('close-ledger-filter'),
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close, color: AppColors.text, size: 32),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                '필터',
-                style: TextStyle(color: AppColors.text, fontSize: 16),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                '중복 선택 가능',
-                style: TextStyle(color: AppColors.text50, fontSize: 12),
-              ),
-              const SizedBox(height: 48),
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 8,
-                runSpacing: 10,
-                children: _categoryValues
-                    .map(
-                      (value) => _FilterChoice(
-                        value: value,
-                        selected: _categories.contains(value),
-                        onTap: () => _toggle(_categories, value),
-                      ),
-                    )
-                    .toList(),
-              ),
-              const SizedBox(height: 44),
-              const Text(
-                '지출에만 적용',
-                style: TextStyle(color: AppColors.text50, fontSize: 12),
-              ),
-              const SizedBox(height: 20),
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 8,
-                children: _paymentValues
-                    .map(
-                      (value) => _FilterChoice(
-                        value: value,
-                        selected: _paymentMethods.contains(value),
-                        onTap: () => _toggle(_paymentMethods, value),
-                      ),
-                    )
-                    .toList(),
-              ),
-              const Spacer(),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    '선택한 조건의 지출 합계',
-                    style: TextStyle(color: AppColors.text50, fontSize: 12),
+              Positioned(
+                left: 184,
+                top: 238,
+                width: 34,
+                height: 34,
+                child: IconButton(
+                  key: const Key('close-ledger-filter'),
+                  padding: EdgeInsets.zero,
+                  onPressed: () => Navigator.pop(context),
+                  icon: SvgPicture.asset(
+                    AppAssets.ledgerFilterClose,
+                    width: 34,
+                    height: 34,
                   ),
-                  Text(
-                    '${_formatAmount(widget.initialExpenseTotal)} ₩',
-                    style: const TextStyle(
-                      color: AppColors.text,
-                      fontFamily: 'Amarante',
-                      fontSize: 22,
+                ),
+              ),
+              const Positioned(
+                top: 289,
+                left: 0,
+                right: 0,
+                child: Text(
+                  '필터',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.text,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const Positioned(
+                top: 323,
+                left: 0,
+                right: 0,
+                child: Text(
+                  '중복 선택 가능',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.text50, fontSize: 12),
+                ),
+              ),
+              Positioned(
+                left: 24,
+                top: 389,
+                width: 354,
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  runSpacing: 10,
+                  children: _categoryValues
+                      .map(
+                        (value) => _FilterChoice(
+                          value: value,
+                          category: value,
+                          selected: _categories.contains(value),
+                          onTap: () => _toggle(_categories, value),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+              const Positioned(
+                top: 598,
+                left: 0,
+                right: 0,
+                child: Text(
+                  '지출에만 적용',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.text50, fontSize: 12),
+                ),
+              ),
+              Positioned(
+                left: 24,
+                top: 636,
+                width: 354,
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  children: _paymentValues
+                      .map(
+                        (value) => _FilterChoice(
+                          value: value,
+                          selected: _paymentMethods.contains(value),
+                          onTap: () => _toggle(_paymentMethods, value),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+              Positioned(
+                left: 24,
+                right: 24,
+                top: 741,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      '선택한 조건의 지출 합계',
+                      style: TextStyle(color: AppColors.text50, fontSize: 12),
                     ),
-                  ),
-                ],
+                    _Price(
+                      key: const Key('ledger-filter-expense-total'),
+                      amount: _formatAmount(_expenseTotal),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 22),
-              SizedBox(
-                width: double.infinity,
+              Positioned(
+                left: 24,
+                right: 24,
+                bottom: 40,
                 height: 56,
                 child: FilledButton(
                   key: const Key('apply-ledger-filter'),
@@ -364,15 +438,30 @@ class _FilterDialogState extends State<_FilterDialog> {
                     _LedgerFilters(
                       categories: {..._categories},
                       paymentMethods: {..._paymentMethods},
+                      previewData: _isLoading ? null : _previewData,
                     ),
                   ),
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF5C52FF),
+                    disabledBackgroundColor: const Color(0xFF5C52FF),
+                    foregroundColor: Colors.white,
+                    textStyle: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(20),
                     ),
                   ),
-                  child: const Text('내역 보기'),
+                  child: Text(
+                    _isLoading ? '조회 중...' : '$_entryCount건 보기',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Pretendard',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -382,9 +471,37 @@ class _FilterDialogState extends State<_FilterDialog> {
     ),
   );
 
-  void _toggle(Set<String> values, String value) => setState(() {
-    values.contains(value) ? values.remove(value) : values.add(value);
-  });
+  Future<void> _toggle(Set<String> values, String value) async {
+    setState(() {
+      values.contains(value) ? values.remove(value) : values.add(value);
+    });
+    await _loadPreview();
+  }
+
+  Future<void> _loadPreview() async {
+    final service = widget.financeService;
+    if (service == null) return;
+    final generation = ++_requestGeneration;
+    setState(() => _isLoading = true);
+    try {
+      final data = await service.ledger(
+        period: widget.period,
+        anchor: widget.anchor,
+        type: widget.type,
+        categories: _categories.toList(),
+        paymentMethods: _paymentMethods.toList(),
+      );
+      if (mounted && generation == _requestGeneration) {
+        setState(() => _previewData = data);
+      }
+    } catch (_) {
+      // Keep the previous preview when the request cannot complete.
+    } finally {
+      if (mounted && generation == _requestGeneration) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 }
 
 class _FilterChoice extends StatelessWidget {
@@ -392,35 +509,63 @@ class _FilterChoice extends StatelessWidget {
     required this.value,
     required this.selected,
     required this.onTap,
+    this.category,
   });
 
   final String value;
   final bool selected;
   final VoidCallback onTap;
+  final String? category;
 
   @override
-  Widget build(BuildContext context) => ChoiceChip(
-    key: Key('ledger-filter-$value'),
-    label: Text(value),
-    selected: selected,
-    onSelected: (_) => onTap(),
-    selectedColor: const Color(0xFFA8A3FF),
-    backgroundColor: AppColors.selected,
-    labelStyle: TextStyle(
-      color: selected ? const Color(0xFF1B1B1B) : AppColors.text50,
-      fontSize: 15,
-      fontWeight: FontWeight.w600,
-    ),
-    side: const BorderSide(color: AppColors.outline, width: 0.5),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-    showCheckmark: false,
-  );
+  Widget build(BuildContext context) {
+    final categoryIcon = AppCategoryIcon(category: category, slotSize: 26);
+    return GestureDetector(
+      key: Key('ledger-filter-$value'),
+      onTap: onTap,
+      child: Container(
+        height: category == null ? 48 : 54,
+        padding: EdgeInsets.symmetric(horizontal: category == null ? 26 : 24),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFA8A3FF) : AppColors.selected,
+          border: Border.all(color: AppColors.outline, width: 0.5),
+          borderRadius: BorderRadius.circular(30),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (category != null) ...[
+              if (selected)
+                ColorFiltered(
+                  colorFilter: const ColorFilter.mode(
+                    Color(0xFF1B1B1B),
+                    BlendMode.srcIn,
+                  ),
+                  child: categoryIcon,
+                )
+              else
+                categoryIcon,
+              const SizedBox(width: 6),
+            ],
+            Text(
+              value,
+              style: TextStyle(
+                color: selected ? const Color(0xFF1B1B1B) : AppColors.text50,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _Chip extends StatelessWidget {
   const _Chip({
     required this.label,
+    super.key,
     this.selected = false,
     this.onTap,
     this.leadingAsset,
@@ -471,13 +616,15 @@ class _Chip extends StatelessWidget {
   }
 }
 
-class _MonthSelector extends StatelessWidget {
-  const _MonthSelector({
+class _PeriodSelector extends StatelessWidget {
+  const _PeriodSelector({
     required this.anchor,
+    required this.period,
     required this.onPrevious,
     required this.onNext,
   });
   final DateTime anchor;
+  final int period;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
 
@@ -494,36 +641,11 @@ class _MonthSelector extends StatelessWidget {
             height: 12,
           ),
         ),
-        Row(
-          children: [
-            Text(
-              '${anchor.year}',
-              style: TextStyle(
-                color: AppColors.text,
-                fontFamily: 'Amarante',
-                fontSize: 24,
-              ),
-            ),
-            const SizedBox(width: 4),
-            const Text(
-              '년',
-              style: TextStyle(color: AppColors.text, fontSize: 14),
-            ),
-            const SizedBox(width: 20),
-            Text(
-              '${anchor.month}',
-              style: TextStyle(
-                color: AppColors.text,
-                fontFamily: 'Amarante',
-                fontSize: 24,
-              ),
-            ),
-            const SizedBox(width: 4),
-            const Text(
-              '월',
-              style: TextStyle(color: AppColors.text, fontSize: 14),
-            ),
-          ],
+        Text.rich(
+          key: const Key('ledger-period-title'),
+          TextSpan(children: _titleSpans()),
+          semanticsLabel: _plainTitle(),
+          style: const TextStyle(color: AppColors.text),
         ),
         GestureDetector(
           onTap: onNext,
@@ -536,7 +658,57 @@ class _MonthSelector extends StatelessWidget {
       ],
     );
   }
+
+  List<InlineSpan> _titleSpans() {
+    final parts = <(String, bool)>[
+      ('${anchor.year}', true),
+      ('년', false),
+      ('${anchor.month}', true),
+      ('월', false),
+    ];
+    if (period == 1) {
+      parts.addAll([('${_weekOfMonth(anchor)}', true), ('주차', false)]);
+    } else if (period == 2) {
+      parts.addAll([
+        ('${anchor.day}', true),
+        ('일', false),
+        ('(${_weekday(anchor.weekday)})', false),
+      ]);
+    }
+    return [
+      for (var index = 0; index < parts.length; index++) ...[
+        if (index > 0) const WidgetSpan(child: SizedBox(width: 4)),
+        TextSpan(
+          text: parts[index].$1,
+          style: TextStyle(
+            fontFamily: parts[index].$2 ? 'Amarante' : null,
+            fontSize: parts[index].$2 ? 24 : 14,
+            fontWeight: parts[index].$2 ? FontWeight.w400 : FontWeight.w500,
+          ),
+        ),
+        if (index == 1 || index == 3 || (period == 2 && index == 5))
+          const WidgetSpan(child: SizedBox(width: 16)),
+      ],
+    ];
+  }
+
+  String _plainTitle() => switch (period) {
+    1 => '${anchor.year}년 ${anchor.month}월 ${_weekOfMonth(anchor)}주차',
+    2 =>
+      '${anchor.year}년 ${anchor.month}월 ${anchor.day}일 '
+          '(${_weekday(anchor.weekday)})',
+    _ => '${anchor.year}년 ${anchor.month}월',
+  };
 }
+
+int _weekOfMonth(DateTime date) {
+  final firstDay = DateTime(date.year, date.month, 1);
+  final daysBeforeFirstMonday = firstDay.weekday - DateTime.monday;
+  return ((date.day + daysBeforeFirstMonday - 1) ~/ 7) + 1;
+}
+
+String _weekday(int weekday) =>
+    const ['월', '화', '수', '목', '금', '토', '일'][weekday - 1];
 
 class _AsteriskDivider extends StatelessWidget {
   const _AsteriskDivider();
@@ -775,7 +947,7 @@ String _formatAmount(int amount) {
 }
 
 class _Price extends StatelessWidget {
-  const _Price({required this.amount, this.accent = false});
+  const _Price({required this.amount, super.key, this.accent = false});
 
   final String amount;
   final bool accent;

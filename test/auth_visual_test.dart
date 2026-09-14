@@ -16,6 +16,7 @@ import 'package:sobilog/features/auth/presentation/terms_detail_screen.dart';
 import 'package:sobilog/features/auth/presentation/verification_screen.dart';
 import 'package:sobilog/features/home/presentation/home_screen.dart';
 import 'package:sobilog/features/analysis/presentation/analysis_overview_screen.dart';
+import 'package:sobilog/features/finance/data/finance_service.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_detail_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_edit_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_screen.dart';
@@ -210,6 +211,35 @@ void main() {
     await expectLater(
       find.byType(Scaffold),
       matchesGoldenFile('goldens/ledger.png'),
+    );
+  });
+
+  testWidgets('ledger day period matches its visual baseline', (tester) async {
+    await configureViewport(tester);
+    await pumpScreen(tester, const LedgerScreen());
+    await tester.tap(find.byKey(const Key('ledger-period-2')));
+    await tester.pump();
+
+    await expectLater(
+      find.byType(Scaffold),
+      matchesGoldenFile('goldens/ledger_day.png'),
+    );
+  });
+
+  testWidgets('ledger filter matches its visual baseline', (tester) async {
+    await configureViewport(tester);
+    await pumpScreen(
+      tester,
+      LedgerScreen(financeService: _LedgerVisualService()),
+    );
+    await tester.tap(find.text('필터'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('ledger-filter-식비')));
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(Dialog),
+      matchesGoldenFile('goldens/ledger_filter.png'),
     );
   });
 
@@ -425,4 +455,25 @@ void main() {
       matchesGoldenFile('goldens/pending_deletion.png'),
     );
   });
+}
+
+class _LedgerVisualService implements FinanceService {
+  @override
+  Future<Map<String, dynamic>> ledger({
+    required String period,
+    required DateTime anchor,
+    String type = 'all',
+    List<String> categories = const [],
+    List<String> paymentMethods = const [],
+  }) async => {
+    'total_expense_amount': 150000,
+    'total_income_amount': 0,
+    'expense_count': 23,
+    'income_count': 0,
+    'balance': -150000,
+    'days': <Map<String, dynamic>>[],
+  };
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

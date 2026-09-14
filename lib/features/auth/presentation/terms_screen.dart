@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_assets.dart';
-import '../../../core/config/app_config.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/app_services.dart';
 import '../../../core/theme/app_colors.dart';
@@ -12,17 +10,20 @@ import '../../../shared/widgets/design_canvas.dart';
 import '../../home/presentation/home_screen.dart';
 import '../domain/signup_draft.dart';
 import '../data/auth_service.dart';
+import 'terms_detail_screen.dart';
 
 class TermsScreen extends StatefulWidget {
   const TermsScreen({
     super.key,
     this.signupDraft,
     this.onAgreed,
+    this.onConsentCompleted,
     this.authService,
   });
 
   final SignupDraft? signupDraft;
   final VoidCallback? onAgreed;
+  final ValueChanged<bool>? onConsentCompleted;
   final AuthService? authService;
 
   @override
@@ -44,17 +45,12 @@ class _TermsScreenState extends State<TermsScreen> {
   bool get _allSelected => _selected.every((selected) => selected);
   bool get _requiredSelected => _selected[0] && _selected[1];
 
-  Future<void> _openTerms() async {
-    final rawUrl = AppConfig.termsDocumentUrl.trim();
-    final url = Uri.tryParse(rawUrl);
-    if (url == null ||
-        !url.hasScheme ||
-        !await launchUrl(url, mode: LaunchMode.inAppBrowserView)) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('약관을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요')),
-      );
-    }
+  void _openTerms(int index) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => TermsDetailScreen(document: termsDocuments[index]),
+      ),
+    );
   }
 
   void _toggleItem(int index) {
@@ -77,6 +73,10 @@ class _TermsScreenState extends State<TermsScreen> {
   Future<void> _agree() async {
     if (!_requiredSelected) {
       setState(() => _showRequiredError = true);
+      return;
+    }
+    if (widget.onConsentCompleted case final callback?) {
+      callback(_selected[2]);
       return;
     }
     if (widget.onAgreed case final callback?) {
@@ -163,7 +163,7 @@ class _TermsScreenState extends State<TermsScreen> {
               Positioned(
                 left: 24,
                 right: 24,
-                top: 470,
+                top: 381,
                 child: Column(
                   children: List.generate(_labels.length, (index) {
                     return Padding(
@@ -171,10 +171,11 @@ class _TermsScreenState extends State<TermsScreen> {
                         bottom: index == _labels.length - 1 ? 0 : 20,
                       ),
                       child: _TermsRow(
+                        index: index,
                         label: _labels[index],
                         selected: _selected[index],
                         onPressed: () => _toggleItem(index),
-                        onViewPressed: _openTerms,
+                        onViewPressed: () => _openTerms(index),
                       ),
                     );
                   }),
@@ -236,12 +237,14 @@ class _TermsScreenState extends State<TermsScreen> {
 
 class _TermsRow extends StatelessWidget {
   const _TermsRow({
+    required this.index,
     required this.label,
     required this.selected,
     required this.onPressed,
     required this.onViewPressed,
   });
 
+  final int index;
   final String label;
   final bool selected;
   final VoidCallback onPressed;
@@ -269,6 +272,7 @@ class _TermsRow extends StatelessWidget {
             ),
           ),
           IconButton(
+            key: ValueKey('terms-view-$index'),
             padding: const EdgeInsets.all(3),
             constraints: const BoxConstraints.tightFor(width: 30, height: 30),
             tooltip: '$label 보기',

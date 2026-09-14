@@ -12,6 +12,7 @@ import 'package:sobilog/features/auth/presentation/pending_deletion_screen.dart'
 import 'package:sobilog/features/auth/presentation/signup_name_screen.dart';
 import 'package:sobilog/features/auth/presentation/signup_password_screen.dart';
 import 'package:sobilog/features/auth/presentation/terms_screen.dart';
+import 'package:sobilog/features/auth/presentation/terms_detail_screen.dart';
 import 'package:sobilog/features/auth/presentation/verification_screen.dart';
 import 'package:sobilog/features/home/presentation/home_screen.dart';
 import 'package:sobilog/features/analysis/presentation/analysis_overview_screen.dart';
@@ -141,6 +142,19 @@ void main() {
     await expectLater(
       find.byType(Scaffold),
       matchesGoldenFile('goldens/terms.png'),
+    );
+  });
+
+  testWidgets('terms detail matches its visual baseline', (tester) async {
+    await configureViewport(tester);
+    await pumpScreen(
+      tester,
+      const TermsDetailScreen(document: serviceTermsDocument),
+    );
+
+    await expectLater(
+      find.byType(Scaffold),
+      matchesGoldenFile('goldens/terms_detail.png'),
     );
   });
 

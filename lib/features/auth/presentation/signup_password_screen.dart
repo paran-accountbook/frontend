@@ -2,12 +2,20 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/auth_widgets.dart';
+import '../data/auth_service.dart';
 import 'signup_name_screen.dart';
 
 class SignupPasswordScreen extends StatefulWidget {
-  const SignupPasswordScreen({required this.email, super.key});
+  const SignupPasswordScreen({
+    required this.email,
+    super.key,
+    this.marketingAgreed = false,
+    this.authService,
+  });
 
   final String email;
+  final bool marketingAgreed;
+  final AuthService? authService;
 
   @override
   State<SignupPasswordScreen> createState() => _SignupPasswordScreenState();
@@ -46,8 +54,12 @@ class _SignupPasswordScreenState extends State<SignupPasswordScreen> {
     }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            SignupNameScreen(email: widget.email, password: password),
+        builder: (_) => SignupNameScreen(
+          email: widget.email,
+          password: password,
+          marketingAgreed: widget.marketingAgreed,
+          authService: widget.authService,
+        ),
       ),
     );
   }

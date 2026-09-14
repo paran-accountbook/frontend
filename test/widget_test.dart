@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:sobilog/core/theme/app_theme.dart';
+import 'package:sobilog/features/auth/data/auth_service.dart';
 import 'package:sobilog/features/auth/presentation/email_login_screen.dart';
 import 'package:sobilog/features/auth/presentation/login_screen.dart';
 import 'package:sobilog/features/auth/presentation/signup_name_screen.dart';
+import 'package:sobilog/features/auth/presentation/signup_password_screen.dart';
+import 'package:sobilog/features/auth/presentation/terms_detail_screen.dart';
 import 'package:sobilog/features/auth/presentation/terms_screen.dart';
 import 'package:sobilog/features/auth/presentation/verification_screen.dart';
 import 'package:sobilog/features/analysis/presentation/analysis_overview_screen.dart';
@@ -38,12 +41,14 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.view.resetPhysicalSize);
 
+    final authService = _RecordingAuthService();
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.dark,
-        home: const SignupNameScreen(
+        home: SignupNameScreen(
           email: 'user@test.com',
           password: 'Password1!',
+          authService: authService,
         ),
       ),
     );
@@ -59,9 +64,64 @@ void main() {
 
     await tester.enterText(find.byType(TextField), '테스트');
     await tester.tap(find.text('가입 완료'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(authService.signupEmail, 'user@test.com');
+    expect(authService.signupNickname, '테스트');
+  });
+
+  testWidgets('signup follows verification, terms, password, and name order', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(402, 874);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final authService = _RecordingAuthService();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: VerificationScreen(
+          email: 'user@test.com',
+          authService: authService,
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField), '123456');
+    await tester.pumpAndSettle();
+    expect(authService.verifiedCode, '123456');
+    expect(find.byType(TermsScreen), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('terms-view-0')));
+    await tester.pumpAndSettle();
+    expect(find.byType(TermsDetailScreen), findsOneWidget);
+    expect(find.text('서비스 이용 약관'), findsOneWidget);
+    await tester.tap(find.text('확인'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(TermsScreen), findsOneWidget);
+    await tester.tap(find.text('전체 동의하기'));
+    await tester.tap(find.text('동의합니다'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SignupPasswordScreen), findsOneWidget);
+
+    final passwordFields = find.byType(TextField);
+    await tester.enterText(passwordFields.at(0), 'Password1!');
+    await tester.enterText(passwordFields.at(1), 'Password1!');
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SignupNameScreen), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), '소비로그');
+    await tester.tap(find.text('가입 완료'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(authService.signupEmail, 'user@test.com');
+    expect(authService.signupNickname, '소비로그');
+    expect(authService.marketingAgreed, isTrue);
   });
 
   testWidgets('bottom navigation matches the Figma item geometry', (
@@ -474,6 +534,33 @@ void main() {
     expect(find.text('출석 현황'), findsOneWidget);
     expect(find.text('계정 설정'), findsOneWidget);
   });
+}
+
+class _RecordingAuthService implements AuthService {
+  String? verifiedCode;
+  String? signupEmail;
+  String? signupNickname;
+  bool? marketingAgreed;
+
+  @override
+  Future<void> verifyCode({required String email, required String code}) async {
+    verifiedCode = code;
+  }
+
+  @override
+  Future<void> signup({
+    required String email,
+    required String password,
+    required String nickname,
+    required bool marketingAgreed,
+  }) async {
+    signupEmail = email;
+    signupNickname = nickname;
+    this.marketingAgreed = marketingAgreed;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _AnalysisWithoutGoalService implements FinanceService {

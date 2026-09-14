@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import 'package:sobilog/features/home/presentation/home_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_detail_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_edit_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_screen.dart';
+import 'package:sobilog/shared/widgets/editable_receipt_form.dart';
 
 void main() {
   testWidgets('가계 내역에 API 카테고리 아이콘을 표시한다', (tester) async {
@@ -169,6 +171,41 @@ void main() {
     final after = tester.getTopLeft(find.text('상점 0')).dy;
     expect(after, lessThan(before));
     expect(find.text('상점 11'), findsOneWidget);
+  });
+
+  testWidgets('상세 API 대기 중 예시 영수증을 노출하지 않고 통합 편집 화면을 연다', (tester) async {
+    final service = _DelayedDetailService();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: LedgerScreen(financeService: service),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('E2E 영화관'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byType(LedgerEditScreen), findsOneWidget);
+    expect(find.byKey(const Key('ledger-edit-loading')), findsOneWidget);
+    expect(find.text('아주대학교 카페'), findsNothing);
+    expect(find.text('아메리카노'), findsNothing);
+
+    service.detail.complete({
+      ..._expenseData,
+      'store_name': 'E2E 영화관',
+      'category': '문화',
+      'items': [
+        {'item_name': '영화 티켓', 'quantity': 1, 'unit_price': 14000},
+      ],
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('ledger-edit-loading')), findsNothing);
+    expect(find.byType(EditableReceiptForm), findsOneWidget);
+    expect(find.text('E2E 영화관'), findsOneWidget);
+    expect(find.text('영화 티켓'), findsOneWidget);
   });
 
   testWidgets('상세의 수정에서 PATCH 저장 후 상세를 다시 조회한다', (tester) async {
@@ -357,4 +394,40 @@ class _MemorySessionStore implements SessionStore {
     required String accessToken,
     required String refreshToken,
   }) async {}
+}
+
+class _DelayedDetailService implements FinanceService {
+  final detail = Completer<Map<String, dynamic>>();
+
+  @override
+  Future<Map<String, dynamic>> ledger({
+    required String period,
+    required DateTime anchor,
+    String type = 'all',
+    List<String> categories = const [],
+    List<String> paymentMethods = const [],
+  }) async => {
+    ..._ledgerData,
+    'days': [
+      {
+        'date': '2026-09-14',
+        'expenses': [
+          {
+            'id': '11111111-1111-1111-1111-111111111111',
+            'store_name': 'E2E 영화관',
+            'category': '문화',
+            'payment_method': '카드',
+            'amount': 14000,
+          },
+        ],
+        'incomes': <Map<String, dynamic>>[],
+      },
+    ],
+  };
+
+  @override
+  Future<Map<String, dynamic>> expenseDetail(String id) => detail.future;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

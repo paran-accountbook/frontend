@@ -18,10 +18,13 @@ class LedgerDetailScreen extends StatefulWidget {
 
 class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
   Map<String, dynamic>? _data;
+  late bool _isLoading;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
+    _isLoading = widget.expenseId != null && widget.financeService != null;
     _load();
   }
 
@@ -33,7 +36,9 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
       final data = await service.expenseDetail(id);
       if (mounted) setState(() => _data = data);
     } catch (_) {
-      // Keep the detail skeleton visible if the request fails.
+      if (mounted) setState(() => _error = '내역을 불러오지 못했습니다. 다시 시도해 주세요');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -73,16 +78,44 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
                 ),
               ),
             ),
-            Positioned(
-              left: 24,
-              top: 112,
-              width: 354,
-              height: 622,
-              child: _ReceiptDetail(
-                data: _data,
-                onEdit: _data == null ? null : _openEdit,
+            if (!_isLoading && (_data != null || widget.expenseId == null))
+              Positioned(
+                left: 24,
+                top: 112,
+                width: 354,
+                height: 622,
+                child: _ReceiptDetail(
+                  data: _data,
+                  onEdit: _data == null ? null : _openEdit,
+                ),
               ),
-            ),
+            if (_isLoading)
+              const Positioned.fill(
+                child: Center(
+                  child: SizedBox.square(
+                    key: Key('ledger-detail-loading'),
+                    dimension: 28,
+                    child: CircularProgressIndicator(
+                      color: AppColors.main,
+                      strokeWidth: 2.5,
+                    ),
+                  ),
+                ),
+              ),
+            if (_error case final message?)
+              Positioned(
+                left: 24,
+                right: 24,
+                top: 430,
+                child: Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFFFF6B7A),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
           ],
         ),
       ),

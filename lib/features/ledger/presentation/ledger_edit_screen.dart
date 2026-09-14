@@ -28,8 +28,40 @@ class LedgerEditScreen extends StatefulWidget {
 
 class _LedgerEditScreenState extends State<LedgerEditScreen> {
   final _formKey = GlobalKey<EditableReceiptFormState>();
+  Map<String, dynamic>? _data;
+  bool _isLoading = false;
   bool _isSubmitting = false;
   String? _error;
+
+  bool get _hasRemoteTarget =>
+      widget.financeService != null && widget.expenseId != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _data = widget.initialData;
+    if (_data == null && _hasRemoteTarget) _load();
+  }
+
+  Future<void> _load() async {
+    final service = widget.financeService;
+    final id = widget.expenseId;
+    if (service == null || id == null) return;
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final data = await service.expenseDetail(id);
+      if (mounted) setState(() => _data = data);
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) setState(() => _error = '내역을 불러오지 못했습니다. 다시 시도해 주세요');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   Future<void> _save() async {
     final service = widget.financeService;
@@ -101,7 +133,7 @@ class _LedgerEditScreenState extends State<LedgerEditScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final canSubmit = widget.financeService != null && widget.expenseId != null;
+    final canSubmit = _hasRemoteTarget && _data != null;
     return Scaffold(
       body: DesignCanvas(
         child: Stack(
@@ -119,36 +151,51 @@ class _LedgerEditScreenState extends State<LedgerEditScreen> {
                 ),
               ),
             ),
-            Positioned(
-              right: 24,
-              top: 50,
-              child: GestureDetector(
-                key: const Key('delete-ledger-entry'),
-                behavior: HitTestBehavior.opaque,
-                onTap: _isSubmitting ? null : _delete,
-                child: SizedBox(
-                  width: 34,
-                  height: 34,
-                  child: SvgPicture.asset(AppAssets.deleteRed),
-                ),
-              ),
-            ),
-            Positioned(
-              left: 24,
-              top: 141,
-              width: 354,
-              height: 592,
-              child: ClipRect(
-                child: SingleChildScrollView(
-                  key: const Key('ledger-edit-receipt-scroll'),
-                  child: EditableReceiptForm(
-                    key: _formKey,
-                    initialData: widget.initialData,
-                    editable: canSubmit,
+            if (canSubmit)
+              Positioned(
+                right: 24,
+                top: 50,
+                child: GestureDetector(
+                  key: const Key('delete-ledger-entry'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _isSubmitting ? null : _delete,
+                  child: SizedBox(
+                    width: 34,
+                    height: 34,
+                    child: SvgPicture.asset(AppAssets.deleteRed),
                   ),
                 ),
               ),
-            ),
+            if (!_isLoading && (_data != null || !_hasRemoteTarget))
+              Positioned(
+                left: 24,
+                top: 112,
+                width: 354,
+                height: 621,
+                child: ClipRect(
+                  child: SingleChildScrollView(
+                    key: const Key('ledger-edit-receipt-scroll'),
+                    child: EditableReceiptForm(
+                      key: _formKey,
+                      initialData: _data,
+                      editable: canSubmit,
+                    ),
+                  ),
+                ),
+              ),
+            if (_isLoading)
+              const Positioned.fill(
+                child: Center(
+                  child: SizedBox.square(
+                    key: Key('ledger-edit-loading'),
+                    dimension: 28,
+                    child: CircularProgressIndicator(
+                      color: AppColors.main,
+                      strokeWidth: 2.5,
+                    ),
+                  ),
+                ),
+              ),
             if (_error case final message?)
               Positioned(
                 left: 24,
@@ -163,11 +210,25 @@ class _LedgerEditScreenState extends State<LedgerEditScreen> {
                   ),
                 ),
               ),
+            if (_error != null && _data == null)
+              Positioned(
+                left: 126,
+                right: 126,
+                top: 480,
+                height: 40,
+                child: OutlinedButton(
+                  key: const Key('retry-ledger-detail'),
+                  onPressed: _load,
+                  child: const Text('다시 시도'),
+                ),
+              ),
             Positioned(
               left: 24,
               bottom: 40,
               child: GestureDetector(
-                onTap: _isSubmitting ? null : _save,
+                onTap: _isLoading || _error != null || _isSubmitting
+                    ? null
+                    : _save,
                 child: Container(
                   width: 354,
                   height: 56,
@@ -178,7 +239,11 @@ class _LedgerEditScreenState extends State<LedgerEditScreen> {
                     border: Border.all(color: AppColors.outline),
                   ),
                   child: Text(
-                    _isSubmitting ? '처리 중...' : '저장',
+                    _isLoading
+                        ? '불러오는 중...'
+                        : _isSubmitting
+                        ? '처리 중...'
+                        : '저장',
                     style: TextStyle(
                       color: canSubmit ? Colors.white : AppColors.text50,
                       fontSize: 15,

@@ -282,6 +282,23 @@ void main() {
     );
   });
 
+  testWidgets('ledger edit lower section matches its visual baseline', (
+    tester,
+  ) async {
+    await configureViewport(tester);
+    await pumpScreen(tester, const LedgerEditScreen());
+    await tester.drag(
+      find.byKey(const Key('ledger-edit-receipt-scroll')),
+      const Offset(0, -400),
+    );
+    await tester.pump();
+
+    await expectLater(
+      find.byType(Scaffold),
+      matchesGoldenFile('goldens/ledger_edit_bottom.png'),
+    );
+  });
+
   testWidgets('analysis matches its visual baseline', (tester) async {
     await configureViewport(tester);
     await pumpScreen(tester, const AnalysisOverviewScreen());

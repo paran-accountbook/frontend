@@ -99,7 +99,7 @@ void main() {
     expect(tester.widget<GestureDetector>(edit).onTap, isNotNull);
     await tester.tap(edit);
     await tester.pumpAndSettle();
-    expect(find.text('내역 수정'), findsOneWidget);
+    expect(find.byType(LedgerEditScreen), findsOneWidget);
 
     await tester.tap(find.text('테스트 카페'));
     await tester.pumpAndSettle();

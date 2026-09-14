@@ -101,99 +101,87 @@ class _LedgerEditScreenState extends State<LedgerEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final canSubmit = widget.financeService != null && widget.expenseId != null;
     return Scaffold(
       body: DesignCanvas(
-        width: 749,
-        height: 1628,
         child: Stack(
           children: [
+            const ColoredBox(color: AppColors.background),
             Positioned(
-              left: 32,
-              top: 133,
+              left: 24,
+              top: 50,
               child: GestureDetector(
                 onTap: () => Navigator.of(context).maybePop(),
                 child: SvgPicture.asset(
                   AppAssets.arrowBackLight,
-                  width: 70,
-                  height: 70,
-                ),
-              ),
-            ),
-            const Positioned(
-              top: 151,
-              width: 749,
-              child: Text(
-                '내역 수정',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.text,
-                  fontSize: 25,
-                  fontWeight: FontWeight.w600,
+                  width: 34,
+                  height: 34,
                 ),
               ),
             ),
             Positioned(
-              right: 32,
-              top: 133,
+              right: 24,
+              top: 50,
               child: GestureDetector(
                 key: const Key('delete-ledger-entry'),
                 behavior: HitTestBehavior.opaque,
                 onTap: _isSubmitting ? null : _delete,
                 child: SizedBox(
-                  width: 70,
-                  height: 70,
+                  width: 34,
+                  height: 34,
                   child: SvgPicture.asset(AppAssets.deleteRed),
                 ),
               ),
             ),
             Positioned(
-              left: 46,
-              top: 269,
-              child: EditableReceiptForm(
-                key: _formKey,
-                compact: true,
-                initialData: widget.initialData,
-                editable:
-                    widget.financeService != null && widget.expenseId != null,
+              left: 24,
+              top: 141,
+              width: 354,
+              height: 592,
+              child: ClipRect(
+                child: SingleChildScrollView(
+                  key: const Key('ledger-edit-receipt-scroll'),
+                  child: EditableReceiptForm(
+                    key: _formKey,
+                    initialData: widget.initialData,
+                    editable: canSubmit,
+                  ),
+                ),
               ),
             ),
             if (_error case final message?)
               Positioned(
-                left: 46,
-                right: 46,
-                top: 1425,
+                left: 24,
+                right: 24,
+                bottom: 105,
                 child: Text(
                   message,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Color(0xFFFF6B7A),
-                    fontSize: 20,
+                    fontSize: 12,
                   ),
                 ),
               ),
             Positioned(
-              left: 46,
-              top: 1466,
+              left: 24,
+              bottom: 40,
               child: GestureDetector(
                 onTap: _isSubmitting ? null : _save,
                 child: Container(
-                  width: 655,
-                  height: 102,
+                  width: 354,
+                  height: 56,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Color(0xFF252552), AppColors.main],
-                    ),
-                    borderRadius: BorderRadius.circular(30),
-                    border: Border.all(color: const Color(0x4DE2E2F9)),
+                    color: canSubmit ? AppColors.main : AppColors.selected,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.outline),
                   ),
                   child: Text(
                     _isSubmitting ? '처리 중...' : '저장',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 30,
+                    style: TextStyle(
+                      color: canSubmit ? Colors.white : AppColors.text50,
+                      fontSize: 15,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

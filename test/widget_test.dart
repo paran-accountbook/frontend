@@ -132,9 +132,9 @@ void main() {
       MaterialApp(theme: AppTheme.dark, home: const LedgerEditScreen()),
     );
 
-    expect(find.text('내역 수정'), findsOneWidget);
+    expect(find.byKey(const Key('ledger-edit-receipt-scroll')), findsOneWidget);
     expect(find.text('저장'), findsOneWidget);
-    expect(find.text('커피'), findsNWidgets(5));
+    expect(find.text('아메리카노'), findsNWidgets(2));
   });
 
   testWidgets('renders register type choices', (tester) async {

@@ -66,8 +66,23 @@ void main() {
     await tester.tap(find.text('필터'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('ledger-filter-식비')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('ledger-filter-카페')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('ledger-filter-카드')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('1건 보기'), findsOneWidget);
+    expect(
+      find.byKey(const Key('ledger-filter-expense-total')),
+      findsOneWidget,
+    );
+    final previewRequest = requests.lastWhere(
+      (request) => request.method == 'GET' && request.url.path == '/expenses',
+    );
+    expect(previewRequest.url.queryParametersAll['category'], ['식비', '카페']);
+    expect(previewRequest.url.queryParametersAll['payment_method'], ['카드']);
+
     await tester.tap(find.byKey(const Key('apply-ledger-filter')));
     await tester.pumpAndSettle();
 
@@ -76,6 +91,84 @@ void main() {
     );
     expect(filtered.url.queryParametersAll['category'], ['식비', '카페']);
     expect(filtered.url.queryParametersAll['payment_method'], ['카드']);
+  });
+
+  testWidgets('주·일 탭은 기간 제목과 API period를 함께 변경한다', (tester) async {
+    final requests = <http.Request>[];
+    final service = _service(requests, (_) => _ledgerData);
+    final now = DateTime.now();
+    final firstDay = DateTime(now.year, now.month, 1);
+    final week = ((now.day + firstDay.weekday - 2) ~/ 7) + 1;
+    const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: LedgerScreen(financeService: service),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('ledger-period-1')));
+    await tester.pumpAndSettle();
+    expect(
+      find.bySemanticsLabel('${now.year}년 ${now.month}월 $week주차'),
+      findsOneWidget,
+    );
+    expect(requests.last.url.queryParameters['period'], 'week');
+
+    await tester.tap(find.byKey(const Key('ledger-period-2')));
+    await tester.pumpAndSettle();
+    expect(
+      find.bySemanticsLabel(
+        '${now.year}년 ${now.month}월 ${now.day}일 (${weekdays[now.weekday - 1]})',
+      ),
+      findsOneWidget,
+    );
+    expect(requests.last.url.queryParameters['period'], 'day');
+  });
+
+  testWidgets('가계 내역 영역은 긴 목록을 아래로 스크롤한다', (tester) async {
+    final requests = <http.Request>[];
+    final entries = List.generate(
+      12,
+      (index) => {
+        'id': 'expense-$index',
+        'store_name': '상점 $index',
+        'category': '식비',
+        'payment_method': '카드',
+        'amount': 1000 + index,
+      },
+    );
+    final service = _service(
+      requests,
+      (_) => {
+        ..._ledgerData,
+        'days': [
+          {
+            'date': '2026-09-14',
+            'expenses': entries,
+            'incomes': <Map<String, dynamic>>[],
+          },
+        ],
+      },
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: LedgerScreen(financeService: service),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final scroll = find.byKey(const Key('ledger-entries-scroll'));
+    final before = tester.getTopLeft(find.text('상점 0')).dy;
+    await tester.drag(scroll, const Offset(0, -300));
+    await tester.pumpAndSettle();
+    final after = tester.getTopLeft(find.text('상점 0')).dy;
+    expect(after, lessThan(before));
+    expect(find.text('상점 11'), findsOneWidget);
   });
 
   testWidgets('상세의 수정에서 PATCH 저장 후 상세를 다시 조회한다', (tester) async {
@@ -230,8 +323,10 @@ FinanceApiService _service(
 final _ledgerData = <String, dynamic>{
   'total_expense_amount': 4500,
   'total_income_amount': 0,
+  'expense_count': 1,
+  'income_count': 0,
   'balance': -4500,
-  'items': <Map<String, dynamic>>[],
+  'days': <Map<String, dynamic>>[],
 };
 
 final _expenseData = <String, dynamic>{

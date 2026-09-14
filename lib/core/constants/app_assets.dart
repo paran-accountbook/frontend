@@ -27,6 +27,7 @@ abstract final class AppAssets {
   static const String termsArrowRight = '$_iconRoot/terms_arrow_right.svg';
   static const String arrowRightLight = termsArrowRight;
   static const String filterLight = '$_iconRoot/filter_light.svg';
+  static const String ledgerFilterClose = '$_iconRoot/ledger_filter_close.svg';
   static const String avatarSelf = '$_iconRoot/avatar_self.svg';
   static const String editLight = '$_iconRoot/edit_light.svg';
   static const String monthArrowActive = '$_iconRoot/month_arrow_active.svg';

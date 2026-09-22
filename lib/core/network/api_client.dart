@@ -49,6 +49,12 @@ class ApiClient {
     bool authenticated = true,
   }) => _send('PATCH', path, body: body, authenticated: authenticated);
 
+  Future<Object?> put(
+    String path, {
+    Object? body,
+    bool authenticated = true,
+  }) => _send('PUT', path, body: body, authenticated: authenticated);
+
   Future<Object?> delete(
     String path, {
     Object? body,
@@ -112,6 +118,7 @@ class ApiClient {
         'GET' => _http.get(uri, headers: headers),
         'POST' => _http.post(uri, headers: headers, body: jsonEncode(body)),
         'PATCH' => _http.patch(uri, headers: headers, body: jsonEncode(body)),
+        'PUT' => _http.put(uri, headers: headers, body: jsonEncode(body)),
         'DELETE' => _http.delete(uri, headers: headers, body: jsonEncode(body)),
         _ => throw UnsupportedError('Unsupported HTTP method: $method'),
       }.timeout(const Duration(seconds: 15));

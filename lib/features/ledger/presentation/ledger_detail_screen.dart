@@ -4,13 +4,24 @@ import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../../shared/widgets/app_chevron.dart';
+import '../../../shared/widgets/app_skeleton.dart';
+import '../../../core/network/api_exception.dart';
+import '../../../core/network/app_services.dart';
+import '../../dutch/data/dutch_pay_service.dart';
+import '../../dutch/presentation/dutch_people_screen.dart';
 import '../../finance/data/finance_service.dart';
 import 'ledger_edit_screen.dart';
 
 class LedgerDetailScreen extends StatefulWidget {
-  const LedgerDetailScreen({super.key, this.expenseId, this.financeService});
+  const LedgerDetailScreen({
+    super.key,
+    this.expenseId,
+    this.financeService,
+    this.dutchPayService,
+  });
   final String? expenseId;
   final FinanceService? financeService;
+  final DutchPayService? dutchPayService;
 
   @override
   State<LedgerDetailScreen> createState() => _LedgerDetailScreenState();
@@ -20,6 +31,7 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
   Map<String, dynamic>? _data;
   late bool _isLoading;
   String? _error;
+  bool _isStartingDutchPay = false;
 
   @override
   void initState() {
@@ -65,16 +77,16 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
               top: 50,
               height: 36,
               child: OutlinedButton(
-                onPressed: () {},
+                onPressed: _isStartingDutchPay ? null : _startDutchPay,
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: AppColors.text20),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(18),
                   ),
                 ),
-                child: const Text(
-                  '더치페이 하기',
-                  style: TextStyle(color: AppColors.text, fontSize: 12),
+                child: Text(
+                  _isStartingDutchPay ? '불러오는 중...' : '더치페이 하기',
+                  style: const TextStyle(color: AppColors.text, fontSize: 12),
                 ),
               ),
             ),
@@ -90,17 +102,11 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
                 ),
               ),
             if (_isLoading)
-              const Positioned.fill(
-                child: Center(
-                  child: SizedBox.square(
-                    key: Key('ledger-detail-loading'),
-                    dimension: 28,
-                    child: CircularProgressIndicator(
-                      color: AppColors.main,
-                      strokeWidth: 2.5,
-                    ),
-                  ),
-                ),
+              const Positioned(
+                key: Key('ledger-detail-loading'),
+                left: 24,
+                top: 112,
+                child: AppSkeletonReceipt(),
               ),
             if (_error case final message?)
               Positioned(
@@ -120,6 +126,40 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _startDutchPay() async {
+    final id = widget.expenseId;
+    if (id == null) return;
+    final service = widget.dutchPayService ?? AppServices.dutchPay;
+    setState(() => _isStartingDutchPay = true);
+    try {
+      final entry = await service.entry(id);
+      if (!mounted) return;
+      final items = (entry['items'] as List?)
+              ?.whereType<Map<String, dynamic>>()
+              .toList() ??
+          const <Map<String, dynamic>>[];
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => DutchPeopleScreen(
+            sessionId: entry['session_id'] as String?,
+            selfNameSuggestion: entry['self_name_suggestion'] as String?,
+            items: items,
+            totalAmount: entry['total_amount'] as int? ?? 0,
+            dutchPayService: service,
+          ),
+        ),
+      );
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _isStartingDutchPay = false);
+    }
   }
 
   Future<void> _openEdit() async {

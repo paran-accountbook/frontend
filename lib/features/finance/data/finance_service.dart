@@ -24,6 +24,33 @@ abstract interface class FinanceService {
   Future<Map<String, dynamic>> recognizeReceipt(String imagePath);
   Future<Map<String, dynamic>> createExpense(Map<String, Object?> body);
   Future<Map<String, dynamic>> createIncome(Map<String, Object?> body);
+
+  /// 마이_002: 출석 및 기록 현황(연속 기록일수, 이번 달 기록률 등)을 조회한다.
+  Future<Map<String, dynamic>> attendance();
+
+  /// 마이_002: 오늘을 무지출 날로 기록한다.
+  Future<void> markNoSpendDay();
+
+  /// 마이_004: 알림 설정을 조회한다.
+  Future<Map<String, dynamic>> notificationSettings();
+
+  /// 마이_004: 알림 설정을 수정한다(부분 수정 가능).
+  Future<Map<String, dynamic>> updateNotificationSettings(
+    Map<String, Object?> body,
+  );
+
+  /// 분석_002: 월간 지출 목표를 조회한다.
+  Future<Map<String, dynamic>> monthlyGoal({
+    required int year,
+    required int month,
+  });
+
+  /// 분석_002: 월간 지출 목표를 설정/수정한다.
+  Future<Map<String, dynamic>> setMonthlyGoal({
+    required int year,
+    required int month,
+    required int amount,
+  });
 }
 
 class FinanceApiService implements FinanceService {
@@ -100,4 +127,47 @@ class FinanceApiService implements FinanceService {
   @override
   Future<Map<String, dynamic>> createIncome(Map<String, Object?> body) async =>
       await _client.post('/incomes', body: body) as Map<String, dynamic>;
+
+  @override
+  Future<Map<String, dynamic>> attendance() async =>
+      await _client.get('/mypage/attendance') as Map<String, dynamic>;
+
+  @override
+  Future<void> markNoSpendDay() async {
+    await _client.post('/mypage/attendance/no-spend-day');
+  }
+
+  @override
+  Future<Map<String, dynamic>> notificationSettings() async =>
+      await _client.get('/mypage/notifications') as Map<String, dynamic>;
+
+  @override
+  Future<Map<String, dynamic>> updateNotificationSettings(
+    Map<String, Object?> body,
+  ) async =>
+      await _client.patch('/mypage/notifications', body: body)
+          as Map<String, dynamic>;
+
+  @override
+  Future<Map<String, dynamic>> monthlyGoal({
+    required int year,
+    required int month,
+  }) async =>
+      await _client.get(
+            '/analysis/monthly-goal',
+            query: {'year': year, 'month': month},
+          )
+          as Map<String, dynamic>;
+
+  @override
+  Future<Map<String, dynamic>> setMonthlyGoal({
+    required int year,
+    required int month,
+    required int amount,
+  }) async =>
+      await _client.put(
+            '/analysis/monthly-goal',
+            body: {'year': year, 'month': month, 'amount': amount},
+          )
+          as Map<String, dynamic>;
 }

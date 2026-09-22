@@ -25,13 +25,16 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
   int _paymentMethod = 0;
   late String _storeName;
   late String _category;
+  late String _memo;
   late DateTime _paidAt;
+  int? _editingItemIndex;
 
   @override
   void initState() {
     super.initState();
     final remoteItems = (widget.initialData?['items'] as List?)
         ?.whereType<Map<String, dynamic>>()
+        .map(Map<String, dynamic>.from)
         .toList();
     _items = remoteItems == null || remoteItems.isEmpty
         ? widget.editable
@@ -61,6 +64,7 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
         widget.initialData?['store_name'] as String? ??
         (widget.editable ? '' : '아주대학교');
     _category = widget.initialData?['category'] as String? ?? '식비';
+    _memo = widget.initialData?['memo'] as String? ?? '';
     _paidAt =
         DateTime.tryParse(
           widget.initialData?['paid_at'] as String? ?? '',
@@ -139,24 +143,34 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
         ...List.generate(_items.length, _buildItem),
         if (widget.showMemo) ...[
           const SizedBox(height: 20),
-          Container(
-            width: 354,
-            height: 91,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: const Color(0xFF191A1F),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('메모 (선택)', style: _valueStyle),
-                const SizedBox(height: 8),
-                Text(
-                  widget.initialData?['memo'] as String? ?? '안녕하세요',
-                  style: const TextStyle(color: AppColors.text50, fontSize: 12),
-                ),
-              ],
+          GestureDetector(
+            key: const Key('receipt-memo-field'),
+            onTap: widget.editable ? _editMemo : null,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              width: 354,
+              height: 91,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF191A1F),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('메모 (선택)', style: _valueStyle),
+                  const SizedBox(height: 8),
+                  Text(
+                    _memo.isEmpty ? '메모를 입력해 주세요' : _memo,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.text50,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -177,15 +191,41 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
         children: [
           Expanded(
             child: GestureDetector(
-              onTap: widget.editable ? () => _editItem(index) : null,
+              key: Key('receipt-item-$index'),
+              onDoubleTap: widget.editable
+                  ? () => setState(() => _editingItemIndex = index)
+                  : null,
+              behavior: HitTestBehavior.opaque,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    item['item_name'] as String? ?? '품목',
-                    style: _valueStyle,
-                  ),
+                  if (_editingItemIndex == index)
+                    TextFormField(
+                      key: Key('receipt-item-name-input-$index'),
+                      initialValue: item['item_name'] as String? ?? '',
+                      autofocus: true,
+                      maxLines: 1,
+                      textInputAction: TextInputAction.done,
+                      style: _valueStyle,
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                        border: InputBorder.none,
+                      ),
+                      onChanged: (value) => item['item_name'] = value,
+                      onFieldSubmitted: (value) =>
+                          _finishItemEditing(index, value),
+                      onTapOutside: (_) => _finishItemEditing(
+                        index,
+                        item['item_name'] as String? ?? '',
+                      ),
+                    )
+                  else
+                    Text(
+                      item['item_name'] as String? ?? '품목',
+                      style: _valueStyle,
+                    ),
                   const SizedBox(height: 8),
                   Text(
                     '단가   ${_formatAmount(unitPrice)}원   ${_formatAmount(unitPrice * _quantities[index])}원',
@@ -272,16 +312,46 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
     if (value != null) setState(() => _storeName = value);
   }
 
-  Future<void> _editItem(int index) async {
-    final name = await _ask('품목명', _items[index]['item_name'] as String? ?? '');
-    if (name == null) return;
-    final priceText = await _ask('단가', '${_items[index]['unit_price'] ?? 0}');
-    final price = int.tryParse(priceText ?? '');
-    if (price == null) return;
-    setState(() {
-      _items[index]['item_name'] = name;
-      _items[index]['unit_price'] = price;
-    });
+  void _finishItemEditing(int index, String value) {
+    if (_editingItemIndex != index) return;
+    _items[index]['item_name'] = value.trim();
+    setState(() => _editingItemIndex = null);
+    FocusScope.of(context).unfocus();
+  }
+
+  Future<void> _editMemo() async {
+    var value = _memo;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('메모 수정'),
+        content: TextFormField(
+          key: const Key('receipt-memo-input'),
+          initialValue: _memo,
+          autofocus: true,
+          maxLength: 500,
+          maxLines: 4,
+          onChanged: (next) => value = next,
+        ),
+        actions: [
+          if (_memo.isNotEmpty)
+            TextButton(
+              key: const Key('delete-receipt-memo'),
+              onPressed: () => Navigator.pop(context, ''),
+              child: const Text('삭제'),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, value.trim()),
+            child: const Text('저장'),
+          ),
+        ],
+      ),
+    );
+    if (result != null && mounted) setState(() => _memo = result);
   }
 
   Future<void> _selectCategory() async {
@@ -330,8 +400,11 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
       'category': _category,
       'payment_method': const ['현금', '카드', '미지정'][_paymentMethod],
       'items': items,
-      'memo': widget.initialData?['memo'],
+      'memo': _memo.trim().isEmpty ? null : _memo.trim(),
       'source': source,
+      // 등록_006: OCR 응답의 store_address를 저장 요청에 그대로 되돌려주면
+      // 백엔드가 사업장 주소 기반 상호명 매칭에 사용한다.
+      'store_address': widget.initialData?['store_address'],
       'receipt_image_path': widget.initialData?['receipt_image_path'],
       'receipt_image_hash': widget.initialData?['receipt_image_hash'],
     };
@@ -371,12 +444,23 @@ class _InfoRow extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(label, style: _labelStyle),
-            Row(
-              children: [
-                Text(value, style: _valueStyle),
-                const SizedBox(width: 6),
-                const AppChevron(size: 20),
-              ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Flexible(
+                    child: Text(
+                      value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _valueStyle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const AppChevron(size: 20),
+                ],
+              ),
             ),
           ],
         ),

@@ -2,14 +2,123 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/constants/app_assets.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../data/dutch_pay_service.dart';
 import 'dutch_result_screen.dart';
 
-class DutchAssignmentScreen extends StatelessWidget {
-  const DutchAssignmentScreen({super.key, this.onNext});
+/// 더치_003: 품목별 인원 배정 화면.
+class DutchAssignmentScreen extends StatefulWidget {
+  const DutchAssignmentScreen({
+    super.key,
+    this.sessionId,
+    this.items = const [],
+    this.participants = const [],
+    this.dutchPayService,
+    this.onNext,
+  });
 
+  final String? sessionId;
+
+  /// 더치_001 응답의 items (id, item_name, amount).
+  final List<Map<String, dynamic>> items;
+
+  /// 더치_002에서 등록된 participants (id, name, is_self).
+  final List<Map<String, dynamic>> participants;
+  final DutchPayService? dutchPayService;
   final VoidCallback? onNext;
+
+  @override
+  State<DutchAssignmentScreen> createState() => _DutchAssignmentScreenState();
+}
+
+class _DutchAssignmentScreenState extends State<DutchAssignmentScreen> {
+  late final List<Map<String, dynamic>> _items;
+  late final List<Map<String, dynamic>> _participants;
+  final Map<String, Set<String>> _assignments = {};
+  bool _isSaving = false;
+  String? _error;
+
+  bool get _isLive => widget.dutchPayService != null && widget.sessionId != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _items = widget.items.isNotEmpty
+        ? widget.items
+        : const [
+            {'id': 'demo-1', 'item_name': '커피', 'amount': 34000},
+            {'id': 'demo-2', 'item_name': '디저트', 'amount': 18000},
+          ];
+    _participants = widget.participants.isNotEmpty
+        ? widget.participants
+        : const [
+            {'id': 'self', 'name': '나', 'is_self': true},
+            {'id': 'p2', 'name': '철수', 'is_self': false},
+            {'id': 'p3', 'name': '영희', 'is_self': false},
+          ];
+    for (final item in _items) {
+      _assignments[item['id'] as String] = <String>{};
+    }
+  }
+
+  void _toggle(String itemId, String participantId) {
+    setState(() {
+      final set = _assignments.putIfAbsent(itemId, () => <String>{});
+      if (!set.remove(participantId)) set.add(participantId);
+    });
+  }
+
+  int get _assignedCount =>
+      _assignments.values.where((set) => set.isNotEmpty).length;
+
+  Future<void> _submit() async {
+    if (_assignedCount < _items.length) {
+      setState(() => _error = '모든 품목에 인원을 배정해 주세요');
+      return;
+    }
+    if (widget.onNext case final callback?) {
+      callback();
+      return;
+    }
+    if (!_isLive) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const DutchResultScreen()),
+      );
+      return;
+    }
+    setState(() {
+      _isSaving = true;
+      _error = null;
+    });
+    try {
+      await widget.dutchPayService!.setAssignments(
+        widget.sessionId!,
+        [
+          for (final item in _items)
+            {
+              'expense_item_id': item['id'],
+              'participant_ids': (_assignments[item['id']] ?? const <String>{})
+                  .toList(),
+            },
+        ],
+      );
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => DutchResultScreen(
+            sessionId: widget.sessionId,
+            dutchPayService: widget.dutchPayService,
+          ),
+        ),
+      );
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -18,6 +127,7 @@ class DutchAssignmentScreen extends StatelessWidget {
       height: 1628,
       child: Stack(
         children: [
+          const ColoredBox(color: AppColors.background),
           Positioned(
             left: 32,
             top: 133,
@@ -42,16 +152,46 @@ class DutchAssignmentScreen extends StatelessWidget {
               ),
             ),
           ),
-          const Positioned(
+          Positioned(
             left: 46,
             top: 330,
             child: Text(
-              '배정 완료 -/- 품목',
-              style: TextStyle(color: Color(0xCCE2E2F9), fontSize: 30),
+              '배정 완료 $_assignedCount/${_items.length} 품목',
+              style: const TextStyle(color: Color(0xCCE2E2F9), fontSize: 30),
             ),
           ),
-          const Positioned(left: 0, top: 420, child: _AssignmentCard()),
-          const Positioned(left: 0, top: 991, child: _AssignmentCard()),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 420,
+            bottom: 210,
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  for (final item in _items)
+                    _AssignmentCard(
+                      item: item,
+                      participants: _participants,
+                      selected:
+                          _assignments[item['id']] ?? const <String>{},
+                      onToggle: (participantId) =>
+                          _toggle(item['id'] as String, participantId),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          if (_error case final message?)
+            Positioned(
+              left: 46,
+              right: 46,
+              bottom: 190,
+              child: Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Color(0xFFFF6B7A), fontSize: 22),
+              ),
+            ),
           Positioned(
             left: 46,
             top: 1466,
@@ -64,15 +204,9 @@ class DutchAssignmentScreen extends StatelessWidget {
                 ),
                 const SizedBox(width: 20),
                 _ActionButton(
-                  label: '다음',
+                  label: _isSaving ? '저장 중...' : '다음',
                   gradient: true,
-                  onTap:
-                      onNext ??
-                      () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const DutchResultScreen(),
-                        ),
-                      ),
+                  onTap: _isSaving ? null : _submit,
                 ),
               ],
             ),
@@ -84,119 +218,142 @@ class DutchAssignmentScreen extends StatelessWidget {
 }
 
 class _AssignmentCard extends StatelessWidget {
-  const _AssignmentCard();
+  const _AssignmentCard({
+    required this.item,
+    required this.participants,
+    required this.selected,
+    required this.onToggle,
+  });
+
+  final Map<String, dynamic> item;
+  final List<Map<String, dynamic>> participants;
+  final Set<String> selected;
+  final ValueChanged<String> onToggle;
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: 749,
-    height: 529,
-    color: AppColors.secondary,
-    child: const Stack(
-      children: [
-        Positioned(left: 46, top: 17, child: _ItemName()),
-        Positioned(right: 46, top: 48, child: _Amount(opacity: 1)),
-        Positioned(left: 0, top: 148, child: _ParticipantRow(name: '나')),
-        Positioned(left: 0, top: 249, child: _ParticipantRow(name: '철수')),
-        Positioned(left: 0, top: 350, child: _ParticipantRow(name: '영희')),
-        Positioned(left: 0, top: 437, child: _SplitSummary()),
-      ],
-    ),
-  );
-}
-
-class _ItemName extends StatelessWidget {
-  const _ItemName();
-
-  @override
-  Widget build(BuildContext context) => const SizedBox(
-    width: 240,
-    height: 110,
-    child: Stack(
-      children: [
-        Positioned(
-          top: 0,
-          child: Text(
-            '커피',
-            style: TextStyle(
-              color: AppColors.text,
-              fontFamily: 'BujangnimNunchi',
-              fontSize: 50,
+  Widget build(BuildContext context) {
+    final amount = item['amount'] as int? ?? 0;
+    final perPerson = selected.isEmpty ? 0 : (amount / selected.length).round();
+    return Container(
+      width: 749,
+      color: AppColors.secondary,
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(46, 17, 46, 0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  item['item_name'] as String? ?? '',
+                  style: const TextStyle(
+                    color: AppColors.text,
+                    fontFamily: 'BujangnimNunchi',
+                    fontSize: 50,
+                  ),
+                ),
+                _Amount(value: amount, opacity: 1),
+              ],
             ),
           ),
-        ),
-        Positioned(
-          top: 72,
-          child: Text(
-            'X 34',
-            style: TextStyle(color: Color(0x80E2E2F9), fontSize: 23),
+          const SizedBox(height: 24),
+          for (final participant in participants)
+            _ParticipantRow(
+              name: participant['name'] as String? ?? '',
+              checked: selected.contains(participant['id']),
+              onTap: () => onToggle(participant['id'] as String),
+            ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text(
+                '${selected.length}명 선택 · 1인당 ${_formatAmount(perPerson)}원',
+                style: const TextStyle(color: Color(0x80E2E2F9), fontSize: 23),
+              ),
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class _ParticipantRow extends StatelessWidget {
-  const _ParticipantRow({required this.name});
+  const _ParticipantRow({
+    required this.name,
+    required this.checked,
+    required this.onTap,
+  });
 
   final String name;
+  final bool checked;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: 749,
-    height: 87,
-    child: Stack(
-      children: [
-        Positioned(
-          left: 46,
-          top: 21,
-          child: Container(
-            width: 44,
-            height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppColors.main,
-              borderRadius: BorderRadius.circular(11),
-              border: Border.all(color: const Color(0x4DE2E2F9)),
-            ),
-            child: SvgPicture.asset(
-              AppAssets.checkLight,
-              width: 26.68,
-              height: 18.21,
-            ),
-          ),
-        ),
-        Positioned(
-          left: 112,
-          top: 24,
-          child: Text(
-            name,
-            style: const TextStyle(
-              color: AppColors.text,
-              fontSize: 30,
-              fontWeight: FontWeight.w600,
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    behavior: HitTestBehavior.opaque,
+    child: SizedBox(
+      width: 749,
+      height: 87,
+      child: Stack(
+        children: [
+          Positioned(
+            left: 46,
+            top: 21,
+            child: Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: checked ? AppColors.main : Colors.transparent,
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(color: const Color(0x4DE2E2F9)),
+              ),
+              child: checked
+                  ? SvgPicture.asset(
+                      AppAssets.checkLight,
+                      width: 26.68,
+                      height: 18.21,
+                    )
+                  : null,
             ),
           ),
-        ),
-        const Positioned(right: 46, top: 19, child: _Amount(opacity: 0.5)),
-      ],
+          Positioned(
+            left: 112,
+            top: 24,
+            child: Text(
+              name,
+              style: const TextStyle(
+                color: AppColors.text,
+                fontSize: 30,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     ),
   );
 }
 
 class _Amount extends StatelessWidget {
-  const _Amount({required this.opacity});
+  const _Amount({required this.value, required this.opacity});
 
+  final int value;
   final double opacity;
 
   @override
   Widget build(BuildContext context) => Opacity(
     opacity: opacity,
     child: Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        const Text(
-          '150,000',
-          style: TextStyle(
+        Text(
+          _formatAmount(value),
+          style: const TextStyle(
             color: AppColors.text,
             fontFamily: 'Amarante',
             fontSize: 40,
@@ -204,27 +361,6 @@ class _Amount extends StatelessWidget {
         ),
         const SizedBox(width: 5),
         SvgPicture.asset(AppAssets.wonLight, width: 29, height: 31),
-      ],
-    ),
-  );
-}
-
-class _SplitSummary extends StatelessWidget {
-  const _SplitSummary();
-
-  @override
-  Widget build(BuildContext context) => const SizedBox(
-    width: 749,
-    height: 92,
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          '3명 선택 · 1인당',
-          style: TextStyle(color: Color(0x80E2E2F9), fontSize: 23),
-        ),
-        SizedBox(width: 43),
-        Text('12,000원', style: TextStyle(color: Colors.white, fontSize: 23)),
       ],
     ),
   );
@@ -254,7 +390,7 @@ class _ActionButton extends StatelessWidget {
           end: Alignment.bottomCenter,
           colors: gradient
               ? const [Color(0xFF252552), AppColors.main]
-              : const [AppColors.background, Color(0xFF4E5058)],
+              : const [AppColors.surface, Color(0xFF4E5058)],
         ),
         borderRadius: BorderRadius.circular(30),
         border: Border.all(color: const Color(0x4DE2E2F9)),
@@ -269,4 +405,14 @@ class _ActionButton extends StatelessWidget {
       ),
     ),
   );
+}
+
+String _formatAmount(int amount) {
+  final digits = amount.abs().toString();
+  final buffer = StringBuffer();
+  for (var index = 0; index < digits.length; index++) {
+    if (index > 0 && (digits.length - index) % 3 == 0) buffer.write(',');
+    buffer.write(digits[index]);
+  }
+  return '${amount < 0 ? '-' : ''}$buffer';
 }

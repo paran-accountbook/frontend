@@ -5,20 +5,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../finance/data/finance_service.dart';
-import '../../home/presentation/home_screen.dart';
-import '../../ledger/presentation/ledger_screen.dart';
-import '../../profile/presentation/profile_screen.dart';
-import '../../register/presentation/register_type_screen.dart';
 
 /// 분석_002: 월간 지출 목표 설정/수정 화면.
 class AnalysisGoalScreen extends StatefulWidget {
   const AnalysisGoalScreen({
-    required this.background,
     super.key,
-    this.onNavigationSelected,
     this.year,
     this.month,
     this.initialAmount = 150000,
@@ -27,8 +20,6 @@ class AnalysisGoalScreen extends StatefulWidget {
     this.onSaved,
   });
 
-  final Widget background;
-  final ValueChanged<int>? onNavigationSelected;
   final int? year;
   final int? month;
   final int initialAmount;
@@ -112,88 +103,84 @@ class _AnalysisGoalScreenState extends State<AnalysisGoalScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final year = widget.year ?? now.year;
+    final month = widget.month ?? now.month;
+
     return Scaffold(
       body: DesignCanvas(
-        width: 749,
-        height: 1628,
         child: Stack(
           children: [
-            Positioned.fill(child: widget.background),
-            const Positioned.fill(child: ColoredBox(color: Color(0xCC121215))),
+            const ColoredBox(color: AppColors.background),
             Positioned(
-              left: 342,
-              top: 577,
-              width: 64,
-              height: 64,
-              child: GestureDetector(
+              left: 24,
+              top: 50,
+              width: 34,
+              height: 34,
+              child: IconButton(
                 key: const ValueKey('analysis-goal-close'),
-                behavior: HitTestBehavior.opaque,
-                onTap: () => Navigator.of(context).maybePop(),
-                child: Center(
-                  child: SvgPicture.asset(
-                    AppAssets.closeLight,
-                    width: 28,
-                    height: 28,
-                  ),
+                padding: EdgeInsets.zero,
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: SvgPicture.asset(AppAssets.arrowBackLight),
+              ),
+            ),
+            const Positioned(
+              left: 24,
+              top: 128,
+              child: Text(
+                '지출 목표 설정',
+                style: TextStyle(
+                  color: AppColors.text,
+                  fontSize: 27,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
             Positioned(
-              left: 46,
-              top: 673,
-              child: _GoalDialog(
+              left: 24,
+              top: 178,
+              child: _GoalForm(
+                year: year,
+                month: month,
                 amount: _amount,
                 onEdit: _editAmount,
                 percentAmount: _percentAmount,
                 onSelectPercent: (amount) => setState(() => _amount = amount),
               ),
             ),
+            if (_error case final message?)
+              Positioned(
+                left: 24,
+                right: 24,
+                bottom: 110,
+                child: Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFFFF6B7A), fontSize: 14),
+                ),
+              ),
             Positioned(
-              left: 46,
-              top: 1070,
+              left: 24,
+              right: 24,
+              bottom: 40,
               child: GestureDetector(
                 onTap: _isSaving ? null : _save,
                 child: Container(
-                  width: 656,
-                  height: 96,
+                  height: 56,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Color(0xFF252552), AppColors.main],
-                    ),
-                    borderRadius: BorderRadius.circular(30),
-                    border: Border.all(color: const Color(0x4DE2E2F9)),
+                    color: AppColors.main,
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    _isSaving ? '저장 중...' : '목표 저장',
+                    _isSaving ? '저장 중...' : '저장',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 28,
+                      fontSize: 15,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
-              ),
-            ),
-            if (_error case final message?)
-              Positioned(
-                left: 46,
-                top: 1180,
-                width: 656,
-                child: Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Color(0xFFFF6B7A), fontSize: 20),
-                ),
-              ),
-            Positioned(
-              left: 0,
-              top: 1459,
-              child: AppBottomNavigation(
-                selectedIndex: 3,
-                onSelected: (index) => _handleNavigation(context, index),
               ),
             ),
           ],
@@ -201,36 +188,20 @@ class _AnalysisGoalScreenState extends State<AnalysisGoalScreen> {
       ),
     );
   }
-
-  void _handleNavigation(BuildContext context, int index) {
-    if (widget.onNavigationSelected case final callback?) {
-      callback(index);
-      return;
-    }
-
-    final Widget? destination = switch (index) {
-      0 => const HomeScreen(),
-      1 => const LedgerScreen(),
-      2 => const RegisterTypeScreen(),
-      4 => const ProfileScreen(),
-      _ => null,
-    };
-    if (destination == null) return;
-
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute<void>(builder: (_) => destination));
-  }
 }
 
-class _GoalDialog extends StatelessWidget {
-  const _GoalDialog({
+class _GoalForm extends StatelessWidget {
+  const _GoalForm({
+    required this.year,
+    required this.month,
     required this.amount,
     required this.onEdit,
     required this.percentAmount,
     required this.onSelectPercent,
   });
 
+  final int year;
+  final int month;
   final int amount;
   final VoidCallback onEdit;
   final int? Function(int percent) percentAmount;
@@ -238,109 +209,81 @@ class _GoalDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 656,
-      height: 378,
-      clipBehavior: Clip.hardEdge,
-      decoration: BoxDecoration(
-        color: AppColors.selected,
-        borderRadius: BorderRadius.circular(60),
-        border: Border.all(color: AppColors.text30),
-      ),
-      child: Stack(
+    return SizedBox(
+      width: 354,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Positioned(
-            left: -1,
-            top: -1,
-            width: 658,
-            height: 189,
-            child: ColoredBox(color: AppColors.secondary),
+          const _AsteriskDivider(),
+          const SizedBox(height: 20),
+          Text(
+            '$year년 $month월 목표 금액',
+            style: const TextStyle(color: AppColors.text50, fontSize: 14),
           ),
-          const Positioned(
-            left: 46,
-            top: 37,
-            child: Text(
-              '지출 목표 설정',
-              style: TextStyle(
-                color: Color(0xCCE2E2F9),
-                fontSize: 23,
-                height: 1,
-              ),
-            ),
-          ),
-          Positioned(
-            left: 47,
-            top: 103,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _formatAmount(amount),
-                  style: const TextStyle(
-                    color: AppColors.text,
-                    fontFamily: 'Amarante',
-                    fontSize: 40,
-                    height: 1,
-                  ),
-                ),
-                const SizedBox(width: 5),
-                SvgPicture.asset(AppAssets.wonLight, width: 29, height: 31),
-              ],
-            ),
-          ),
-          Positioned(
-            left: 558,
-            top: 96,
-            width: 64,
-            height: 64,
-            child: GestureDetector(
-              onTap: onEdit,
-              child: Center(
-                child: SvgPicture.asset(
-                  AppAssets.editLight,
-                  width: 31.34,
-                  height: 30,
-                ),
-              ),
-            ),
-          ),
-          const Positioned(
-            left: 46,
-            top: 217,
-            child: Text(
-              '수입 기준으로 설정',
-              style: TextStyle(
-                color: Color(0xCCE2E2F9),
-                fontSize: 23,
-                height: 1,
-              ),
-            ),
-          ),
-          Positioned(
-            left: 46,
-            top: 276,
-            child: Row(
-              children: [
-                for (final percent in [50, 60, 80])
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: _GoalChip(
-                      label: '수입의 $percent%',
-                      selected: percentAmount(percent) == amount,
-                      onTap: () {
-                        final value = percentAmount(percent);
-                        if (value != null) onSelectPercent(value);
-                      },
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _formatAmount(amount),
+                    style: const TextStyle(
+                      color: AppColors.text,
+                      fontFamily: 'Amarante',
+                      fontSize: 30,
                     ),
                   ),
-                _GoalChip(label: '직접 입력', onTap: onEdit),
-              ],
-            ),
+                  const SizedBox(width: 4),
+                  SvgPicture.asset(AppAssets.wonLight, width: 16, height: 17),
+                ],
+              ),
+              GestureDetector(
+                onTap: onEdit,
+                child: SvgPicture.asset(
+                  AppAssets.editLight,
+                  width: 17,
+                  height: 16,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          const _AsteriskDivider(),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              for (final percent in [50, 60, 80])
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _GoalChip(
+                    label: '수입의 $percent%',
+                    selected: percentAmount(percent) == amount,
+                    onTap: () {
+                      final value = percentAmount(percent);
+                      if (value != null) onSelectPercent(value);
+                    },
+                  ),
+                ),
+            ],
           ),
         ],
       ),
     );
   }
+}
+
+class _AsteriskDivider extends StatelessWidget {
+  const _AsteriskDivider();
+
+  @override
+  Widget build(BuildContext context) => SvgPicture.asset(
+    AppAssets.asteriskDividerDark,
+    width: 354,
+    height: 15,
+    colorFilter: const ColorFilter.mode(Color(0xFFE2E2F9), BlendMode.srcIn),
+  );
 }
 
 class _GoalChip extends StatelessWidget {
@@ -355,21 +298,20 @@ class _GoalChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: selected ? 59 : 55,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 26),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? AppColors.text : Colors.transparent,
-          borderRadius: BorderRadius.circular(40),
-          border: Border.all(color: AppColors.text, width: selected ? 3 : 1),
+          color: selected ? const Color(0xFFA8A3FF) : AppColors.selected,
+          border: Border.all(color: AppColors.outline, width: 0.5),
+          borderRadius: BorderRadius.circular(30),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? AppColors.surface : AppColors.text,
-            fontSize: 22,
+            color: selected ? const Color(0xFF1B1B1B) : AppColors.text50,
+            fontSize: 15,
             fontWeight: FontWeight.w600,
-            height: 1,
           ),
         ),
       ),

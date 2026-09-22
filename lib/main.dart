@@ -55,9 +55,7 @@ class SobilogApp extends StatelessWidget {
         'terms' => const TermsScreen(),
         'analysis-overview' => const AnalysisOverviewScreen(),
         'analysis-detail' => const AnalysisDetailScreen(),
-        'analysis-goal' => const AnalysisGoalScreen(
-          background: AnalysisDetailCanvas(showNavigation: false),
-        ),
+        'analysis-goal' => const AnalysisGoalScreen(),
         'profile' => const ProfileScreen(),
         'home' => const HomeScreen(),
         'ledger' => const LedgerScreen(),

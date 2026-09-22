@@ -145,6 +145,17 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
     ).showSnackBar(const SnackBar(content: Text('메시지를 복사했어요')));
   }
 
+  Future<void> _copyAll() async {
+    final combined = _requests
+        .map(
+          (request) =>
+              request['message'] as String? ??
+              '${request['name']} 님  ${_formatAmount(request['amount'] as int? ?? 0)}원',
+        )
+        .join('\n');
+    await _copy(combined);
+  }
+
   Future<void> _complete() async {
     if (!_isLive) {
       Navigator.of(context).popUntil((route) => route.isFirst);
@@ -195,7 +206,7 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
               '정산 요청',
               style: TextStyle(
                 color: AppColors.text,
-                fontFamily: 'BujangnimNunchi',
+                fontWeight: FontWeight.w700,
                 fontSize: 75,
               ),
             ),
@@ -207,15 +218,28 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
           ),
           Positioned(
             left: 46,
-            top: 701,
-            child: Text(
-              '요청할 인원 ${_requests.length}명',
-              style: const TextStyle(color: Color(0x80E2E2F9), fontSize: 23),
+            right: 46,
+            top: 741,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '요청할 인원 ${_requests.length}명',
+                  style: const TextStyle(color: Color(0x80E2E2F9), fontSize: 23),
+                ),
+                GestureDetector(
+                  onTap: _isLoading ? null : _copyAll,
+                  child: const Text(
+                    '전체 복사',
+                    style: TextStyle(color: AppColors.main, fontSize: 23),
+                  ),
+                ),
+              ],
             ),
           ),
           if (_isLoading)
             const Positioned(
-              top: 800,
+              top: 840,
               width: 749,
               child: Center(
                 child: CircularProgressIndicator(color: AppColors.main),
@@ -225,10 +249,36 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
             Positioned(
               left: 0,
               right: 0,
-              top: 770,
+              top: 810,
               bottom: 210,
               child: SingleChildScrollView(
-                child: _RequestPeople(requests: _requests, onCopy: _copy),
+                child: Column(
+                  children: [
+                    _RequestPeople(
+                      requests: _requests,
+                      onCopy: _copy,
+                      onShare: _copy,
+                    ),
+                    const SizedBox(height: 20),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 46),
+                      child: _BulkActions(
+                        onCopyAll: _copyAll,
+                        onShareAll: _copyAll,
+                      ),
+                    ),
+                    if (_requests.isNotEmpty) ...[
+                      const SizedBox(height: 20),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 46),
+                        child: _MessagePreview(
+                          message:
+                              '${_requests.first['message'] as String? ?? ''}\n$_bankLabel',
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           if (_error case final message?)
@@ -285,7 +335,7 @@ class _AccountCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     width: 749,
-    height: 195,
+    height: 235,
     color: AppColors.secondary,
     child: Stack(
       children: [
@@ -320,15 +370,29 @@ class _AccountCard extends StatelessWidget {
             child: SvgPicture.asset(AppAssets.editLight, width: 64, height: 64),
           ),
         ),
+        // 계좌 정보를 수정하면 이후 정산 요청부터 계속 적용된다는 안내 문구 (Figma #더치_005 확인).
+        const Positioned(
+          left: 46,
+          top: 160,
+          child: Text(
+            '수정하면 다음 결제에도 이 계좌를 사용해요',
+            style: TextStyle(color: Color(0x99E2E2F9), fontSize: 20),
+          ),
+        ),
       ],
     ),
   );
 }
 
 class _RequestPeople extends StatelessWidget {
-  const _RequestPeople({required this.requests, required this.onCopy});
+  const _RequestPeople({
+    required this.requests,
+    required this.onCopy,
+    required this.onShare,
+  });
   final List<Map<String, dynamic>> requests;
   final ValueChanged<String> onCopy;
+  final ValueChanged<String> onShare;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -338,6 +402,10 @@ class _RequestPeople extends StatelessWidget {
           name: request['name'] as String? ?? '',
           amount: request['amount'] as int? ?? 0,
           onCopy: () => onCopy(
+            request['message'] as String? ??
+                '${request['name']} 님  ${_formatAmount(request['amount'] as int? ?? 0)}원',
+          ),
+          onShare: () => onShare(
             request['message'] as String? ??
                 '${request['name']} 님  ${_formatAmount(request['amount'] as int? ?? 0)}원',
           ),
@@ -351,11 +419,13 @@ class _RequestPerson extends StatelessWidget {
     required this.name,
     required this.amount,
     required this.onCopy,
+    required this.onShare,
   });
 
   final String name;
   final int amount;
   final VoidCallback onCopy;
+  final VoidCallback onShare;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -385,9 +455,9 @@ class _RequestPerson extends StatelessWidget {
             ),
           ),
         ),
-        Positioned(right: 119, top: 48, child: _RequestAmount(value: amount)),
+        Positioned(right: 200, top: 48, child: _RequestAmount(value: amount)),
         Positioned(
-          right: 46,
+          right: 90,
           top: 59,
           child: GestureDetector(
             onTap: onCopy,
@@ -396,6 +466,93 @@ class _RequestPerson extends StatelessWidget {
               style: TextStyle(color: Color(0xCCE2E2F9), fontSize: 23),
             ),
           ),
+        ),
+        // Figma #더치_005: 복사 옆에 종이비행기 모양의 공유 버튼이 있으나,
+        // 이 프로젝트에는 공유(share_plus) 패키지가 아직 없어 우선 클립보드
+        // 복사와 동일하게 동작시킨다. share_plus 도입 시 네이티브 공유
+        // 시트로 교체 필요 (최종 보고서 참고).
+        Positioned(
+          right: 46,
+          top: 55,
+          child: GestureDetector(
+            onTap: onShare,
+            child: const Icon(
+              Icons.ios_share,
+              color: Color(0xCCE2E2F9),
+              size: 26,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _BulkActions extends StatelessWidget {
+  const _BulkActions({required this.onCopyAll, required this.onShareAll});
+  final VoidCallback onCopyAll;
+  final VoidCallback onShareAll;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(child: _BulkActionButton(label: '전체 복사', onTap: onCopyAll)),
+      const SizedBox(width: 16),
+      Expanded(child: _BulkActionButton(label: '전체 공유', onTap: onShareAll)),
+    ],
+  );
+}
+
+class _BulkActionButton extends StatelessWidget {
+  const _BulkActionButton({required this.label, required this.onTap});
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      height: 76,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.secondary,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.text,
+          fontSize: 23,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+  );
+}
+
+class _MessagePreview extends StatelessWidget {
+  const _MessagePreview({required this.message});
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: AppColors.secondary,
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '복사되는 메시지',
+          style: TextStyle(color: Color(0x80E2E2F9), fontSize: 20),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          message,
+          style: const TextStyle(color: Color(0xCCE2E2F9), fontSize: 22),
         ),
       ],
     ),

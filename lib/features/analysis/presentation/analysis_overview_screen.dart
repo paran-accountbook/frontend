@@ -70,7 +70,6 @@ class _AnalysisOverviewScreenState extends State<AnalysisOverviewScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => AnalysisGoalScreen(
-          background: const ColoredBox(color: AppColors.background),
           year: _month.year,
           month: _month.month,
           initialAmount: currentAmount > 0 ? currentAmount : 150000,

@@ -133,7 +133,7 @@ class _DutchResultScreenState extends State<DutchResultScreen> {
               '정산 결과 확인',
               style: TextStyle(
                 color: AppColors.text,
-                fontFamily: 'BujangnimNunchi',
+                fontWeight: FontWeight.w700,
                 fontSize: 75,
               ),
             ),
@@ -401,7 +401,7 @@ class _ResultItem extends StatelessWidget {
             name,
             style: const TextStyle(
               color: AppColors.text,
-              fontFamily: 'BujangnimNunchi',
+              fontWeight: FontWeight.w700,
               fontSize: 50,
             ),
           ),

@@ -166,7 +166,7 @@ class _DutchPeopleScreenState extends State<DutchPeopleScreen> {
                 '인원 등록',
                 style: TextStyle(
                   color: AppColors.text,
-                  fontFamily: 'BujangnimNunchi',
+                  fontWeight: FontWeight.w700,
                   fontSize: 75,
                 ),
               ),

@@ -147,7 +147,7 @@ class _DutchAssignmentScreenState extends State<DutchAssignmentScreen> {
               '항목별 인원 배정',
               style: TextStyle(
                 color: AppColors.text,
-                fontFamily: 'BujangnimNunchi',
+                fontWeight: FontWeight.w700,
                 fontSize: 75,
               ),
             ),
@@ -250,7 +250,7 @@ class _AssignmentCard extends StatelessWidget {
                   item['item_name'] as String? ?? '',
                   style: const TextStyle(
                     color: AppColors.text,
-                    fontFamily: 'BujangnimNunchi',
+                    fontWeight: FontWeight.w700,
                     fontSize: 50,
                   ),
                 ),

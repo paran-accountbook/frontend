@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/app_chevron.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../finance/data/finance_service.dart';
 
@@ -128,6 +129,7 @@ class _NotificationSettingsScreenState
                 right: 24,
                 top: 190,
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _ToggleRow(
                       label: '전체 푸시 알림',
@@ -137,6 +139,12 @@ class _NotificationSettingsScreenState
                         _update({'push_enabled': value});
                       },
                     ),
+                    const _SectionDivider(),
+                    const Text(
+                      '항목별 설정',
+                      style: TextStyle(color: AppColors.text50, fontSize: 14),
+                    ),
+                    const SizedBox(height: 16),
                     _ToggleRow(
                       label: '기록 리마인더',
                       value: _reminderEnabled,
@@ -145,12 +153,7 @@ class _NotificationSettingsScreenState
                         _update({'reminder_enabled': value});
                       },
                     ),
-                    if (_reminderEnabled)
-                      _RowButton(
-                        label: '리마인더 시각',
-                        value: _reminderTime,
-                        onTap: _pickReminderTime,
-                      ),
+                    const SizedBox(height: 24),
                     _ToggleRow(
                       label: '목표 초과 경고',
                       value: _budgetAlertEnabled,
@@ -159,6 +162,7 @@ class _NotificationSettingsScreenState
                         _update({'budget_alert_enabled': value});
                       },
                     ),
+                    const SizedBox(height: 24),
                     _ToggleRow(
                       label: '리워드 획득 알림',
                       value: _rewardAlertEnabled,
@@ -167,6 +171,14 @@ class _NotificationSettingsScreenState
                         _update({'reward_alert_enabled': value});
                       },
                     ),
+                    if (_reminderEnabled) ...[
+                      const _SectionDivider(),
+                      _RowButton(
+                        label: '기록 리마인더 시간',
+                        value: _reminderTime,
+                        onTap: _pickReminderTime,
+                      ),
+                    ],
                     if (_error case final message?) ...[
                       const SizedBox(height: 12),
                       Text(
@@ -187,6 +199,22 @@ class _NotificationSettingsScreenState
   }
 }
 
+class _SectionDivider extends StatelessWidget {
+  const _SectionDivider();
+
+  @override
+  Widget build(BuildContext context) => const Padding(
+    padding: EdgeInsets.symmetric(vertical: 20),
+    child: SizedBox(
+      width: 354,
+      child: DecoratedBox(
+        decoration: BoxDecoration(border: Border(top: BorderSide(color: AppColors.text10))),
+        child: SizedBox(height: 1),
+      ),
+    ),
+  );
+}
+
 class _ToggleRow extends StatelessWidget {
   const _ToggleRow({
     required this.label,
@@ -199,26 +227,48 @@ class _ToggleRow extends StatelessWidget {
   final ValueChanged<bool> onChanged;
 
   @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: 12),
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-    decoration: BoxDecoration(
-      color: AppColors.secondary,
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: AppColors.text,
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-          ),
+  Widget build(BuildContext context) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.text,
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
         ),
-        Switch(value: value, activeThumbColor: AppColors.main, onChanged: onChanged),
-      ],
+      ),
+      _ToggleSwitch(value: value, onChanged: onChanged),
+    ],
+  );
+}
+
+class _ToggleSwitch extends StatelessWidget {
+  const _ToggleSwitch({required this.value, required this.onChanged});
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: () => onChanged(!value),
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      width: 54,
+      height: 32,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: value ? AppColors.main : AppColors.selected,
+        borderRadius: BorderRadius.circular(30),
+      ),
+      alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+      child: const SizedBox(
+        width: 24,
+        height: 24,
+        child: DecoratedBox(
+          decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+        ),
+      ),
     ),
   );
 }
@@ -238,30 +288,29 @@ class _RowButton extends StatelessWidget {
   Widget build(BuildContext context) => GestureDetector(
     onTap: onTap,
     behavior: HitTestBehavior.opaque,
-    child: Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      decoration: BoxDecoration(
-        color: AppColors.secondary,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.text,
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.text,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              value,
+              style: const TextStyle(color: AppColors.text, fontSize: 15),
             ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(color: AppColors.text50, fontSize: 15),
-          ),
-        ],
-      ),
+            const SizedBox(width: 6),
+            const AppChevron(size: 16),
+          ],
+        ),
+      ],
     ),
   );
 }

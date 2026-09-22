@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:sobilog/core/network/api_exception.dart';
+import 'package:sobilog/core/theme/app_colors.dart';
 import 'package:sobilog/core/theme/app_theme.dart';
 import 'package:sobilog/features/auth/data/auth_service.dart';
 import 'package:sobilog/features/auth/presentation/email_login_screen.dart';
@@ -27,10 +31,13 @@ import 'package:sobilog/features/register/presentation/register_method_screen.da
 import 'package:sobilog/features/register/presentation/register_direct_screen.dart';
 import 'package:sobilog/features/register/presentation/register_income_screen.dart';
 import 'package:sobilog/features/register/presentation/receipt_entry_form.dart';
+import 'package:sobilog/features/register/presentation/receipt_scan_loading_screen.dart';
 import 'package:sobilog/features/profile/presentation/profile_screen.dart';
 import 'package:sobilog/features/onboarding/presentation/onboarding_screen.dart';
 import 'package:sobilog/features/splash/presentation/splash_screen.dart';
 import 'package:sobilog/shared/widgets/app_bottom_navigation.dart';
+import 'package:sobilog/shared/widgets/app_skeleton.dart';
+import 'package:sobilog/shared/widgets/editable_receipt_form.dart';
 
 void main() {
   testWidgets('signup completion content matches the Figma button layout', (
@@ -306,6 +313,35 @@ void main() {
     expect(find.text('아주대학교 카페'), findsNWidgets(4));
   });
 
+  testWidgets('ledger month arrows point and move in opposite directions', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const LedgerScreen()),
+    );
+
+    final previous = find.byKey(const Key('ledger-period-previous'));
+    final next = find.byKey(const Key('ledger-period-next'));
+    final previousTransform = tester.widget<Transform>(
+      find.descendant(of: previous, matching: find.byType(Transform)),
+    );
+    expect(previousTransform.transform.storage[0], -1);
+
+    String title() => tester
+        .widget<Text>(find.byKey(const Key('ledger-period-title')))
+        .textSpan!
+        .toPlainText()
+        .replaceAll('\uFFFC', '');
+
+    expect(title(), contains('8'));
+    await tester.tap(previous);
+    await tester.pump();
+    expect(title(), contains('7'));
+    await tester.tap(next);
+    await tester.pump();
+    expect(title(), contains('8'));
+  });
+
   testWidgets('renders ledger detail', (tester) async {
     await tester.pumpWidget(
       MaterialApp(theme: AppTheme.dark, home: const LedgerDetailScreen()),
@@ -345,6 +381,37 @@ void main() {
     expect(find.text('직접 등록'), findsOneWidget);
   });
 
+  testWidgets('all bottom navigation items work on registration screens', (
+    tester,
+  ) async {
+    final selected = <int>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: RegisterMethodScreen(onNavigationSelected: selected.add),
+      ),
+    );
+
+    for (var index = 0; index < 5; index++) {
+      await tester.tap(find.byKey(ValueKey('bottom-navigation-item-$index')));
+      await tester.pump();
+    }
+    expect(selected, [0, 1, 2, 3, 4]);
+
+    selected.clear();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: RegisterTypeScreen(onNavigationSelected: selected.add),
+      ),
+    );
+    for (var index = 0; index < 5; index++) {
+      await tester.tap(find.byKey(ValueKey('bottom-navigation-item-$index')));
+      await tester.pump();
+    }
+    expect(selected, [0, 1, 2, 3, 4]);
+  });
+
   testWidgets('requests native camera and gallery sources', (tester) async {
     final sources = <ImageSource>[];
     await tester.pumpWidget(
@@ -362,6 +429,194 @@ void main() {
     await tester.pump();
 
     expect(sources, [ImageSource.camera, ImageSource.gallery]);
+  });
+
+  testWidgets(
+    'receipt registration spinner rotates clockwise at constant speed',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(402, 874);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: const ReceiptScanLoadingScreen(
+            imagePath: 'receipt.jpg',
+            autoRecognize: false,
+          ),
+        ),
+      );
+
+      final spinnerFinder = find.byKey(
+        const ValueKey('receipt-registration-spinner'),
+      );
+      final progress = tester.widget<CircularProgressIndicator>(
+        find.descendant(
+          of: spinnerFinder,
+          matching: find.byType(CircularProgressIndicator),
+        ),
+      );
+      final before = tester
+          .widget<RotationTransition>(spinnerFinder)
+          .turns
+          .value;
+
+      expect(progress.value, 0.75);
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final after = tester
+          .widget<RotationTransition>(spinnerFinder)
+          .turns
+          .value;
+      expect((after - before + 1) % 1, closeTo(0.25, 0.01));
+    },
+  );
+
+  testWidgets('receipt recognition failure offers retry and direct entry', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(402, 874);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final service = _FailingReceiptService();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: ReceiptScanLoadingScreen(
+          imagePath: 'unreadable-receipt.jpg',
+          financeService: service,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('receipt-recognition-failure-dialog')),
+      findsOneWidget,
+    );
+    expect(find.text('영수증을 인식하지 못했어요'), findsOneWidget);
+    expect(find.text('다시 시도하거나'), findsOneWidget);
+    expect(find.text('직접 등록할 수 있어요.'), findsOneWidget);
+    expect(find.text('다시 시도'), findsOneWidget);
+    expect(find.text('직접 등록'), findsOneWidget);
+    expect(service.recognitionCalls, 1);
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey('receipt-recognition-failure-dialog-panel')),
+      ),
+      const Size(326, 270),
+    );
+
+    final panelRect = tester.getRect(
+      find.byKey(const ValueKey('receipt-recognition-failure-dialog-panel')),
+    );
+    final titleRect = tester.getRect(find.text('영수증을 인식하지 못했어요'));
+    final retryRect = tester.getRect(find.text('다시 시도'));
+    final directRect = tester.getRect(find.text('직접 등록'));
+    expect(titleRect.center.dx, closeTo(panelRect.center.dx, .5));
+    expect(retryRect.center.dy, closeTo(directRect.center.dy, .5));
+    expect(retryRect.center.dx, lessThan(panelRect.center.dx));
+    expect(directRect.center.dx, greaterThan(panelRect.center.dx));
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/receipt_failure_dialog.png'),
+    );
+
+    await tester.tap(find.text('다시 시도'));
+    await tester.pumpAndSettle();
+    expect(service.recognitionCalls, 2);
+    expect(
+      find.byKey(const ValueKey('receipt-recognition-failure-dialog')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('직접 등록'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RegisterDirectScreen), findsOneWidget);
+  });
+
+  testWidgets('data-driven screens render skeletons while loading', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(402, 874);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final service = _PendingFinanceService();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: HomeScreen(financeService: service),
+      ),
+    );
+    await tester.pump();
+    expect(find.byType(AppSkeletonList), findsOneWidget);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: LedgerScreen(financeService: service),
+      ),
+    );
+    await tester.pump();
+    expect(find.byType(AppSkeletonList), findsOneWidget);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: AnalysisOverviewScreen(financeService: service),
+      ),
+    );
+    await tester.pump();
+    expect(find.byType(AppSkeleton), findsWidgets);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: ProfileScreen(financeService: service),
+      ),
+    );
+    await tester.pump();
+    expect(find.byType(AppSkeleton), findsOneWidget);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: LedgerDetailScreen(expenseId: '1', financeService: service),
+      ),
+    );
+    await tester.pump();
+    expect(find.byKey(const Key('ledger-detail-loading')), findsOneWidget);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: LedgerEditScreen(expenseId: '1', financeService: service),
+      ),
+    );
+    await tester.pump();
+    expect(find.byKey(const Key('ledger-edit-loading')), findsOneWidget);
+  });
+
+  testWidgets('skeleton shimmer preserves the Figma 10 to 20 percent alpha', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: AppSkeleton(child: AppSkeletonBox(width: 100, height: 20)),
+        ),
+      ),
+    );
+
+    final mask = tester.widget<ShaderMask>(find.byType(ShaderMask));
+    expect(mask.blendMode, BlendMode.srcIn);
+    expect(AppColors.text10.a, closeTo(.1, .01));
+    expect(AppColors.text20.a, closeTo(.2, .01));
   });
 
   testWidgets('renders direct expense receipt', (tester) async {
@@ -401,6 +656,123 @@ void main() {
 
     final payload = key.currentState!.buildPayload(source: 'manual')!;
     expect(payload['paid_at'], '2026-09-13T16:38:00.000Z');
+  });
+
+  testWidgets('edits a receipt item on double tap and deletes its memo', (
+    tester,
+  ) async {
+    final key = GlobalKey<ReceiptEntryFormState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: ReceiptEntryForm(
+              key: key,
+              editable: true,
+              showMemo: true,
+              initialData: const {
+                'store_name': '테스트 카페',
+                'category': '카페',
+                'payment_method': '카드',
+                'items': [
+                  {'item_name': '아메리카노', 'quantity': 1, 'unit_price': 4500},
+                ],
+                'memo': '삭제할 메모',
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final item = find.byKey(const Key('receipt-item-0'));
+    await tester.tap(item);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(item);
+    await tester.pumpAndSettle();
+
+    final itemInput = find.byKey(const Key('receipt-item-name-input-0'));
+    expect(itemInput, findsOneWidget);
+    expect(tester.testTextInput.isVisible, isTrue);
+    await tester.enterText(itemInput, '카페라떼');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(itemInput, findsNothing);
+    expect(tester.testTextInput.isVisible, isFalse);
+
+    await tester.ensureVisible(find.byKey(const Key('receipt-memo-field')));
+    await tester.tap(find.byKey(const Key('receipt-memo-field')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('delete-receipt-memo')));
+    await tester.pumpAndSettle();
+
+    final payload = key.currentState!.buildPayload(source: 'ocr')!;
+    expect((payload['items'] as List).single, {
+      'item_name': '카페라떼',
+      'quantity': 1,
+      'unit_price': 4500,
+    });
+    expect(payload['memo'], isNull);
+    expect(find.text('메모를 입력해 주세요'), findsOneWidget);
+  });
+
+  testWidgets('edits a ledger receipt item and clears its memo', (
+    tester,
+  ) async {
+    final key = GlobalKey<EditableReceiptFormState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: EditableReceiptForm(
+              key: key,
+              editable: true,
+              initialData: const {
+                'store_name': '테스트 카페',
+                'category': '카페',
+                'payment_method': '카드',
+                'items': [
+                  {'item_name': '아메리카노', 'quantity': 1, 'unit_price': 4500},
+                ],
+                'memo': '삭제할 메모',
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final item = find.byKey(const Key('editable-receipt-item-0'));
+    await tester.ensureVisible(item);
+    await tester.tap(item);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(item);
+    await tester.pumpAndSettle();
+    final itemInput = find.byKey(const Key('editable-receipt-item-name-input'));
+    expect(itemInput, findsOneWidget);
+    expect(tester.testTextInput.isVisible, isTrue);
+    await tester.enterText(itemInput, '카페라떼');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(itemInput, findsNothing);
+    expect(tester.testTextInput.isVisible, isFalse);
+
+    final memo = find.byKey(const Key('editable-receipt-memo-field'));
+    await tester.ensureVisible(memo);
+    await tester.tap(memo);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('delete-editable-receipt-memo')));
+    await tester.pumpAndSettle();
+
+    final payload = key.currentState!.buildUpdatePayload()!;
+    expect((payload['items'] as List).single, {
+      'item_name': '카페라떼',
+      'quantity': 1,
+      'unit_price': 4500,
+    });
+    expect(payload['memo'], isNull);
   });
 
   testWidgets('renders income receipt', (tester) async {
@@ -460,6 +832,39 @@ void main() {
     expect(find.text('식비'), findsOneWidget);
   });
 
+  testWidgets('keeps bottom navigation fixed on long analysis screens', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(402, 874);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const AnalysisOverviewScreen()),
+    );
+    final overviewNavigation = find.byType(AppBottomNavigation);
+    final overviewTop = tester.getTopLeft(overviewNavigation).dy;
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -500),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(overviewNavigation).dy, overviewTop);
+
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const AnalysisDetailScreen()),
+    );
+    await tester.pumpAndSettle();
+    final detailNavigation = find.byType(AppBottomNavigation);
+    final detailTop = tester.getTopLeft(detailNavigation).dy;
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -700),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(detailNavigation).dy, detailTop);
+  });
+
   testWidgets('keeps spending goal visible when analysis omits goal', (
     tester,
   ) async {
@@ -500,7 +905,7 @@ void main() {
     expect(find.text('재구매 충동구매 분석'), findsOneWidget);
   });
 
-  testWidgets('opens spending goal dialog from analysis detail', (
+  testWidgets('opens spending goal screen from analysis detail', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -515,7 +920,8 @@ void main() {
     expect(find.byType(AnalysisGoalScreen), findsOneWidget);
     expect(find.text('지출 목표 설정'), findsOneWidget);
     expect(find.text('수입의 50%'), findsOneWidget);
-    expect(find.text('직접 입력'), findsOneWidget);
+    expect(find.text('수입의 60%'), findsOneWidget);
+    expect(find.text('수입의 80%'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('analysis-goal-close')));
     await tester.pumpAndSettle();
@@ -525,15 +931,74 @@ void main() {
   });
 
   testWidgets('renders profile menu', (tester) async {
+    Uri? openedUri;
     await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.dark, home: const ProfileScreen()),
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: ProfileScreen(
+          onOpenCustomerSupport: (uri) async => openedUri = uri,
+        ),
+      ),
     );
 
     expect(find.text('마이페이지'), findsOneWidget);
     expect(find.text('소비로그 님'), findsOneWidget);
     expect(find.text('출석 현황'), findsOneWidget);
     expect(find.text('계정 설정'), findsOneWidget);
+    expect(find.text('고객 센터'), findsOneWidget);
+
+    await tester.tap(find.text('고객 센터'));
+    await tester.pump();
+    expect(openedUri, Uri.parse('http://pf.kakao.com/_xbVZaX'));
   });
+}
+
+class _FailingReceiptService implements FinanceService {
+  int recognitionCalls = 0;
+
+  @override
+  Future<Map<String, dynamic>> recognizeReceipt(String imagePath) async {
+    recognitionCalls += 1;
+    throw const ApiException(message: '영수증 인식 실패');
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _PendingFinanceService implements FinanceService {
+  final _home = Completer<Map<String, dynamic>>();
+  final _ledger = Completer<Map<String, dynamic>>();
+  final _analysis = Completer<Map<String, dynamic>>();
+  final _profile = Completer<Map<String, dynamic>>();
+  final _detail = Completer<Map<String, dynamic>>();
+
+  @override
+  Future<Map<String, dynamic>> home() => _home.future;
+
+  @override
+  Future<Map<String, dynamic>> ledger({
+    required String period,
+    required DateTime anchor,
+    String type = 'all',
+    List<String> categories = const [],
+    List<String> paymentMethods = const [],
+  }) => _ledger.future;
+
+  @override
+  Future<Map<String, dynamic>> analysis({
+    required int year,
+    required int month,
+  }) => _analysis.future;
+
+  @override
+  Future<Map<String, dynamic>> profile() => _profile.future;
+
+  @override
+  Future<Map<String, dynamic>> expenseDetail(String id) => _detail.future;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _RecordingAuthService implements AuthService {

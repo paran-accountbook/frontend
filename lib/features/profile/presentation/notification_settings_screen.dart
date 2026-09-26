@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_assets.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/app_chevron.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../finance/data/finance_service.dart';
@@ -20,11 +22,12 @@ class NotificationSettingsScreen extends StatefulWidget {
 
 class _NotificationSettingsScreenState
     extends State<NotificationSettingsScreen> {
-  bool _pushEnabled = true;
-  bool _reminderEnabled = true;
+  bool _pushEnabled = false;
+  bool _reminderEnabled = false;
   String _reminderTime = '21:00';
   bool _budgetAlertEnabled = true;
   bool _rewardAlertEnabled = true;
+  bool _marketingAgreed = false;
   bool _isLoading = false;
   String? _error;
 
@@ -50,6 +53,8 @@ class _NotificationSettingsScreenState
               data['budget_alert_enabled'] as bool? ?? _budgetAlertEnabled;
           _rewardAlertEnabled =
               data['reward_alert_enabled'] as bool? ?? _rewardAlertEnabled;
+          _marketingAgreed =
+              data['marketing_agreed'] as bool? ?? _marketingAgreed;
         });
       }
     } on ApiException catch (error) {
@@ -66,7 +71,10 @@ class _NotificationSettingsScreenState
       await service.updateNotificationSettings(body);
       setState(() => _error = null);
     } on ApiException catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      if (mounted) {
+        setState(() => _error = error.message);
+        await _load();
+      }
     }
   }
 
@@ -104,7 +112,7 @@ class _NotificationSettingsScreenState
             ),
             const Positioned(
               left: 24,
-              top: 128,
+              top: 125,
               child: Text(
                 '알림 설정',
                 style: TextStyle(
@@ -139,7 +147,9 @@ class _NotificationSettingsScreenState
                         _update({'push_enabled': value});
                       },
                     ),
+                    const SizedBox(height: 7),
                     const _SectionDivider(),
+                    const SizedBox(height: 4),
                     const Text(
                       '항목별 설정',
                       style: TextStyle(color: AppColors.text50, fontSize: 14),
@@ -171,14 +181,26 @@ class _NotificationSettingsScreenState
                         _update({'reward_alert_enabled': value});
                       },
                     ),
-                    if (_reminderEnabled) ...[
-                      const _SectionDivider(),
-                      _RowButton(
-                        label: '기록 리마인더 시간',
-                        value: _reminderTime,
-                        onTap: _pickReminderTime,
-                      ),
-                    ],
+                    const SizedBox(height: 24),
+                    _ToggleRow(
+                      label: '마케팅 정보 수신',
+                      value: _marketingAgreed,
+                      onChanged: (value) {
+                        setState(() => _marketingAgreed = value);
+                        _update({'marketing_agreed': value});
+                      },
+                    ),
+                    const _SectionDivider(),
+                    _RowButton(
+                      label: '기록 리마인더 시간',
+                      value: _reminderTime,
+                      onTap: _pickReminderTime,
+                    ),
+                    _RowButton(
+                      label: 'iOS 알림 권한',
+                      value: '시스템 설정 열기',
+                      onTap: () => launchUrl(Uri.parse('app-settings:')),
+                    ),
                     if (_error case final message?) ...[
                       const SizedBox(height: 12),
                       Text(
@@ -192,6 +214,11 @@ class _NotificationSettingsScreenState
                   ],
                 ),
               ),
+            Positioned(
+              left: 0,
+              bottom: 0,
+              child: AppBottomNavigation(selectedIndex: 2, onSelected: (_) {}),
+            ),
           ],
         ),
       ),
@@ -208,7 +235,9 @@ class _SectionDivider extends StatelessWidget {
     child: SizedBox(
       width: 354,
       child: DecoratedBox(
-        decoration: BoxDecoration(border: Border(top: BorderSide(color: AppColors.text10))),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: AppColors.text10)),
+        ),
         child: SizedBox(height: 1),
       ),
     ),
@@ -234,7 +263,7 @@ class _ToggleRow extends StatelessWidget {
         label,
         style: const TextStyle(
           color: AppColors.text,
-          fontSize: 15,
+          fontSize: 14,
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -256,17 +285,20 @@ class _ToggleSwitch extends StatelessWidget {
       duration: const Duration(milliseconds: 150),
       width: 54,
       height: 32,
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
         color: value ? AppColors.main : AppColors.selected,
         borderRadius: BorderRadius.circular(30),
       ),
       alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-      child: const SizedBox(
-        width: 24,
-        height: 24,
+      child: SizedBox(
+        width: 22,
+        height: 22,
         child: DecoratedBox(
-          decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+          decoration: BoxDecoration(
+            color: value ? AppColors.text : AppColors.text20,
+            shape: BoxShape.circle,
+          ),
         ),
       ),
     ),
@@ -295,7 +327,7 @@ class _RowButton extends StatelessWidget {
           label,
           style: const TextStyle(
             color: AppColors.text,
-            fontSize: 15,
+            fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -304,7 +336,7 @@ class _RowButton extends StatelessWidget {
           children: [
             Text(
               value,
-              style: const TextStyle(color: AppColors.text, fontSize: 15),
+              style: const TextStyle(color: AppColors.text, fontSize: 14),
             ),
             const SizedBox(width: 6),
             const AppChevron(size: 16),

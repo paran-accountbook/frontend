@@ -32,7 +32,8 @@ class _DutchResultScreenState extends State<DutchResultScreen> {
   String? _error;
   final Set<String> _expanded = {};
 
-  bool get _isLive => widget.dutchPayService != null && widget.sessionId != null;
+  bool get _isLive =>
+      widget.dutchPayService != null && widget.sessionId != null;
 
   @override
   void initState() {
@@ -48,7 +49,8 @@ class _DutchResultScreenState extends State<DutchResultScreen> {
   Future<void> _load() async {
     try {
       final data = await widget.dutchPayService!.result(widget.sessionId!);
-      final participants = (data['participants'] as List?)
+      final participants =
+          (data['participants'] as List?)
               ?.whereType<Map<String, dynamic>>()
               .toList() ??
           const [];
@@ -68,6 +70,7 @@ class _DutchResultScreenState extends State<DutchResultScreen> {
         ?.whereType<Map<String, dynamic>>()
         .toList();
     if (list != null) return list;
+    if (_isLive) return const [];
     return const [
       {
         'participant_id': 'self',
@@ -83,7 +86,8 @@ class _DutchResultScreenState extends State<DutchResultScreen> {
     ];
   }
 
-  int get _totalAmount => _data?['total_amount'] as int? ?? 150000;
+  int get _totalAmount =>
+      _data?['total_amount'] as int? ?? (_isLive ? 0 : 150000);
 
   void _toggleExpand(String id) {
     setState(() {
@@ -101,6 +105,8 @@ class _DutchResultScreenState extends State<DutchResultScreen> {
         builder: (_) => DutchRequestScreen(
           sessionId: widget.sessionId,
           dutchPayService: widget.dutchPayService,
+          settlementData: _data,
+          selfName: widget.selfName,
         ),
       ),
     );
@@ -116,7 +122,7 @@ class _DutchResultScreenState extends State<DutchResultScreen> {
           const ColoredBox(color: AppColors.background),
           Positioned(
             left: 32,
-            top: 133,
+            top: 104,
             child: GestureDetector(
               onTap: () => Navigator.of(context).maybePop(),
               child: SvgPicture.asset(
@@ -134,11 +140,15 @@ class _DutchResultScreenState extends State<DutchResultScreen> {
               style: TextStyle(
                 color: AppColors.text,
                 fontWeight: FontWeight.w700,
-                fontSize: 75,
+                fontSize: 50,
               ),
             ),
           ),
-          Positioned(left: 0, top: 326, child: _ReceiptTotal(total: _totalAmount)),
+          Positioned(
+            left: 0,
+            top: 360,
+            child: _ReceiptTotal(total: _totalAmount),
+          ),
           if (_isLoading)
             const Positioned(
               top: 620,
@@ -151,7 +161,7 @@ class _DutchResultScreenState extends State<DutchResultScreen> {
             Positioned(
               left: 0,
               right: 0,
-              top: 583,
+              top: 610,
               bottom: 210,
               child: SingleChildScrollView(
                 child: Column(
@@ -160,13 +170,14 @@ class _DutchResultScreenState extends State<DutchResultScreen> {
                       _PersonResultCard(
                         name: participant['name'] as String? ?? '',
                         amount: participant['amount'] as int? ?? 0,
-                        items: (participant['items'] as List?)
+                        items:
+                            (participant['items'] as List?)
                                 ?.whereType<Map<String, dynamic>>()
                                 .toList() ??
                             const [],
                         self:
                             (widget.selfName != null &&
-                                participant['name'] == widget.selfName),
+                            participant['name'] == widget.selfName),
                         expanded: _expanded.contains(
                           participant['participant_id'],
                         ),
@@ -191,17 +202,12 @@ class _DutchResultScreenState extends State<DutchResultScreen> {
             ),
           Positioned(
             left: 46,
-            top: 1466,
-            child: Row(
-              children: [
-                _ActionButton(
-                  label: '이전',
-                  gradient: false,
-                  onTap: () => Navigator.of(context).maybePop(),
-                ),
-                const SizedBox(width: 20),
-                _ActionButton(label: '다음', gradient: true, onTap: _goNext),
-              ],
+            top: 1451,
+            child: _ActionButton(
+              label: '다음',
+              gradient: true,
+              width: 657,
+              onTap: _goNext,
             ),
           ),
         ],
@@ -222,16 +228,16 @@ class _ReceiptTotal extends StatelessWidget {
       children: [
         const Positioned(left: 46, top: 0, child: _AsteriskDivider()),
         const Positioned(
-          top: 50,
+          top: 38,
           width: 749,
           child: Text(
             '영수증 총액',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Color(0x80E2E2F9), fontSize: 23),
+            style: TextStyle(color: Color(0x80E2E2F9), fontSize: 26),
           ),
         ),
         Positioned(
-          top: 96,
+          top: 86,
           width: 749,
           child: Center(child: _TotalAmount(value: total)),
         ),
@@ -265,7 +271,7 @@ class _TotalAmount extends StatelessWidget {
         '총',
         style: TextStyle(
           color: AppColors.text,
-          fontSize: 25,
+          fontSize: 28,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -306,9 +312,14 @@ class _PersonResultCard extends StatelessWidget {
     onTap: onTap,
     behavior: HitTestBehavior.opaque,
     child: Container(
-      width: 749,
-      color: AppColors.secondary,
+      width: 657,
+      margin: const EdgeInsets.fromLTRB(46, 0, 46, 36),
       padding: const EdgeInsets.only(bottom: 8),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: AppColors.secondary,
+        borderRadius: BorderRadius.circular(40),
+      ),
       child: Column(
         children: [
           SizedBox(
@@ -349,7 +360,7 @@ class _PersonResultCard extends StatelessWidget {
                     name,
                     style: const TextStyle(
                       color: AppColors.text,
-                      fontSize: 30,
+                      fontSize: 26,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -359,7 +370,10 @@ class _PersonResultCard extends StatelessWidget {
                   top: 83,
                   child: Text(
                     '배정 품목 ${items.length}개',
-                    style: const TextStyle(color: Color(0x80E2E2F9), fontSize: 23),
+                    style: const TextStyle(
+                      color: Color(0x80E2E2F9),
+                      fontSize: 23,
+                    ),
                   ),
                 ),
                 Positioned(
@@ -390,7 +404,7 @@ class _ResultItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: 749,
+    width: double.infinity,
     height: 87,
     child: Stack(
       children: [
@@ -401,18 +415,15 @@ class _ResultItem extends StatelessWidget {
             name,
             style: const TextStyle(
               color: AppColors.text,
-              fontWeight: FontWeight.w700,
-              fontSize: 50,
+              fontWeight: FontWeight.w500,
+              fontSize: 26,
             ),
           ),
         ),
         Positioned(
           right: 46,
           top: 19,
-          child: Opacity(
-            opacity: 0.5,
-            child: _ResultAmount(value: amount),
-          ),
+          child: Opacity(opacity: 0.5, child: _ResultAmount(value: amount)),
         ),
       ],
     ),
@@ -446,29 +457,25 @@ class _ActionButton extends StatelessWidget {
   const _ActionButton({
     required this.label,
     required this.gradient,
+    this.width = 317.5,
     this.onTap,
   });
 
   final String label;
   final bool gradient;
+  final double width;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) => GestureDetector(
     onTap: onTap,
     child: Container(
-      width: 317.5,
+      width: width,
       height: 102,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: gradient
-              ? const [Color(0xFF252552), AppColors.main]
-              : const [AppColors.surface, Color(0xFF4E5058)],
-        ),
-        borderRadius: BorderRadius.circular(30),
+        color: gradient ? AppColors.main : AppColors.selected,
+        borderRadius: BorderRadius.circular(37),
         border: Border.all(color: const Color(0x4DE2E2F9)),
       ),
       child: Text(

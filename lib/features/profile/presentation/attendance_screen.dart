@@ -4,20 +4,28 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../../../shared/widgets/p1_design_components.dart';
 import '../../finance/data/finance_service.dart';
+import '../../ledger/presentation/ledger_screen.dart';
 
 /// 마이_002: 출석 및 기록 현황 화면.
 ///
 /// Figma(#마이_002_출석현황, node-id 705-23216) 기준: 연속 기록 요약 + 달력
 /// (기록한 날/무지출 기록/기록 없음 3단계 표시) + 이번 달 통계로 구성된다.
-/// 백엔드 AttendanceResponse는 현재 `recorded_dates` 한 가지 목록만 제공하고
-/// 지출 기록일과 무지출 기록일을 구분하지 않으므로, 달력에서는 우선 "기록한
-/// 날/기록 없음" 2단계만 실제 데이터로 표시하고 "무지출 기록" 범례는 향후
-/// 백엔드가 목록을 분리 제공하면 연결한다(최종 보고서의 백엔드 수정 제안 참고).
 class AttendanceScreen extends StatefulWidget {
-  const AttendanceScreen({super.key, this.financeService});
+  const AttendanceScreen({
+    super.key,
+    this.financeService,
+    this.initialData,
+    this.initialMonth,
+    this.today,
+  });
   final FinanceService? financeService;
+  final Map<String, dynamic>? initialData;
+  final DateTime? initialMonth;
+  final DateTime? today;
 
   @override
   State<AttendanceScreen> createState() => _AttendanceScreenState();
@@ -30,22 +38,39 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   String? _error;
   String? _message;
   late DateTime _focusedMonth;
+  late DateTime _today;
 
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    _focusedMonth = DateTime(now.year, now.month);
+    final now = widget.today ?? DateTime.now();
+    _today = DateTime(now.year, now.month, now.day);
+    final initialMonth = widget.initialMonth ?? now;
+    _focusedMonth = DateTime(initialMonth.year, initialMonth.month);
+    _data = widget.initialData;
     if (widget.financeService != null) {
       _isLoading = true;
-      _load();
+      _load(showLoading: false);
     }
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool showLoading = true}) async {
+    final service = widget.financeService;
+    if (service == null) return;
+    if (showLoading && mounted) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
     try {
-      final data = await widget.financeService!.attendance();
-      if (mounted) setState(() => _data = data);
+      final data = await service.attendance(month: _focusedMonth);
+      if (mounted) {
+        setState(() {
+          _data = data;
+          _error = null;
+        });
+      }
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } finally {
@@ -64,7 +89,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     try {
       await service.markNoSpendDay();
       setState(() => _message = '오늘을 무지출 날로 기록했어요');
-      await _load();
+      await _load(showLoading: false);
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } finally {
@@ -73,25 +98,36 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Set<DateTime> get _recordedDays {
-    final dates =
-        (_data?['recorded_dates'] as List?)?.whereType<String>() ??
-        const <String>[];
-    return dates
-        .map(DateTime.tryParse)
-        .whereType<DateTime>()
-        .map((d) => DateTime(d.year, d.month, d.day))
-        .toSet();
+    final calendar = (_data?['calendar'] as List?)
+        ?.whereType<Map<String, dynamic>>();
+    if (calendar != null) {
+      return _calendarDates(calendar, const {'recorded', 'no_spend'});
+    }
+    return _dateSet(_data?['recorded_dates']);
+  }
+
+  Set<DateTime> get _noSpendDays {
+    final calendar = (_data?['calendar'] as List?)
+        ?.whereType<Map<String, dynamic>>();
+    if (calendar != null) {
+      return _calendarDates(calendar, const {'no_spend'});
+    }
+    return _dateSet(_data?['no_spend_dates']);
   }
 
   bool get _todayRecorded {
-    final today = DateTime.now();
-    return _recordedDays.contains(DateTime(today.year, today.month, today.day));
+    return _recordedDays.contains(_today);
   }
 
-  void _shiftMonth(int delta) {
+  Future<void> _shiftMonth(int delta) async {
+    final target = DateTime(_focusedMonth.year, _focusedMonth.month + delta);
+    final currentMonth = DateTime(_today.year, _today.month);
+    if (target.isAfter(currentMonth)) return;
     setState(() {
-      _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month + delta);
+      _focusedMonth = target;
+      _message = null;
     });
+    await _load();
   }
 
   @override
@@ -107,6 +143,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       _focusedMonth.month + 1,
       0,
     ).day;
+    final isCurrentMonth =
+        _focusedMonth.year == _today.year &&
+        _focusedMonth.month == _today.month;
+    final monthLabel = isCurrentMonth ? '이번 달' : '${_focusedMonth.month}월';
 
     return Scaffold(
       body: DesignCanvas(
@@ -126,9 +166,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             ),
             const Positioned(
               left: 24,
-              top: 128,
+              top: 125,
               child: Text(
-                '출석 현황',
+                '출석 및 기록 현황',
                 style: TextStyle(
                   color: AppColors.text,
                   fontSize: 27,
@@ -149,71 +189,108 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               Positioned(
                 left: 24,
                 right: 24,
-                top: 190,
-                bottom: 30,
+                top: 191,
+                bottom: 100,
                 child: SingleChildScrollView(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
+                      const P1AsteriskDivider(),
+                      const SizedBox(height: 20),
                       const Text(
                         '현재 연속 기록',
-                        style: TextStyle(color: AppColors.text50, fontSize: 13),
+                        style: TextStyle(color: AppColors.text50, fontSize: 14),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 10),
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.baseline,
                         textBaseline: TextBaseline.alphabetic,
                         children: [
                           Text(
                             '$currentStreak',
                             style: const TextStyle(
-                              color: AppColors.text,
-                              fontSize: 40,
-                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFA8A3FF),
+                              fontFamily: 'Amarante',
+                              fontSize: 36,
                             ),
                           ),
                           const SizedBox(width: 4),
                           const Text(
-                            '일',
+                            '일째',
                             style: TextStyle(
-                              color: AppColors.text,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
+                              color: Color(0xFFA8A3FF),
+                              fontSize: 14,
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        '최고 연속 기록  $maxStreak일',
-                        style: const TextStyle(
-                          color: AppColors.text50,
-                          fontSize: 13,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text(
+                            '최고 연속 기록',
+                            style: TextStyle(
+                              color: AppColors.text,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            '$maxStreak일',
+                            style: const TextStyle(
+                              color: Color(0xFFA8A3FF),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
+                      const P1AsteriskDivider(),
+                      const SizedBox(height: 20),
                       _AttendanceCalendar(
                         focusedMonth: _focusedMonth,
                         recordedDays: _recordedDays,
+                        noSpendDays: _noSpendDays,
+                        today: _today,
                         onPrev: () => _shiftMonth(-1),
                         onNext: () => _shiftMonth(1),
+                        onDateSelected: (date) => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => LedgerScreen(
+                              financeService: widget.financeService,
+                              initialAnchor: date,
+                              initialPeriod: 2,
+                            ),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 16),
                       const _CalendarLegend(),
-                      const SizedBox(height: 24),
-                      _StatCard(label: '이번 달 기록일', value: '$recordedDays일 / $daysInMonth일'),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 20),
+                      const Divider(height: 1, color: AppColors.text10),
+                      const SizedBox(height: 14),
                       _StatCard(
-                        label: '이번 달 기록률',
+                        label: '$monthLabel 기록일',
+                        value: '$recordedDays일 / $daysInMonth일',
+                      ),
+                      const SizedBox(height: 4),
+                      _StatCard(
+                        label: '기록률',
                         value: '${recordingRate.toStringAsFixed(0)}%',
                       ),
-                      const SizedBox(height: 12),
-                      _StatCard(label: '이번 달 무지출', value: '$noSpendDays일'),
+                      const SizedBox(height: 4),
+                      _StatCard(
+                        label: '$monthLabel 무지출',
+                        value: '$noSpendDays일',
+                      ),
                       const SizedBox(height: 30),
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton(
-                          onPressed: (_isMarking || _todayRecorded)
+                          onPressed:
+                              (!isCurrentMonth || _isMarking || _todayRecorded)
                               ? null
                               : _markNoSpendDay,
                           style: FilledButton.styleFrom(
@@ -224,7 +301,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                             ),
                           ),
                           child: Text(
-                            _todayRecorded
+                            !isCurrentMonth
+                                ? '이번 달에서 기록할 수 있어요'
+                                : _todayRecorded
                                 ? '오늘은 이미 기록했어요'
                                 : _isMarking
                                 ? '기록 중...'
@@ -256,6 +335,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   ),
                 ),
               ),
+            Positioned(
+              left: 0,
+              bottom: 0,
+              child: AppBottomNavigation(selectedIndex: 2, onSelected: (_) {}),
+            ),
           ],
         ),
       ),
@@ -263,22 +347,37 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 }
 
+Set<DateTime> _calendarDates(
+  Iterable<Map<String, dynamic>> calendar,
+  Set<String> statuses,
+) => calendar
+    .where((day) => statuses.contains(day['status']))
+    .map((day) => DateTime.tryParse(day['date'] as String? ?? ''))
+    .whereType<DateTime>()
+    .map((date) => DateTime(date.year, date.month, date.day))
+    .toSet();
+
 class _AttendanceCalendar extends StatelessWidget {
   const _AttendanceCalendar({
     required this.focusedMonth,
     required this.recordedDays,
+    required this.noSpendDays,
+    required this.today,
     required this.onPrev,
     required this.onNext,
+    required this.onDateSelected,
   });
 
   final DateTime focusedMonth;
   final Set<DateTime> recordedDays;
+  final Set<DateTime> noSpendDays;
+  final DateTime today;
   final VoidCallback onPrev;
   final VoidCallback onNext;
+  final ValueChanged<DateTime> onDateSelected;
 
   @override
   Widget build(BuildContext context) {
-    final today = DateTime.now();
     final firstOfMonth = DateTime(focusedMonth.year, focusedMonth.month, 1);
     final daysInMonth = DateTime(
       focusedMonth.year,
@@ -299,57 +398,91 @@ class _AttendanceCalendar extends StatelessWidget {
           date.month == today.month &&
           date.day == today.day;
       final isRecorded = recordedDays.contains(date);
+      final isNoSpend = noSpendDays.contains(date);
       cells.add(
-        _CalendarDayCell(day: day, isToday: isToday, isRecorded: isRecorded),
+        _CalendarDayCell(
+          day: day,
+          isToday: isToday,
+          isRecorded: isRecorded,
+          isNoSpend: isNoSpend,
+          onTap: () => onDateSelected(date),
+        ),
       );
     }
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.secondary,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              GestureDetector(
-                onTap: onPrev,
-                child: const Icon(
-                  Icons.chevron_left,
-                  color: AppColors.text50,
+    final currentMonth = DateTime(today.year, today.month);
+    final canMoveNext = focusedMonth.isBefore(currentMonth);
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            GestureDetector(
+              key: const Key('attendance-prev-month'),
+              onTap: onPrev,
+              child: Transform.rotate(
+                angle: 3.141592653589793,
+                child: SvgPicture.asset(
+                  AppAssets.monthArrowActive,
+                  width: 10,
+                  height: 12,
                 ),
               ),
-              Text(
-                '${focusedMonth.year}년 ${focusedMonth.month}월',
-                style: const TextStyle(
-                  color: AppColors.text,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+            ),
+            Row(
+              children: [
+                Text(
+                  '${focusedMonth.year}',
+                  style: const TextStyle(
+                    color: AppColors.text,
+                    fontFamily: 'Amarante',
+                    fontSize: 24,
+                  ),
                 ),
-              ),
-              GestureDetector(
-                onTap: onNext,
-                child: const Icon(
-                  Icons.chevron_right,
-                  color: AppColors.text50,
+                const SizedBox(width: 4),
+                const Text(
+                  '년',
+                  style: TextStyle(color: AppColors.text, fontSize: 14),
                 ),
+                const SizedBox(width: 20),
+                Text(
+                  '${focusedMonth.month}',
+                  style: const TextStyle(
+                    color: AppColors.text,
+                    fontFamily: 'Amarante',
+                    fontSize: 24,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Text(
+                  '월',
+                  style: TextStyle(color: AppColors.text, fontSize: 14),
+                ),
+              ],
+            ),
+            GestureDetector(
+              key: const Key('attendance-next-month'),
+              onTap: canMoveNext ? onNext : null,
+              child: SvgPicture.asset(
+                canMoveNext
+                    ? AppAssets.monthArrowActive
+                    : AppAssets.monthArrowDim,
+                width: 10,
+                height: 12,
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          GridView.count(
-            crossAxisCount: 7,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 6,
-            crossAxisSpacing: 6,
-            children: cells,
-          ),
-        ],
-      ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        GridView.count(
+          crossAxisCount: 7,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 6,
+          crossAxisSpacing: 6,
+          children: cells,
+        ),
+      ],
     );
   }
 }
@@ -359,40 +492,92 @@ class _CalendarDayCell extends StatelessWidget {
     required this.day,
     required this.isToday,
     required this.isRecorded,
+    required this.isNoSpend,
+    required this.onTap,
   });
 
   final int day;
   final bool isToday;
   final bool isRecorded;
+  final bool isNoSpend;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Container(
-      width: 28,
-      height: 28,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: isToday
-            ? AppColors.text
-            : isRecorded
-            ? AppColors.main
-            : Colors.transparent,
-      ),
-      child: Text(
-        '$day',
-        style: TextStyle(
-          color: isToday
-              ? AppColors.background
-              : isRecorded
-              ? Colors.white
-              : AppColors.text50,
-          fontSize: 12,
-          fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
+  Widget build(BuildContext context) {
+    final state = isNoSpend
+        ? 'no-spend'
+        : isRecorded
+        ? 'recorded'
+        : 'none';
+    return GestureDetector(
+      key: Key('attendance-day-$day-$state'),
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Center(
+        child: CustomPaint(
+          foregroundPainter: !isToday && isNoSpend
+              ? const _DashedRoundedBorderPainter()
+              : null,
+          child: Container(
+            width: 46,
+            height: 46,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(
+                isToday || isNoSpend ? 10 : 30,
+              ),
+              color: isToday
+                  ? AppColors.text
+                  : isRecorded && !isNoSpend
+                  ? const Color(0xFFA8A3FF)
+                  : Colors.transparent,
+            ),
+            child: Text(
+              '$day',
+              style: TextStyle(
+                color: isToday
+                    ? AppColors.background
+                    : isNoSpend
+                    ? AppColors.text
+                    : isRecorded
+                    ? const Color(0xFF1B1B1B)
+                    : AppColors.text20,
+                fontFamily: 'Amarante',
+                fontSize: 20,
+                fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
+}
+
+class _DashedRoundedBorderPainter extends CustomPainter {
+  const _DashedRoundedBorderPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(10)),
+      );
+    final paint = Paint()
+      ..color = const Color(0xFFA8A3FF)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        canvas.drawPath(metric.extractPath(distance, distance + 4), paint);
+        distance += 7;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _CalendarLegend extends StatelessWidget {
@@ -400,14 +585,29 @@ class _CalendarLegend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Wrap(
-    spacing: 16,
+    spacing: 27,
     runSpacing: 8,
     children: [
-      _LegendItem(color: AppColors.main, label: '기록한 날', outlined: false),
+      _LegendItem(color: Color(0xFFA8A3FF), label: '기록한 날', outlined: false),
       _LegendItem(color: AppColors.main, label: '무지출 기록', outlined: true),
-      _LegendItem(color: AppColors.text50, label: '기록 없음', outlined: false),
+      _LegendItem(color: AppColors.selected, label: '기록 없음', outlined: false),
     ],
   );
+}
+
+Set<DateTime> _dateSet(Object? value) {
+  final dates = value is List ? value : const <Object?>[];
+  return dates
+      .map(
+        (value) => value is DateTime
+            ? value
+            : value is String
+            ? DateTime.tryParse(value)
+            : null,
+      )
+      .whereType<DateTime>()
+      .map((date) => DateTime(date.year, date.month, date.day))
+      .toSet();
 }
 
 class _LegendItem extends StatelessWidget {
@@ -426,16 +626,19 @@ class _LegendItem extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     children: [
       Container(
-        width: 10,
-        height: 10,
+        width: 13,
+        height: 13,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: outlined ? Colors.transparent : color,
           border: outlined ? Border.all(color: color, width: 1.5) : null,
         ),
       ),
-      const SizedBox(width: 6),
-      Text(label, style: const TextStyle(color: AppColors.text50, fontSize: 12)),
+      const SizedBox(width: 8),
+      Text(
+        label,
+        style: const TextStyle(color: AppColors.text80, fontSize: 12),
+      ),
     ],
   );
 }
@@ -446,22 +649,21 @@ class _StatCard extends StatelessWidget {
   final String value;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: AppColors.secondary,
-      borderRadius: BorderRadius.circular(20),
-    ),
+  Widget build(BuildContext context) => SizedBox(
+    height: 48,
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(color: AppColors.text50, fontSize: 13)),
+        Text(
+          label,
+          style: const TextStyle(color: AppColors.text50, fontSize: 14),
+        ),
         Text(
           value,
           style: const TextStyle(
             color: AppColors.text,
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],

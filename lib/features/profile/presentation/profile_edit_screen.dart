@@ -27,7 +27,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   @override
   void initState() {
     super.initState();
-    _nickname = widget.initialData?['nickname'] as String? ?? '소비로그';
+    _nickname =
+        widget.initialData?['nickname'] as String? ??
+        (widget.financeService == null ? '소비로그' : '');
     _bankName =
         widget.initialData?['bank_name'] as String? ??
         (widget.financeService == null ? '소비은행' : null);
@@ -73,7 +75,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   }
 
   Future<void> _editAccount() async {
-    final bank = await _ask('은행명', _bankName ?? '');
+    final bank = await _selectBank();
     if (bank == null) return;
     final account = await _ask('계좌번호', _accountNumber ?? '');
     if (account == null) return;
@@ -85,6 +87,44 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       _accountNumber = account;
     });
   }
+
+  Future<String?> _selectBank() => showModalBottomSheet<String>(
+    context: context,
+    backgroundColor: AppColors.background,
+    builder: (context) => SafeArea(
+      child: ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(24, 8, 24, 12),
+            child: Text(
+              '은행 선택',
+              style: TextStyle(
+                color: AppColors.text,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          for (final bank in const [
+            '국민은행',
+            '신한은행',
+            '우리은행',
+            '하나은행',
+            '농협은행',
+            '기업은행',
+            '카카오뱅크',
+            '토스뱅크',
+          ])
+            ListTile(
+              title: Text(bank, style: const TextStyle(color: AppColors.text)),
+              onTap: () => Navigator.pop(context, bank),
+            ),
+        ],
+      ),
+    ),
+  );
 
   Future<bool> _update(Map<String, Object?> body) async {
     final service = widget.financeService;
@@ -109,7 +149,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     final value = DateTime.tryParse(
       widget.initialData?['created_at'] as String? ?? '',
     );
-    if (value == null) return '2026년 9월 1일 오후 3:20';
+    if (value == null) {
+      return widget.financeService == null ? '2026년 9월 1일 오후 3:20' : '-';
+    }
     final local = value.toLocal();
     final period = local.hour < 12 ? '오전' : '오후';
     final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
@@ -130,12 +172,12 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             child: IconButton(
               padding: EdgeInsets.zero,
               onPressed: () => Navigator.of(context).maybePop(),
-              icon: SvgPicture.asset(AppAssets.arrowBackLight),
+              icon: SvgPicture.asset(AppAssets.profileBack),
             ),
           ),
           const Positioned(
             left: 24,
-            top: 128,
+            top: 122,
             child: Text(
               '프로필 수정',
               style: TextStyle(
@@ -147,7 +189,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           ),
           Positioned(
             left: 24,
-            top: 190,
+            top: 192,
             width: 354,
             child: Column(
               children: [
@@ -159,15 +201,27 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                   arrow: true,
                   onTap: _editNickname,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
                 _ProfileRow(
                   label: '가입 이메일',
                   value:
                       widget.initialData?['email'] as String? ??
-                      'welcome@sobilog.com',
+                      (widget.financeService == null
+                          ? 'welcome@sobilog.com'
+                          : '-'),
+                  arrow: true,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
                 _ProfileRow(label: '가입일', value: _createdAt),
+                const SizedBox(height: 20),
+                _ProfileRow(
+                  label: '가입 수단',
+                  value: switch (widget.initialData?['provider']) {
+                    'kakao' => '카카오',
+                    'email' => '이메일',
+                    _ => '-',
+                  },
+                ),
                 const SizedBox(height: 20),
                 const _ProfileAsterisks(),
                 const SizedBox(height: 20),
@@ -175,7 +229,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     '더치페이 계좌',
-                    style: TextStyle(color: AppColors.text50, fontSize: 14),
+                    style: TextStyle(
+                      color: AppColors.text50,
+                      fontSize: 14,
+                      height: 17 / 14,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -213,14 +271,18 @@ class _ProfileRow extends StatelessWidget {
   Widget build(BuildContext context) => GestureDetector(
     onTap: onTap,
     behavior: HitTestBehavior.opaque,
-    child: SizedBox(
-      height: 28,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             label,
-            style: const TextStyle(color: AppColors.text50, fontSize: 14),
+            style: const TextStyle(
+              color: AppColors.text50,
+              fontSize: 14,
+              height: 17 / 14,
+            ),
           ),
           Flexible(
             child: Row(
@@ -234,12 +296,13 @@ class _ProfileRow extends StatelessWidget {
                       color: AppColors.text,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
+                      height: 17 / 14,
                     ),
                   ),
                 ),
                 if (arrow) ...[
                   const SizedBox(width: 6),
-                  const AppChevron(size: 20),
+                  const AppChevron(size: 24),
                 ],
               ],
             ),
@@ -253,10 +316,12 @@ class _ProfileRow extends StatelessWidget {
 class _ProfileAsterisks extends StatelessWidget {
   const _ProfileAsterisks();
   @override
-  Widget build(BuildContext context) => Text(
-    List.filled(18, '*').join('   '),
-    maxLines: 1,
-    style: const TextStyle(color: AppColors.text20, fontSize: 10),
+  Widget build(BuildContext context) => SvgPicture.asset(
+    AppAssets.receiptAsteriskDivider,
+    width: 354,
+    height: 7,
+    fit: BoxFit.fill,
+    colorFilter: const ColorFilter.mode(AppColors.text, BlendMode.srcIn),
   );
 }
 
@@ -274,8 +339,8 @@ class _AccountCard extends StatelessWidget {
     onTap: onTap,
     child: Container(
       width: 354,
-      height: 81,
-      padding: const EdgeInsets.all(16),
+      height: 80,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.main,
         borderRadius: BorderRadius.circular(20),
@@ -288,19 +353,27 @@ class _AccountCard extends StatelessWidget {
               children: [
                 Text(
                   bankName?.isNotEmpty == true ? bankName! : '은행을 선택해 주세요',
-                  style: const TextStyle(color: AppColors.text, fontSize: 14),
+                  style: const TextStyle(
+                    color: AppColors.text,
+                    fontSize: 14,
+                    height: 17 / 14,
+                  ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 9),
                 Text(
                   accountNumber?.isNotEmpty == true
                       ? accountNumber!
                       : '계좌번호를 등록해 주세요',
-                  style: const TextStyle(color: AppColors.text80, fontSize: 12),
+                  style: const TextStyle(
+                    color: AppColors.text80,
+                    fontSize: 12,
+                    height: 14 / 12,
+                  ),
                 ),
               ],
             ),
           ),
-          SvgPicture.asset(AppAssets.editLight, width: 24, height: 24),
+          SvgPicture.asset(AppAssets.profileEdit, width: 34, height: 34),
         ],
       ),
     ),

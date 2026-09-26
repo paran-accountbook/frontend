@@ -136,17 +136,10 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
     try {
       final entry = await service.entry(id);
       if (!mounted) return;
-      final items = (entry['items'] as List?)
-              ?.whereType<Map<String, dynamic>>()
-              .toList() ??
-          const <Map<String, dynamic>>[];
       Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => DutchPeopleScreen(
-            sessionId: entry['session_id'] as String?,
-            selfNameSuggestion: entry['self_name_suggestion'] as String?,
-            items: items,
-            totalAmount: entry['total_amount'] as int? ?? 0,
+          builder: (_) => DutchPeopleScreen.fromEntry(
+            entry: entry,
             dutchPayService: service,
           ),
         ),

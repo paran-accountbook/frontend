@@ -5,6 +5,7 @@ import '../../../core/constants/app_assets.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../../../shared/widgets/app_skeleton.dart';
 import '../../../shared/widgets/editable_receipt_form.dart';
 import '../../finance/data/finance_service.dart';
 
@@ -98,7 +99,7 @@ class _LedgerEditScreenState extends State<LedgerEditScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('내역 삭제'),
-        content: const Text('삭제한 내역은 되돌릴 수 없습니다. 삭제할까요?'),
+        content: const Text('삭제한 내역은 되돌릴 수 없습니다. 정산 이력이 있다면 함께 삭제됩니다. 삭제할까요?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -135,6 +136,7 @@ class _LedgerEditScreenState extends State<LedgerEditScreen> {
   Widget build(BuildContext context) {
     final canSubmit = _hasRemoteTarget && _data != null;
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: DesignCanvas(
         child: Stack(
           children: [
@@ -184,17 +186,11 @@ class _LedgerEditScreenState extends State<LedgerEditScreen> {
                 ),
               ),
             if (_isLoading)
-              const Positioned.fill(
-                child: Center(
-                  child: SizedBox.square(
-                    key: Key('ledger-edit-loading'),
-                    dimension: 28,
-                    child: CircularProgressIndicator(
-                      color: AppColors.main,
-                      strokeWidth: 2.5,
-                    ),
-                  ),
-                ),
+              const Positioned(
+                key: Key('ledger-edit-loading'),
+                left: 24,
+                top: 112,
+                child: AppSkeletonReceipt(height: 621),
               ),
             if (_error case final message?)
               Positioned(

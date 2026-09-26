@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/constants/app_assets.dart';
@@ -27,6 +28,7 @@ class EditableReceiptFormState extends State<EditableReceiptForm> {
   late String _paymentMethod;
   late String _memo;
   late final List<Map<String, dynamic>> _items;
+  int? _editingItemIndex;
 
   @override
   void initState() {
@@ -39,7 +41,7 @@ class EditableReceiptFormState extends State<EditableReceiptForm> {
         DateTime(2026, 9, 1, 15, 20);
     _category = widget.initialData?['category'] as String? ?? '선택';
     _paymentMethod = widget.initialData?['payment_method'] as String? ?? '현금';
-    _memo = widget.initialData?['memo'] as String? ?? '과제하다가 친구랑 마심';
+    _memo = widget.initialData?['memo'] as String? ?? '';
     final remoteItems = (widget.initialData?['items'] as List?)
         ?.whereType<Map<String, dynamic>>()
         .map(Map<String, dynamic>.from)
@@ -132,9 +134,21 @@ class EditableReceiptFormState extends State<EditableReceiptForm> {
                 ...List.generate(
                   _items.length,
                   (index) => _EditableItem(
+                    key: Key('editable-receipt-item-$index'),
                     item: _items[index],
                     editable: widget.editable,
-                    onEdit: () => _editItem(index),
+                    editing: _editingItemIndex == index,
+                    onEdit: () => setState(() => _editingItemIndex = index),
+                    onNameChanged: (value) =>
+                        _items[index]['item_name'] = value,
+                    onUnitPriceChanged: (value) => setState(
+                      () => _items[index]['unit_price'] =
+                          int.tryParse(value) ?? 0,
+                    ),
+                    onEditingComplete: () => _finishItemEditing(
+                      index,
+                      _items[index]['item_name'] as String? ?? '',
+                    ),
                     onIncrement: () => _changeQuantity(index, 1),
                     onDecrement: () => _changeQuantity(index, -1),
                     onRemove: () => _removeItem(index),
@@ -175,6 +189,7 @@ class EditableReceiptFormState extends State<EditableReceiptForm> {
           const _PaperDivider(),
           const SizedBox(height: 11),
           GestureDetector(
+            key: const Key('editable-receipt-memo-field'),
             onTap: widget.editable ? _editMemo : null,
             behavior: HitTestBehavior.opaque,
             child: Padding(
@@ -193,7 +208,7 @@ class EditableReceiptFormState extends State<EditableReceiptForm> {
                   SizedBox(
                     height: 40,
                     child: Text(
-                      _memo,
+                      _memo.isEmpty ? '메모를 입력해 주세요' : _memo,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: _paperValue,
@@ -265,8 +280,38 @@ class EditableReceiptFormState extends State<EditableReceiptForm> {
   }
 
   Future<void> _editMemo() async {
-    final value = await _ask('메모', _memo);
-    if (value != null && mounted) setState(() => _memo = value);
+    var value = _memo;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('메모 수정'),
+        content: TextFormField(
+          key: const Key('editable-receipt-memo-input'),
+          initialValue: _memo,
+          autofocus: true,
+          maxLength: 500,
+          maxLines: 4,
+          onChanged: (next) => value = next,
+        ),
+        actions: [
+          if (_memo.isNotEmpty)
+            TextButton(
+              key: const Key('delete-editable-receipt-memo'),
+              onPressed: () => Navigator.pop(context, ''),
+              child: const Text('삭제'),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, value.trim()),
+            child: const Text('저장'),
+          ),
+        ],
+      ),
+    );
+    if (result != null && mounted) setState(() => _memo = result);
   }
 
   Future<void> _editPaidAt() async {
@@ -329,17 +374,11 @@ class EditableReceiptFormState extends State<EditableReceiptForm> {
         ),
       );
 
-  Future<void> _editItem(int index) async {
-    final item = _items[index];
-    final name = await _ask('품목명', item['item_name'] as String? ?? '');
-    if (name == null || !mounted) return;
-    final priceText = await _ask('단가', '${item['unit_price'] ?? 0}');
-    final price = int.tryParse(priceText ?? '');
-    if (price == null || price < 0 || !mounted) return;
-    setState(() {
-      item['item_name'] = name;
-      item['unit_price'] = price;
-    });
+  void _finishItemEditing(int index, String value) {
+    if (_editingItemIndex != index) return;
+    _items[index]['item_name'] = value.trim();
+    setState(() => _editingItemIndex = null);
+    FocusScope.of(context).unfocus();
   }
 
   void _addItem() => setState(() {
@@ -473,16 +512,25 @@ class _SectionHeader extends StatelessWidget {
 
 class _EditableItem extends StatelessWidget {
   const _EditableItem({
+    super.key,
     required this.item,
     required this.editable,
+    required this.editing,
     required this.onEdit,
+    required this.onNameChanged,
+    required this.onUnitPriceChanged,
+    required this.onEditingComplete,
     required this.onIncrement,
     required this.onDecrement,
     required this.onRemove,
   });
   final Map<String, dynamic> item;
   final bool editable;
+  final bool editing;
   final VoidCallback onEdit;
+  final ValueChanged<String> onNameChanged;
+  final ValueChanged<String> onUnitPriceChanged;
+  final VoidCallback onEditingComplete;
   final VoidCallback onIncrement;
   final VoidCallback onDecrement;
   final VoidCallback onRemove;
@@ -499,23 +547,98 @@ class _EditableItem extends StatelessWidget {
         children: [
           Expanded(
             child: GestureDetector(
-              onTap: editable ? onEdit : null,
+              onDoubleTap: editable ? onEdit : null,
               behavior: HitTestBehavior.opaque,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    item['item_name'] as String? ?? '',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: _paperValue,
-                  ),
-                  const SizedBox(height: 9),
-                  Text(
-                    '단가   ${_formatAmount(unitPrice)}원   ${_formatAmount(unitPrice * quantity)}원',
-                    style: const TextStyle(color: _paperText50, fontSize: 12),
-                  ),
+                  if (editing)
+                    Focus(
+                      onFocusChange: (hasFocus) {
+                        if (!hasFocus) onEditingComplete();
+                      },
+                      child: Column(
+                        children: [
+                          TextFormField(
+                            key: const Key('editable-receipt-item-name-input'),
+                            initialValue: item['item_name'] as String? ?? '',
+                            autofocus: true,
+                            maxLines: 1,
+                            textInputAction: TextInputAction.next,
+                            style: _paperValue,
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                              border: InputBorder.none,
+                            ),
+                            onChanged: onNameChanged,
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Text('단가', style: _paperMuted),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 62,
+                                child: TextFormField(
+                                  key: const Key(
+                                    'editable-receipt-item-price-input',
+                                  ),
+                                  initialValue: unitPrice.toString(),
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(9),
+                                  ],
+                                  textInputAction: TextInputAction.done,
+                                  style: const TextStyle(
+                                    color: _paperText,
+                                    fontSize: 12,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    suffixText: '원',
+                                    contentPadding: EdgeInsets.zero,
+                                    border: InputBorder.none,
+                                  ),
+                                  onChanged: onUnitPriceChanged,
+                                  onFieldSubmitted: (_) => onEditingComplete(),
+                                ),
+                              ),
+                              const Spacer(),
+                              Text(
+                                '${_formatAmount((item['unit_price'] as int? ?? 0) * quantity)}원',
+                                style: const TextStyle(
+                                  color: _paperText50,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item['item_name'] as String? ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _paperValue,
+                        ),
+                        const SizedBox(height: 9),
+                        Text(
+                          '단가   ${_formatAmount(unitPrice)}원   ${_formatAmount(unitPrice * quantity)}원',
+                          style: const TextStyle(
+                            color: _paperText50,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ),

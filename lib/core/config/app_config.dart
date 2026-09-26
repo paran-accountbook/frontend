@@ -9,6 +9,8 @@ abstract final class AppConfig {
       : 'https://api.sobilog.kr/';
   static String get termsDocumentUrl =>
       dotenv.isInitialized ? dotenv.env['TERMS_DOCUMENT_URL'] ?? '' : '';
+  static String get kakaoNativeAppKey =>
+      dotenv.isInitialized ? dotenv.env['KAKAO_NATIVE_APP_KEY'] ?? '' : '';
 
   static bool get isDevelopment => environment == 'development';
   static bool get isProduction => environment == 'production';

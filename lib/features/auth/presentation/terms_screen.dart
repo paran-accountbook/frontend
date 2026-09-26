@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_assets.dart';
 import '../../../core/network/api_exception.dart';
@@ -10,6 +11,7 @@ import '../../../shared/widgets/design_canvas.dart';
 import '../../home/presentation/home_screen.dart';
 import '../domain/signup_draft.dart';
 import '../data/auth_service.dart';
+import 'kakao_signup_name_screen.dart';
 import 'terms_detail_screen.dart';
 
 class TermsScreen extends StatefulWidget {
@@ -19,12 +21,16 @@ class TermsScreen extends StatefulWidget {
     this.onAgreed,
     this.onConsentCompleted,
     this.authService,
+    this.kakaoSignup = false,
+    this.reconsent = false,
   });
 
   final SignupDraft? signupDraft;
   final VoidCallback? onAgreed;
   final ValueChanged<bool>? onConsentCompleted;
   final AuthService? authService;
+  final bool kakaoSignup;
+  final bool reconsent;
 
   @override
   State<TermsScreen> createState() => _TermsScreenState();
@@ -41,16 +47,60 @@ class _TermsScreenState extends State<TermsScreen> {
   bool _showRequiredError = false;
   bool _isLoading = false;
   String? _apiError;
+  String? _documentUrl;
+  bool _isDocumentLoading = false;
+  String? _documentError;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.authService != null) {
+      _loadDocument();
+    }
+  }
 
   bool get _allSelected => _selected.every((selected) => selected);
   bool get _requiredSelected => _selected[0] && _selected[1];
 
-  void _openTerms(int index) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => TermsDetailScreen(document: termsDocuments[index]),
-      ),
-    );
+  Future<void> _loadDocument() async {
+    setState(() {
+      _isDocumentLoading = true;
+      _documentError = null;
+    });
+    try {
+      final data = await widget.authService!.termsDocument();
+      if (mounted) {
+        setState(() => _documentUrl = data['document_url'] as String?);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _documentError = '약관을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요');
+      }
+    } finally {
+      if (mounted) setState(() => _isDocumentLoading = false);
+    }
+  }
+
+  Future<void> _openTerms(int index) async {
+    final uri = Uri.tryParse(_documentUrl ?? '');
+    if (uri != null && uri.hasScheme) {
+      final opened = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+      if (opened || !mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('약관을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요')),
+      );
+      return;
+    }
+    if (widget.authService == null) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => TermsDetailScreen(document: termsDocuments[index]),
+        ),
+      );
+      return;
+    }
+    if (_isDocumentLoading) return;
+    setState(() => _documentError = '약관을 불러오지 못했습니다. 다시 시도해 주세요');
   }
 
   void _toggleItem(int index) {
@@ -102,10 +152,37 @@ class _TermsScreenState extends State<TermsScreen> {
         if (mounted) setState(() => _isLoading = false);
       }
       if (!mounted) return;
+    } else if (widget.kakaoSignup) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => KakaoSignupNameScreen(
+            authService: widget.authService ?? AppServices.auth,
+            marketingAgreed: _selected[2],
+          ),
+        ),
+      );
+      return;
+    } else if (widget.reconsent) {
+      setState(() {
+        _isLoading = true;
+        _apiError = null;
+      });
+      try {
+        await (widget.authService ?? AppServices.auth).agreeToLatestTerms();
+      } on ApiException catch (error) {
+        if (mounted) setState(() => _apiError = error.message);
+        return;
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+      if (!mounted) return;
     }
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(
-        builder: (_) => widget.signupDraft == null
+        builder: (_) =>
+            widget.authService == null &&
+                widget.signupDraft == null &&
+                !widget.reconsent
             ? const HomeScreen()
             : HomeScreen(financeService: AppServices.finance),
       ),
@@ -135,6 +212,28 @@ class _TermsScreenState extends State<TermsScreen> {
                   icon: SvgPicture.asset(AppAssets.arrowBackLight),
                 ),
               ),
+              if (_documentError case final message?)
+                Positioned(
+                  left: 24,
+                  right: 24,
+                  top: 555,
+                  child: Column(
+                    children: [
+                      Text(
+                        message,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Color(0xFFFF6B7A),
+                          fontSize: 12,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _isDocumentLoading ? null : _loadDocument,
+                        child: Text(_isDocumentLoading ? '불러오는 중...' : '다시 시도'),
+                      ),
+                    ],
+                  ),
+                ),
               const Positioned(
                 left: 24,
                 top: 129,

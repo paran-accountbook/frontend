@@ -24,9 +24,15 @@ abstract interface class FinanceService {
   Future<Map<String, dynamic>> recognizeReceipt(String imagePath);
   Future<Map<String, dynamic>> createExpense(Map<String, Object?> body);
   Future<Map<String, dynamic>> createIncome(Map<String, Object?> body);
+  Future<Map<String, dynamic>> incomeDetail(String id);
+  Future<Map<String, dynamic>> updateIncome(
+    String id,
+    Map<String, Object?> body,
+  );
+  Future<Map<String, dynamic>> deleteIncome(String id);
 
   /// 마이_002: 출석 및 기록 현황(연속 기록일수, 이번 달 기록률 등)을 조회한다.
-  Future<Map<String, dynamic>> attendance();
+  Future<Map<String, dynamic>> attendance({DateTime? month});
 
   /// 마이_002: 오늘을 무지출 날로 기록한다.
   Future<void> markNoSpendDay();
@@ -53,7 +59,14 @@ abstract interface class FinanceService {
   });
 }
 
-class FinanceApiService implements FinanceService {
+abstract interface class ExpensePhotoService {
+  Future<Map<String, dynamic>> uploadExpensePhoto(
+    String expenseId,
+    String imagePath,
+  );
+}
+
+class FinanceApiService implements FinanceService, ExpensePhotoService {
   const FinanceApiService(this._client);
   final ApiClient _client;
 
@@ -125,12 +138,44 @@ class FinanceApiService implements FinanceService {
   Future<Map<String, dynamic>> createExpense(Map<String, Object?> body) async =>
       await _client.post('/expenses', body: body) as Map<String, dynamic>;
   @override
+  Future<Map<String, dynamic>> uploadExpensePhoto(
+    String expenseId,
+    String imagePath,
+  ) async =>
+      await _client.multipartPost(
+            '/expenses/$expenseId/photos',
+            filePath: imagePath,
+            field: 'files',
+          )
+          as Map<String, dynamic>;
+  @override
   Future<Map<String, dynamic>> createIncome(Map<String, Object?> body) async =>
       await _client.post('/incomes', body: body) as Map<String, dynamic>;
+  @override
+  Future<Map<String, dynamic>> incomeDetail(String id) async =>
+      await _client.get('/incomes/$id') as Map<String, dynamic>;
+  @override
+  Future<Map<String, dynamic>> updateIncome(
+    String id,
+    Map<String, Object?> body,
+  ) async =>
+      await _client.patch('/incomes/$id', body: body) as Map<String, dynamic>;
+  @override
+  Future<Map<String, dynamic>> deleteIncome(String id) async =>
+      await _client.delete('/incomes/$id') as Map<String, dynamic>;
 
   @override
-  Future<Map<String, dynamic>> attendance() async =>
-      await _client.get('/mypage/attendance') as Map<String, dynamic>;
+  Future<Map<String, dynamic>> attendance({DateTime? month}) async =>
+      await _client.get(
+            '/mypage/attendance',
+            query: month == null
+                ? null
+                : {
+                    'month':
+                        '${month.year}-${month.month.toString().padLeft(2, '0')}',
+                  },
+          )
+          as Map<String, dynamic>;
 
   @override
   Future<void> markNoSpendDay() async {

@@ -67,8 +67,10 @@ class _AnalysisGoalScreenState extends State<AnalysisGoalScreen> {
             child: const Text('취소'),
           ),
           FilledButton(
-            onPressed: () =>
-                Navigator.pop(context, int.tryParse(controller.text) ?? _amount),
+            onPressed: () => Navigator.pop(
+              context,
+              int.tryParse(controller.text) ?? _amount,
+            ),
             child: const Text('확인'),
           ),
         ],
@@ -78,6 +80,10 @@ class _AnalysisGoalScreenState extends State<AnalysisGoalScreen> {
   }
 
   Future<void> _save() async {
+    if (_amount <= 0) {
+      setState(() => _error = '지출 목표 금액을 입력해 주세요');
+      return;
+    }
     final service = widget.financeService;
     final year = widget.year;
     final month = widget.month;
@@ -156,7 +162,10 @@ class _AnalysisGoalScreenState extends State<AnalysisGoalScreen> {
                 child: Text(
                   message,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Color(0xFFFF6B7A), fontSize: 14),
+                  style: const TextStyle(
+                    color: Color(0xFFFF6B7A),
+                    fontSize: 14,
+                  ),
                 ),
               ),
             Positioned(
@@ -254,9 +263,9 @@ class _GoalForm extends StatelessWidget {
           const SizedBox(height: 20),
           Row(
             children: [
-              for (final percent in [50, 60, 80])
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
+              for (final (index, percent) in [50, 60, 80].indexed) ...[
+                if (index > 0) const SizedBox(width: 8),
+                Expanded(
                   child: _GoalChip(
                     label: '수입의 $percent%',
                     selected: percentAmount(percent) == amount,
@@ -266,6 +275,7 @@ class _GoalForm extends StatelessWidget {
                     },
                   ),
                 ),
+              ],
             ],
           ),
         ],
@@ -299,7 +309,7 @@ class _GoalChip extends StatelessWidget {
       onTap: onTap,
       child: Container(
         height: 48,
-        padding: const EdgeInsets.symmetric(horizontal: 26),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: selected ? const Color(0xFFA8A3FF) : AppColors.selected,

@@ -5,9 +5,11 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/constants/app_assets.dart';
 import '../../../core/network/app_services.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../auth/presentation/login_screen.dart';
+import '../../auth/presentation/terms_screen.dart';
 import '../../home/presentation/home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -47,13 +49,35 @@ class _SplashScreenState extends State<SplashScreen> {
         ? await AppServices.client.sessionStore.readAccessToken()
         : null;
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (_) => token == null
-            ? const LoginScreen()
-            : HomeScreen(financeService: AppServices.finance),
-      ),
-    );
+    if (token == null) {
+      _replace(const LoginScreen());
+      return;
+    }
+    try {
+      final status = await AppServices.auth.termsStatus();
+      if (!mounted) return;
+      if (status['initial_agreement_required'] == true) {
+        _replace(TermsScreen(authService: AppServices.auth, kakaoSignup: true));
+      } else if (status['reconsent_required'] == true) {
+        _replace(TermsScreen(authService: AppServices.auth, reconsent: true));
+      } else {
+        _replace(HomeScreen(financeService: AppServices.finance));
+      }
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      if (error.statusCode == 401) {
+        await AppServices.auth.logout();
+        if (mounted) _replace(const LoginScreen());
+      } else {
+        _replace(HomeScreen(financeService: AppServices.finance));
+      }
+    }
+  }
+
+  void _replace(Widget screen) {
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute<void>(builder: (_) => screen));
   }
 
   @override
@@ -66,44 +90,6 @@ class _SplashScreenState extends State<SplashScreen> {
           color: AppColors.background,
           child: Stack(
             children: [
-              Positioned(
-                left: -72,
-                top: 161,
-                width: 169,
-                height: 158,
-                child: Image.asset(AppAssets.splashBlobTopLeft),
-              ),
-              Positioned(
-                left: 273,
-                top: 119,
-                width: 174,
-                height: 167,
-                child: Image.asset(AppAssets.splashBlobTopRight),
-              ),
-              Positioned(
-                left: -120,
-                top: 560,
-                width: 249,
-                height: 253,
-                child: Image.asset(AppAssets.splashStarBottomLeft),
-              ),
-              Positioned(
-                left: 308,
-                top: 595,
-                width: 160,
-                height: 155,
-                child: Image.asset(AppAssets.splashStarBottomRight),
-              ),
-              Positioned(
-                left: 184,
-                top: 477,
-                width: 128,
-                height: 125,
-                child: Transform.rotate(
-                  angle: 0.299,
-                  child: Image.asset(AppAssets.splashStarCenter),
-                ),
-              ),
               Positioned(
                 left: 162,
                 top: 306,

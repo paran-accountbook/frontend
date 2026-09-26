@@ -8,12 +8,18 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../../shared/widgets/app_chevron.dart';
 import '../../auth/presentation/login_screen.dart';
+import '../../auth/data/auth_service.dart';
 import 'account_delete_screen.dart';
 import 'password_change_screen.dart';
 
 class AccountSettingsScreen extends StatelessWidget {
-  const AccountSettingsScreen({super.key, this.provider = 'email'});
+  const AccountSettingsScreen({
+    super.key,
+    this.provider = 'email',
+    this.authService,
+  });
   final String provider;
+  final AuthService? authService;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -124,7 +130,18 @@ class AccountSettingsScreen extends StatelessWidget {
   }
 
   Future<void> _openTerms(BuildContext context) async {
-    final url = Uri.tryParse(AppConfig.termsDocumentUrl.trim());
+    String? documentUrl;
+    if (authService != null) {
+      try {
+        final agreement = await authService!.myAgreement();
+        documentUrl = agreement['document_url'] as String?;
+      } catch (_) {
+        // 환경설정 URL로 한 번 더 시도한다.
+      }
+    }
+    final url = Uri.tryParse(
+      (documentUrl ?? AppConfig.termsDocumentUrl).trim(),
+    );
     if (url != null &&
         url.hasScheme &&
         await launchUrl(url, mode: LaunchMode.inAppBrowserView)) {

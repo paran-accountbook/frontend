@@ -11,9 +11,14 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/app_chevron.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../../analysis/presentation/analysis_overview_screen.dart';
 import '../../finance/data/finance_service.dart';
+import '../../home/presentation/home_screen.dart';
+import '../../ledger/presentation/ledger_screen.dart';
+import '../../profile/presentation/profile_screen.dart';
 import 'receipt_scan_loading_screen.dart';
 import 'register_direct_screen.dart';
+import 'register_type_screen.dart';
 
 typedef PickImageCallback = Future<void> Function(ImageSource source);
 
@@ -24,12 +29,14 @@ class RegisterMethodScreen extends StatelessWidget {
     this.onPickImage,
     this.onImageSelected,
     this.financeService,
+    this.onNavigationSelected,
   });
 
   final VoidCallback? onDirect;
   final PickImageCallback? onPickImage;
   final ValueChanged<XFile>? onImageSelected;
   final FinanceService? financeService;
+  final ValueChanged<int>? onNavigationSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -104,15 +111,35 @@ class RegisterMethodScreen extends StatelessWidget {
                 ],
               ),
             ),
-            const Positioned(
+            Positioned(
               left: 0,
               bottom: 0,
-              child: AppBottomNavigation(selectedIndex: 2),
+              child: AppBottomNavigation(
+                selectedIndex: 2,
+                onSelected: (index) => _navigate(context, index),
+              ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  void _navigate(BuildContext context, int index) {
+    if (onNavigationSelected case final callback?) {
+      callback(index);
+      return;
+    }
+    final Widget destination = switch (index) {
+      0 => HomeScreen(financeService: financeService),
+      1 => LedgerScreen(financeService: financeService),
+      2 => RegisterTypeScreen(financeService: financeService),
+      3 => AnalysisOverviewScreen(financeService: financeService),
+      _ => ProfileScreen(financeService: financeService),
+    };
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute<void>(builder: (_) => destination));
   }
 
   Future<void> _pickImage(BuildContext context, ImageSource source) async {
@@ -134,6 +161,7 @@ class RegisterMethodScreen extends StatelessWidget {
         MaterialPageRoute<void>(
           builder: (_) => ReceiptScanLoadingScreen(
             imagePath: image.path,
+            imageSource: source,
             financeService: financeService,
           ),
         ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_colors.dart';
+
 class DesignCanvas extends StatelessWidget {
   const DesignCanvas({
     required this.child,
@@ -15,7 +17,7 @@ class DesignCanvas extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: const Color(0xFF121215),
+      color: AppColors.background,
       child: SizedBox.expand(
         child: FittedBox(
           fit: BoxFit.contain,
@@ -41,7 +43,7 @@ class ScrollableDesignCanvas extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: const Color(0xFF121215),
+      color: AppColors.background,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final scale = constraints.maxWidth / width;

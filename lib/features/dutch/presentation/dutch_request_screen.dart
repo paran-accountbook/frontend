@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/constants/app_assets.dart';
 import '../../../core/network/api_exception.dart';
@@ -10,10 +11,18 @@ import '../data/dutch_pay_service.dart';
 
 /// 더치_005: 인원별 정산 요청(계좌+요청금액 복사·공유) 화면.
 class DutchRequestScreen extends StatefulWidget {
-  const DutchRequestScreen({super.key, this.sessionId, this.dutchPayService});
+  const DutchRequestScreen({
+    super.key,
+    this.sessionId,
+    this.dutchPayService,
+    this.settlementData,
+    this.selfName,
+  });
 
   final String? sessionId;
   final DutchPayService? dutchPayService;
+  final Map<String, dynamic>? settlementData;
+  final String? selfName;
 
   @override
   State<DutchRequestScreen> createState() => _DutchRequestScreenState();
@@ -25,7 +34,8 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
   bool _isCompleting = false;
   String? _error;
 
-  bool get _isLive => widget.dutchPayService != null && widget.sessionId != null;
+  bool get _isLive =>
+      widget.dutchPayService != null && widget.sessionId != null;
 
   @override
   void initState() {
@@ -52,6 +62,7 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
         ?.whereType<Map<String, dynamic>>()
         .toList();
     if (list != null) return list;
+    if (_isLive) return const [];
     return const [
       {
         'participant_id': 'p2',
@@ -71,8 +82,16 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
   String get _bankLabel {
     final bankName = _data?['bank_name'] as String?;
     final account = _data?['bank_account_number'] as String?;
-    if (bankName == null || account == null) return '계좌 정보를 등록해 주세요';
+    if (bankName == null || account == null) {
+      return _isLive ? '계좌 정보를 등록해 주세요' : '아주은행 000-0000-0000';
+    }
     return '$bankName $account';
+  }
+
+  bool get _hasAccount {
+    if (_data == null) return !_isLive;
+    return (_data?['bank_name'] as String?)?.isNotEmpty == true &&
+        (_data?['bank_account_number'] as String?)?.isNotEmpty == true;
   }
 
   Future<void> _editAccount() async {
@@ -138,6 +157,10 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
   }
 
   Future<void> _copy(String message) async {
+    if (!_hasAccount) {
+      _showAccountRequired();
+      return;
+    }
     await Clipboard.setData(ClipboardData(text: message));
     if (!mounted) return;
     ScaffoldMessenger.of(
@@ -146,14 +169,49 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
   }
 
   Future<void> _copyAll() async {
-    final combined = _requests
-        .map(
-          (request) =>
-              request['message'] as String? ??
-              '${request['name']} 님  ${_formatAmount(request['amount'] as int? ?? 0)}원',
-        )
-        .join('\n');
-    await _copy(combined);
+    await _copy(_combinedMessage);
+  }
+
+  String get _combinedMessage => _requests
+      .map(
+        (request) =>
+            request['message'] as String? ??
+            '${request['name']} 님  ${_formatAmount(request['amount'] as int? ?? 0)}원',
+      )
+      .followedBy(_selfMessage)
+      .followedBy(['총 ${_formatAmount(_settlementTotal)}원', _bankLabel])
+      .join('\n');
+
+  Iterable<String> get _selfMessage {
+    final participants = (widget.settlementData?['participants'] as List?)
+        ?.whereType<Map<String, dynamic>>();
+    final matches = participants
+        ?.where((item) => item['name'] == widget.selfName)
+        .toList();
+    final self = matches == null || matches.isEmpty ? null : matches.first;
+    if (self == null) return const ['나(본인)  0원'];
+    return ['나(본인)  ${_formatAmount(self['amount'] as int? ?? 0)}원'];
+  }
+
+  int get _settlementTotal =>
+      widget.settlementData?['total_amount'] as int? ??
+      _requests.fold<int>(
+        0,
+        (sum, item) => sum + (item['amount'] as int? ?? 0),
+      );
+
+  Future<void> _share(String message) async {
+    if (!_hasAccount) {
+      _showAccountRequired();
+      return;
+    }
+    await SharePlus.instance.share(ShareParams(text: message));
+  }
+
+  void _showAccountRequired() {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('정산 계좌를 먼저 등록해 주세요')));
   }
 
   Future<void> _complete() async {
@@ -189,13 +247,17 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
           const ColoredBox(color: AppColors.background),
           Positioned(
             left: 32,
-            top: 133,
+            top: 104,
             child: GestureDetector(
               onTap: () => Navigator.of(context).maybePop(),
-              child: SvgPicture.asset(
-                AppAssets.arrowBackLight,
+              child: SizedBox(
                 width: 70,
                 height: 70,
+                child: SvgPicture.asset(
+                  AppAssets.arrowBackLight,
+                  width: 70,
+                  height: 70,
+                ),
               ),
             ),
           ),
@@ -207,31 +269,34 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
               style: TextStyle(
                 color: AppColors.text,
                 fontWeight: FontWeight.w700,
-                fontSize: 75,
+                fontSize: 50,
               ),
             ),
           ),
           Positioned(
             left: 0,
-            top: 337,
+            top: 360,
             child: _AccountCard(label: _bankLabel, onEdit: _editAccount),
           ),
           Positioned(
             left: 46,
             right: 46,
-            top: 741,
+            top: 634,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   '요청할 인원 ${_requests.length}명',
-                  style: const TextStyle(color: Color(0x80E2E2F9), fontSize: 23),
+                  style: const TextStyle(
+                    color: Color(0x80E2E2F9),
+                    fontSize: 26,
+                  ),
                 ),
                 GestureDetector(
                   onTap: _isLoading ? null : _copyAll,
                   child: const Text(
                     '전체 복사',
-                    style: TextStyle(color: AppColors.main, fontSize: 23),
+                    style: TextStyle(color: AppColors.text80, fontSize: 26),
                   ),
                 ),
               ],
@@ -249,7 +314,7 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
             Positioned(
               left: 0,
               right: 0,
-              top: 810,
+              top: 706,
               bottom: 210,
               child: SingleChildScrollView(
                 child: Column(
@@ -257,18 +322,17 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
                     _RequestPeople(
                       requests: _requests,
                       onCopy: _copy,
-                      onShare: _copy,
+                      onShare: _share,
                     ),
-                    const SizedBox(height: 20),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 46),
                       child: _BulkActions(
                         onCopyAll: _copyAll,
-                        onShareAll: _copyAll,
+                        onShareAll: () => _share(_combinedMessage),
                       ),
                     ),
                     if (_requests.isNotEmpty) ...[
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 37),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 46),
                         child: _MessagePreview(
@@ -294,7 +358,7 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
             ),
           Positioned(
             left: 46,
-            top: 1466,
+            top: 1451,
             child: GestureDetector(
               onTap: _isCompleting ? null : _complete,
               child: Container(
@@ -302,12 +366,8 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
                 height: 102,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFF252552), AppColors.main],
-                  ),
-                  borderRadius: BorderRadius.circular(30),
+                  color: AppColors.main,
+                  borderRadius: BorderRadius.circular(37),
                   border: Border.all(color: const Color(0x4DE2E2F9)),
                 ),
                 child: Text(
@@ -327,6 +387,18 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
   );
 }
 
+class _RequestDivider extends StatelessWidget {
+  const _RequestDivider();
+
+  @override
+  Widget build(BuildContext context) => SvgPicture.asset(
+    AppAssets.asteriskDividerDark,
+    width: 657,
+    height: 15,
+    fit: BoxFit.fill,
+  );
+}
+
 class _AccountCard extends StatelessWidget {
   const _AccountCard({required this.label, required this.onEdit});
   final String label;
@@ -336,20 +408,21 @@ class _AccountCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     width: 749,
     height: 235,
-    color: AppColors.secondary,
+    color: Colors.transparent,
     child: Stack(
       children: [
+        const Positioned(left: 46, top: 0, child: _RequestDivider()),
         const Positioned(
           left: 46,
-          top: 39,
+          top: 43,
           child: Text(
             '내 계좌',
-            style: TextStyle(color: AppColors.text, fontSize: 23),
+            style: TextStyle(color: AppColors.text50, fontSize: 26),
           ),
         ),
         Positioned(
           left: 38,
-          top: 96,
+          top: 94,
           right: 130,
           child: Text(
             label,
@@ -357,14 +430,14 @@ class _AccountCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: AppColors.text,
-              fontSize: 40,
-              fontWeight: FontWeight.w600,
+              fontSize: 37,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),
         Positioned(
           left: 499,
-          top: 92,
+          top: 90,
           child: GestureDetector(
             onTap: onEdit,
             child: SvgPicture.asset(AppAssets.editLight, width: 64, height: 64),
@@ -373,12 +446,13 @@ class _AccountCard extends StatelessWidget {
         // 계좌 정보를 수정하면 이후 정산 요청부터 계속 적용된다는 안내 문구 (Figma #더치_005 확인).
         const Positioned(
           left: 46,
-          top: 160,
+          top: 157,
           child: Text(
-            '수정하면 다음 결제에도 이 계좌를 사용해요',
-            style: TextStyle(color: Color(0x99E2E2F9), fontSize: 20),
+            '수정하면 다음 정산에도 이 계좌를 사용해요',
+            style: TextStyle(color: Color(0xFFA8A3FF), fontSize: 22),
           ),
         ),
+        const Positioned(left: 46, bottom: 0, child: _RequestDivider()),
       ],
     ),
   );
@@ -429,9 +503,14 @@ class _RequestPerson extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    width: 749,
-    height: 148,
-    color: AppColors.secondary,
+    width: 657,
+    height: 138,
+    margin: const EdgeInsets.only(bottom: 37),
+    clipBehavior: Clip.antiAlias,
+    decoration: BoxDecoration(
+      color: AppColors.secondary,
+      borderRadius: BorderRadius.circular(37),
+    ),
     child: Stack(
       children: [
         Positioned(
@@ -439,8 +518,8 @@ class _RequestPerson extends StatelessWidget {
           top: 39,
           child: SvgPicture.asset(
             AppAssets.avatarSelected,
-            width: 70,
-            height: 70,
+            width: 63,
+            height: 63,
           ),
         ),
         Positioned(
@@ -450,36 +529,32 @@ class _RequestPerson extends StatelessWidget {
             name,
             style: const TextStyle(
               color: AppColors.text,
-              fontSize: 30,
-              fontWeight: FontWeight.w600,
+              fontSize: 26,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),
         Positioned(right: 200, top: 48, child: _RequestAmount(value: amount)),
         Positioned(
-          right: 90,
+          right: 136,
           top: 59,
           child: GestureDetector(
             onTap: onCopy,
             child: const Text(
               '복사',
-              style: TextStyle(color: Color(0xCCE2E2F9), fontSize: 23),
+              style: TextStyle(color: Color(0xCCE2E2F9), fontSize: 26),
             ),
           ),
         ),
-        // Figma #더치_005: 복사 옆에 종이비행기 모양의 공유 버튼이 있으나,
-        // 이 프로젝트에는 공유(share_plus) 패키지가 아직 없어 우선 클립보드
-        // 복사와 동일하게 동작시킨다. share_plus 도입 시 네이티브 공유
-        // 시트로 교체 필요 (최종 보고서 참고).
         Positioned(
           right: 46,
-          top: 55,
+          top: 50,
           child: GestureDetector(
             onTap: onShare,
-            child: const Icon(
-              Icons.ios_share,
-              color: Color(0xCCE2E2F9),
-              size: 26,
+            child: SvgPicture.asset(
+              AppAssets.dutchShare,
+              width: 63,
+              height: 63,
             ),
           ),
         ),
@@ -496,9 +571,13 @@ class _BulkActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      Expanded(child: _BulkActionButton(label: '전체 복사', onTap: onCopyAll)),
-      const SizedBox(width: 16),
-      Expanded(child: _BulkActionButton(label: '전체 공유', onTap: onShareAll)),
+      Expanded(
+        child: _BulkActionButton(label: '전체 복사', onTap: onCopyAll),
+      ),
+      const SizedBox(width: 28),
+      Expanded(
+        child: _BulkActionButton(label: '전체 공유', onTap: onShareAll),
+      ),
     ],
   );
 }
@@ -512,17 +591,18 @@ class _BulkActionButton extends StatelessWidget {
   Widget build(BuildContext context) => GestureDetector(
     onTap: onTap,
     child: Container(
-      height: 76,
+      height: 104,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: AppColors.secondary,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(37),
+        border: Border.all(color: AppColors.text20),
       ),
       child: Text(
         label,
         style: const TextStyle(
           color: AppColors.text,
-          fontSize: 23,
+          fontSize: 28,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -537,17 +617,17 @@ class _MessagePreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
-    padding: const EdgeInsets.all(20),
+    padding: const EdgeInsets.all(45),
     decoration: BoxDecoration(
       color: AppColors.secondary,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(37),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
           '복사되는 메시지',
-          style: TextStyle(color: Color(0x80E2E2F9), fontSize: 20),
+          style: TextStyle(color: AppColors.text, fontSize: 28),
         ),
         const SizedBox(height: 8),
         Text(
@@ -572,11 +652,11 @@ class _RequestAmount extends StatelessWidget {
         style: const TextStyle(
           color: AppColors.text,
           fontFamily: 'Amarante',
-          fontSize: 40,
+          fontSize: 37,
         ),
       ),
       const SizedBox(width: 5),
-      SvgPicture.asset(AppAssets.wonLight, width: 29, height: 31),
+      SvgPicture.asset(AppAssets.wonLight, width: 26, height: 28),
     ],
   );
 }

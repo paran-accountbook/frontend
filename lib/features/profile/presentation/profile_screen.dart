@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_assets.dart';
+import '../../../core/network/app_services.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/app_chevron.dart';
@@ -17,6 +18,7 @@ import 'account_settings_screen.dart';
 import 'attendance_screen.dart';
 import 'notification_settings_screen.dart';
 import 'profile_edit_screen.dart';
+import 'reward_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
@@ -36,6 +38,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _profile;
   late bool _isLoading;
+  String? _error;
 
   static const _menuItems = [
     _ProfileMenuData('출석 현황', AppAssets.profileAttendance),
@@ -61,10 +64,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final service = widget.financeService;
     if (service == null) return;
     try {
+      if (mounted) setState(() => _error = null);
       final profile = await service.profile();
       if (mounted) setState(() => _profile = profile);
     } catch (_) {
-      // Preserve the last rendered profile while offline.
+      if (mounted && _profile == null) {
+        setState(() => _error = '프로필을 불러오지 못했습니다.');
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -93,16 +99,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
               left: 24,
               top: 192,
               child: GestureDetector(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => ProfileEditScreen(
-                      initialData: _profile,
-                      financeService: widget.financeService,
-                    ),
-                  ),
-                ),
+                onTap: _profile == null && widget.financeService != null
+                    ? null
+                    : () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => ProfileEditScreen(
+                              initialData: _profile,
+                              financeService: widget.financeService,
+                            ),
+                          ),
+                        );
+                        if (mounted && widget.financeService != null) {
+                          await _load();
+                        }
+                      },
                 child: _isLoading
                     ? const _ProfileSummarySkeleton()
+                    : _error != null && _profile == null
+                    ? _ProfileLoadError(message: _error!, onRetry: _load)
                     : _ProfileSummary(name: _profile?['nickname'] as String?),
               ),
             ),
@@ -122,6 +137,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                       ),
+                      1 => () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const RewardScreen(),
+                        ),
+                      ),
                       2 => () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
                           builder: (_) => NotificationSettingsScreen(
@@ -129,14 +149,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                       ),
-                      3 => () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => AccountSettingsScreen(
-                            provider:
-                                _profile?['provider'] as String? ?? 'email',
-                          ),
-                        ),
-                      ),
+                      3 =>
+                        _profile == null && widget.financeService != null
+                            ? null
+                            : () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => AccountSettingsScreen(
+                                    provider:
+                                        _profile?['provider'] as String? ??
+                                        'email',
+                                    authService: AppServices.auth,
+                                  ),
+                                ),
+                              ),
                       4 => _openCustomerSupport,
                       _ => null,
                     },
@@ -189,6 +214,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context,
     ).pushReplacement(MaterialPageRoute<void>(builder: (_) => destination));
   }
+}
+
+class _ProfileLoadError extends StatelessWidget {
+  const _ProfileLoadError({required this.message, required this.onRetry});
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 354,
+    height: 80,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      color: AppColors.secondary,
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(message, style: const TextStyle(color: AppColors.text50)),
+        TextButton(onPressed: onRetry, child: const Text('재시도')),
+      ],
+    ),
+  );
 }
 
 class _ProfileSummarySkeleton extends StatelessWidget {

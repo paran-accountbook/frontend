@@ -2,19 +2,42 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/constants/app_assets.dart';
+import '../../../core/network/api_exception.dart';
+import '../../../core/network/app_services.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../../home/presentation/home_screen.dart';
+import '../data/auth_service.dart';
+import '../data/kakao_login_client.dart';
 import 'email_login_screen.dart';
 import 'email_signup_screen.dart';
+import 'pending_deletion_screen.dart';
+import 'terms_screen.dart';
 
-class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key, this.onEmailPressed, this.onKakaoPressed});
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({
+    super.key,
+    this.onEmailPressed,
+    this.onKakaoPressed,
+    this.authService,
+    this.kakaoLoginClient,
+  });
 
   final VoidCallback? onEmailPressed;
   final VoidCallback? onKakaoPressed;
+  final AuthService? authService;
+  final KakaoLoginClient? kakaoLoginClient;
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  bool _isKakaoLoading = false;
+  String? _kakaoError;
 
   void _openVerification(BuildContext context) {
-    if (onEmailPressed case final callback?) {
+    if (widget.onEmailPressed case final callback?) {
       callback();
       return;
     }
@@ -29,6 +52,58 @@ class LoginScreen extends StatelessWidget {
     ).push(MaterialPageRoute<void>(builder: (_) => const EmailSignupScreen()));
   }
 
+  Future<void> _loginWithKakao() async {
+    if (widget.onKakaoPressed case final callback?) {
+      callback();
+      return;
+    }
+    if (_isKakaoLoading) return;
+    setState(() {
+      _isKakaoLoading = true;
+      _kakaoError = null;
+    });
+    try {
+      final auth = widget.authService ?? AppServices.auth;
+      final kakao = widget.kakaoLoginClient ?? AppServices.kakaoLogin;
+      final kakaoToken = await kakao.login();
+      final login = await auth.loginWithKakao(kakaoToken);
+      if (!mounted) return;
+
+      final pendingAt = DateTime.tryParse(
+        login['pending_deletion_at'] as String? ?? '',
+      );
+      if (pendingAt != null) {
+        _replaceAll(
+          PendingDeletionScreen(scheduledAt: pendingAt, authService: auth),
+        );
+        return;
+      }
+
+      final status = await auth.termsStatus();
+      if (!mounted) return;
+      if (status['initial_agreement_required'] == true) {
+        _replaceAll(TermsScreen(authService: auth, kakaoSignup: true));
+      } else if (status['reconsent_required'] == true) {
+        _replaceAll(TermsScreen(authService: auth, reconsent: true));
+      } else {
+        _replaceAll(HomeScreen(financeService: AppServices.finance));
+      }
+    } on ApiException catch (error) {
+      if (mounted && error.code != 'KAKAO_LOGIN_CANCELED') {
+        setState(() => _kakaoError = error.message);
+      }
+    } finally {
+      if (mounted) setState(() => _isKakaoLoading = false);
+    }
+  }
+
+  void _replaceAll(Widget screen) {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => screen),
+      (_) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -39,13 +114,6 @@ class LoginScreen extends StatelessWidget {
           color: AppColors.background,
           child: Stack(
             children: [
-              Positioned(
-                left: -110,
-                top: 0,
-                width: 623,
-                height: 874,
-                child: Image.asset(AppAssets.authBackground, fit: BoxFit.cover),
-              ),
               Positioned(
                 left: 162,
                 top: 306,
@@ -76,6 +144,21 @@ class LoginScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              const Positioned(
+                left: 0,
+                right: 0,
+                top: 636,
+                child: Text(
+                  'Ver 1.0.0',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.text50,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    height: 1,
+                  ),
+                ),
+              ),
               Positioned(
                 left: 24,
                 top: 668,
@@ -86,9 +169,36 @@ class LoginScreen extends StatelessWidget {
                   asset: AppAssets.kakao,
                   iconWidth: 20,
                   iconHeight: 18,
-                  onPressed: onKakaoPressed ?? () {},
+                  onPressed: _loginWithKakao,
                 ),
               ),
+              if (_isKakaoLoading)
+                const Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 714,
+                  child: Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                ),
+              if (_kakaoError case final message?)
+                Positioned(
+                  left: 24,
+                  right: 24,
+                  top: 718,
+                  child: Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFFFF6B7A),
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
               Positioned(
                 left: 24,
                 top: 744,

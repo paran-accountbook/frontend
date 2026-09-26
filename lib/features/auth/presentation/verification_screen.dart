@@ -134,7 +134,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
       return;
     }
     final email = widget.email ?? '';
-    final service = widget.authService;
+    final service = widget.authService ?? AppServices.auth;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => TermsScreen(

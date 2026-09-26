@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/constants/app_assets.dart';
@@ -58,7 +59,8 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
     _paymentMethod = switch (widget.initialData?['payment_method']) {
       '카드' => 1,
       '미지정' => 2,
-      _ => 0,
+      '현금' => 0,
+      _ => widget.editable ? 2 : 0,
     };
     _storeName =
         widget.initialData?['store_name'] as String? ??
@@ -76,13 +78,25 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        if (widget.initialData?['is_duplicate'] == true) ...[
+          const _RecognitionWarning('이미 등록된 영수증과 동일한 이미지예요.'),
+          const SizedBox(height: 10),
+        ],
+        if (widget.initialData?['amount_mismatch'] == true) ...[
+          const _RecognitionWarning('인식된 총액과 품목 합계가 달라요. 내용을 확인해 주세요.'),
+          const SizedBox(height: 10),
+        ],
         _InfoRow(
           label: '가맹점 명',
           value: _storeName.isEmpty ? '입력해 주세요' : _storeName,
           onTap: widget.editable ? _editStore : null,
         ),
         const SizedBox(height: 16),
-        _InfoRow(label: '결제일시', value: _paidAtLabel),
+        _InfoRow(
+          label: '결제일시',
+          value: _paidAtLabel,
+          onTap: widget.editable ? _editPaidAt : null,
+        ),
         const SizedBox(height: 16),
         _InfoRow(
           label: '카테고리',
@@ -201,39 +215,98 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (_editingItemIndex == index)
-                    TextFormField(
-                      key: Key('receipt-item-name-input-$index'),
-                      initialValue: item['item_name'] as String? ?? '',
-                      autofocus: true,
-                      maxLines: 1,
-                      textInputAction: TextInputAction.done,
-                      style: _valueStyle,
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                        border: InputBorder.none,
-                      ),
-                      onChanged: (value) => item['item_name'] = value,
-                      onFieldSubmitted: (value) =>
-                          _finishItemEditing(index, value),
-                      onTapOutside: (_) => _finishItemEditing(
-                        index,
-                        item['item_name'] as String? ?? '',
+                    Focus(
+                      onFocusChange: (hasFocus) {
+                        if (!hasFocus) {
+                          _finishItemEditing(
+                            index,
+                            item['item_name'] as String? ?? '',
+                          );
+                        }
+                      },
+                      child: Column(
+                        children: [
+                          TextFormField(
+                            key: Key('receipt-item-name-input-$index'),
+                            initialValue: item['item_name'] as String? ?? '',
+                            autofocus: true,
+                            maxLines: 1,
+                            textInputAction: TextInputAction.next,
+                            style: _valueStyle,
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                              border: InputBorder.none,
+                            ),
+                            onChanged: (value) => item['item_name'] = value,
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Text('단가', style: _labelStyle),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 62,
+                                child: TextFormField(
+                                  key: Key('receipt-item-price-input-$index'),
+                                  initialValue: unitPrice.toString(),
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(9),
+                                  ],
+                                  textInputAction: TextInputAction.done,
+                                  style: const TextStyle(
+                                    color: AppColors.text,
+                                    fontSize: 12,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    suffixText: '원',
+                                    contentPadding: EdgeInsets.zero,
+                                    border: InputBorder.none,
+                                  ),
+                                  onChanged: (value) => setState(
+                                    () => item['unit_price'] =
+                                        int.tryParse(value) ?? 0,
+                                  ),
+                                  onFieldSubmitted: (_) => _finishItemEditing(
+                                    index,
+                                    item['item_name'] as String? ?? '',
+                                  ),
+                                ),
+                              ),
+                              const Spacer(),
+                              Text(
+                                '${_formatAmount((item['unit_price'] as int? ?? 0) * _quantities[index])}원',
+                                style: const TextStyle(
+                                  color: AppColors.text50,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     )
                   else
-                    Text(
-                      item['item_name'] as String? ?? '품목',
-                      style: _valueStyle,
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item['item_name'] as String? ?? '품목',
+                          style: _valueStyle,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '단가   ${_formatAmount(unitPrice)}원   ${_formatAmount(unitPrice * _quantities[index])}원',
+                          style: const TextStyle(
+                            color: AppColors.text50,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '단가   ${_formatAmount(unitPrice)}원   ${_formatAmount(unitPrice * _quantities[index])}원',
-                    style: const TextStyle(
-                      color: AppColors.text50,
-                      fontSize: 12,
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -381,6 +454,35 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
     });
   }
 
+  Future<void> _editPaidAt() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _paidAt,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_paidAt),
+    );
+    if (time == null || !mounted) return;
+    final selected = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
+    if (selected.isAfter(DateTime.now())) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('미래 시각은 선택할 수 없습니다.')));
+      return;
+    }
+    setState(() => _paidAt = selected);
+  }
+
   Map<String, Object?>? buildPayload({required String source}) {
     if (_storeName.trim().isEmpty) return null;
     final items = <Map<String, Object?>>[];
@@ -409,6 +511,26 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
       'receipt_image_hash': widget.initialData?['receipt_image_hash'],
     };
   }
+}
+
+class _RecognitionWarning extends StatelessWidget {
+  const _RecognitionWarning(this.message);
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 354,
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    decoration: BoxDecoration(
+      color: const Color(0x22CF376A),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: const Color(0xFFCF376A)),
+    ),
+    child: Text(
+      message,
+      style: const TextStyle(color: Color(0xFFFF9BB8), fontSize: 12),
+    ),
+  );
 }
 
 String _formatAmount(int amount) {

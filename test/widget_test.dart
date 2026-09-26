@@ -31,6 +31,7 @@ import 'package:sobilog/features/register/presentation/register_method_screen.da
 import 'package:sobilog/features/register/presentation/register_direct_screen.dart';
 import 'package:sobilog/features/register/presentation/register_income_screen.dart';
 import 'package:sobilog/features/register/presentation/receipt_entry_form.dart';
+import 'package:sobilog/features/register/presentation/receipt_result_screen.dart';
 import 'package:sobilog/features/register/presentation/receipt_scan_loading_screen.dart';
 import 'package:sobilog/features/profile/presentation/profile_screen.dart';
 import 'package:sobilog/features/onboarding/presentation/onboarding_screen.dart';
@@ -203,7 +204,7 @@ void main() {
       MaterialApp(theme: AppTheme.dark, home: const AnalysisOverviewScreen()),
     );
 
-    await tester.tap(find.text('AI분석'));
+    await tester.tap(find.text('패턴'));
     await tester.pump();
 
     expect(
@@ -213,14 +214,6 @@ void main() {
     expect(
       tester.getSize(find.byKey(const ValueKey('analysis-locked-icon-0'))),
       const Size.square(18),
-    );
-    expect(
-      tester.getSize(find.byKey(const ValueKey('analysis-locked-icon-1'))),
-      const Size.square(26),
-    );
-    expect(
-      tester.getSize(find.byKey(const ValueKey('analysis-locked-icon-2'))),
-      const Size.square(26),
     );
   });
 
@@ -317,7 +310,10 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.dark, home: const LedgerScreen()),
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: LedgerScreen(currentDate: DateTime(2026, 9, 23)),
+      ),
     );
 
     final previous = find.byKey(const Key('ledger-period-previous'));
@@ -340,6 +336,38 @@ void main() {
     await tester.tap(next);
     await tester.pump();
     expect(title(), contains('8'));
+  });
+
+  testWidgets('월·주·일의 과거 기간에서 다음 화살표가 활성화된다', (tester) async {
+    final currentDate = DateTime(2026, 9, 23);
+
+    for (var period = 0; period < 3; period++) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: LedgerScreen(
+            initialAnchor: currentDate,
+            initialPeriod: period,
+            currentDate: currentDate,
+          ),
+        ),
+      );
+
+      Finder next() => find.byKey(const Key('ledger-period-next'));
+      GestureDetector nextButton() => tester.widget<GestureDetector>(next());
+
+      expect(nextButton().onTap, isNull, reason: '현재 기간은 다음 이동 불가');
+
+      await tester.tap(find.byKey(const Key('ledger-period-previous')));
+      await tester.pump();
+      expect(nextButton().onTap, isNotNull, reason: '과거 기간은 다음 이동 가능');
+
+      await tester.tap(next());
+      await tester.pump();
+      expect(nextButton().onTap, isNull, reason: '현재 기간으로 복귀하면 다시 비활성화');
+
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
   });
 
   testWidgets('renders ledger detail', (tester) async {
@@ -696,6 +724,11 @@ void main() {
     expect(itemInput, findsOneWidget);
     expect(tester.testTextInput.isVisible, isTrue);
     await tester.enterText(itemInput, '카페라떼');
+    await tester.testTextInput.receiveAction(TextInputAction.next);
+    await tester.pump();
+    final priceInput = find.byKey(const Key('receipt-item-price-input-0'));
+    expect(priceInput, findsOneWidget);
+    await tester.enterText(priceInput, '6000');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
     expect(itemInput, findsNothing);
@@ -711,7 +744,7 @@ void main() {
     expect((payload['items'] as List).single, {
       'item_name': '카페라떼',
       'quantity': 1,
-      'unit_price': 4500,
+      'unit_price': 6000,
     });
     expect(payload['memo'], isNull);
     expect(find.text('메모를 입력해 주세요'), findsOneWidget);
@@ -754,6 +787,13 @@ void main() {
     expect(itemInput, findsOneWidget);
     expect(tester.testTextInput.isVisible, isTrue);
     await tester.enterText(itemInput, '카페라떼');
+    await tester.testTextInput.receiveAction(TextInputAction.next);
+    await tester.pump();
+    final priceInput = find.byKey(
+      const Key('editable-receipt-item-price-input'),
+    );
+    expect(priceInput, findsOneWidget);
+    await tester.enterText(priceInput, '6000');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
     expect(itemInput, findsNothing);
@@ -770,9 +810,45 @@ void main() {
     expect((payload['items'] as List).single, {
       'item_name': '카페라떼',
       'quantity': 1,
-      'unit_price': 4500,
+      'unit_price': 6000,
     });
     expect(payload['memo'], isNull);
+  });
+
+  testWidgets('품목 편집 화면은 키보드가 나와도 전체를 축소하지 않는다', (tester) async {
+    final service = _FailingReceiptService();
+    final screens = <Widget>[
+      RegisterDirectScreen(financeService: service),
+      ReceiptResultScreen(
+        imagePath: 'receipt.jpg',
+        financeService: service,
+        initialData: const {
+          'store_name': '테스트 카페',
+          'items': [
+            {'item_name': '아메리카노', 'quantity': 1, 'unit_price': 4500},
+          ],
+        },
+      ),
+      LedgerEditScreen(
+        expenseId: 'expense-1',
+        financeService: service,
+        initialData: const {
+          'store_name': '테스트 카페',
+          'items': [
+            {'item_name': '아메리카노', 'quantity': 1, 'unit_price': 4500},
+          ],
+        },
+      ),
+    ];
+
+    for (final screen in screens) {
+      await tester.pumpWidget(MaterialApp(theme: AppTheme.dark, home: screen));
+      expect(
+        tester.widget<Scaffold>(find.byType(Scaffold)).resizeToAvoidBottomInset,
+        isFalse,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
   });
 
   testWidgets('renders income receipt', (tester) async {
@@ -798,7 +874,7 @@ void main() {
       MaterialApp(theme: AppTheme.dark, home: const DutchAssignmentScreen()),
     );
     expect(find.text('항목별 인원 배정'), findsOneWidget);
-    expect(find.text('이전'), findsOneWidget);
+    expect(find.text('이전'), findsNothing);
     expect(find.text('다음'), findsOneWidget);
   });
 
@@ -832,6 +908,17 @@ void main() {
     expect(find.text('식비'), findsOneWidget);
   });
 
+  testWidgets('소비분석의 과거 월에서는 다음 달 화살표가 활성화된다', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const AnalysisOverviewScreen()),
+    );
+
+    expect(find.text('8'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('analysis-next-month')));
+    await tester.pump();
+    expect(find.text('9'), findsOneWidget);
+  });
+
   testWidgets('keeps bottom navigation fixed on long analysis screens', (
     tester,
   ) async {
@@ -845,7 +932,7 @@ void main() {
     final overviewNavigation = find.byType(AppBottomNavigation);
     final overviewTop = tester.getTopLeft(overviewNavigation).dy;
     await tester.drag(
-      find.byType(SingleChildScrollView),
+      find.byType(SingleChildScrollView).first,
       const Offset(0, -500),
     );
     await tester.pumpAndSettle();

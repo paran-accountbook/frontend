@@ -300,7 +300,12 @@ void main() {
 
   testWidgets('income register matches its visual baseline', (tester) async {
     await configureViewport(tester);
-    await pumpScreen(tester, const RegisterIncomeScreen());
+    await pumpScreen(
+      tester,
+      const RegisterIncomeScreen(
+        initialData: <String, dynamic>{'income_date': '2026-09-24'},
+      ),
+    );
     await expectLater(
       find.byType(Scaffold),
       matchesGoldenFile('goldens/register_income.png'),
@@ -355,7 +360,12 @@ void main() {
   testWidgets('AI analysis matches its visual baseline', (tester) async {
     await configureViewport(tester);
     await pumpScreen(tester, const AnalysisOverviewScreen());
-    await tester.tap(find.text('AI분석'));
+    await tester.scrollUntilVisible(
+      find.text('AI'),
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('AI'));
     await tester.pump();
 
     await expectLater(
@@ -370,7 +380,7 @@ void main() {
     await configureViewport(tester);
     await pumpScreen(tester, const AnalysisOverviewScreen());
     await tester.drag(
-      find.byType(SingleChildScrollView),
+      find.byType(SingleChildScrollView).first,
       const Offset(0, -900),
     );
     await tester.pump();

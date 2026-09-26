@@ -6,8 +6,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/auth_widgets.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../finance/data/finance_service.dart';
-import '../../ledger/presentation/ledger_screen.dart';
 import 'receipt_entry_form.dart';
+import 'expense_registration_complete_screen.dart';
 
 class ReceiptResultScreen extends StatefulWidget {
   const ReceiptResultScreen({
@@ -46,25 +46,33 @@ class _ReceiptResultScreenState extends State<ReceiptResultScreen> {
       _error = null;
     });
     try {
-      await service.createExpense(payload);
+      final created = await service.createExpense(payload);
+      final expenseId = created['id'] as String?;
+      if (expenseId == null) {
+        throw const ApiException(message: '등록 결과를 확인하지 못했습니다.');
+      }
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(
+          builder: (_) => ExpenseRegistrationCompleteScreen(
+            expenseId: expenseId,
+            financeService: service,
+          ),
+        ),
+        (_) => false,
+      );
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
       return;
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
-    if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(
-        builder: (_) => LedgerScreen(financeService: service),
-      ),
-      (_) => false,
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: DesignCanvas(
         child: Stack(
           children: [

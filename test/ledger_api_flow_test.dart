@@ -10,10 +10,10 @@ import 'package:sobilog/core/network/session_store.dart';
 import 'package:sobilog/core/theme/app_theme.dart';
 import 'package:sobilog/features/finance/data/finance_service.dart';
 import 'package:sobilog/features/home/presentation/home_screen.dart';
+import 'package:sobilog/features/ledger/presentation/income_detail_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_detail_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_edit_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_screen.dart';
-import 'package:sobilog/shared/widgets/editable_receipt_form.dart';
 
 void main() {
   testWidgets('가계 내역에 API 카테고리 아이콘을 표시한다', (tester) async {
@@ -173,7 +173,7 @@ void main() {
     expect(find.text('상점 11'), findsOneWidget);
   });
 
-  testWidgets('상세 API 대기 중 예시 영수증을 노출하지 않고 통합 편집 화면을 연다', (tester) async {
+  testWidgets('상세 API 대기 중 예시 영수증을 노출하지 않고 상세 화면을 연다', (tester) async {
     final service = _DelayedDetailService();
     await tester.pumpWidget(
       MaterialApp(
@@ -187,8 +187,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.byType(LedgerEditScreen), findsOneWidget);
-    expect(find.byKey(const Key('ledger-edit-loading')), findsOneWidget);
+    expect(find.byType(LedgerDetailScreen), findsOneWidget);
+    expect(find.byKey(const Key('ledger-detail-loading')), findsOneWidget);
     expect(find.text('아주대학교 카페'), findsNothing);
     expect(find.text('아메리카노'), findsNothing);
 
@@ -202,8 +202,7 @@ void main() {
     });
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('ledger-edit-loading')), findsNothing);
-    expect(find.byType(EditableReceiptForm), findsOneWidget);
+    expect(find.byKey(const Key('ledger-detail-loading')), findsNothing);
     expect(find.text('E2E 영화관'), findsOneWidget);
     expect(find.text('영화 티켓'), findsOneWidget);
   });
@@ -279,7 +278,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('delete-ledger-entry')));
     await tester.pumpAndSettle();
-    expect(find.text('삭제한 내역은 되돌릴 수 없습니다. 삭제할까요?'), findsOneWidget);
+    expect(find.textContaining('정산 이력이 있다면 함께 삭제됩니다'), findsOneWidget);
     await tester.tap(find.byKey(const Key('confirm-delete-ledger-entry')));
     await tester.pumpAndSettle();
 
@@ -336,6 +335,58 @@ void main() {
     expect(find.text('9/14'), findsOneWidget);
     expect(find.text('오후 7:42'), findsOneWidget);
     expect(find.text('오전 10:30'), findsNothing);
+  });
+
+  testWidgets('홈의 최근 수입은 GET 상세 조회 후 상세 화면을 연다', (tester) async {
+    final requests = <http.Request>[];
+    final service = _service(requests, (request) {
+      if (request.url.path == '/home/recent') {
+        return {
+          'entries': [
+            {
+              'id': '22222222-2222-2222-2222-222222222222',
+              'type': 'income',
+              'label': '급여',
+              'amount': 3000000,
+              'registered_at': '2026-09-23T10:00:00+09:00',
+            },
+          ],
+        };
+      }
+      if (request.url.path == '/incomes/22222222-2222-2222-2222-222222222222') {
+        return {
+          'id': '22222222-2222-2222-2222-222222222222',
+          'amount': 3000000,
+          'income_date': '2026-09-23',
+          'category': '급여',
+          'memo': '9월 급여',
+          'created_at': '2026-09-23T10:00:00+09:00',
+        };
+      }
+      return <String, dynamic>{};
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: HomeScreen(financeService: service),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('급여'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(IncomeDetailScreen), findsOneWidget);
+    expect(find.text('9월 급여'), findsOneWidget);
+    expect(
+      requests.where(
+        (request) =>
+            request.method == 'GET' &&
+            request.url.path == '/incomes/22222222-2222-2222-2222-222222222222',
+      ),
+      hasLength(1),
+    );
   });
 }
 

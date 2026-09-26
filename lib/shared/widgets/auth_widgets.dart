@@ -23,13 +23,6 @@ class AuthPage extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             const ColoredBox(color: AppColors.background),
-            Positioned(
-              left: -110,
-              top: 0,
-              width: 623,
-              height: 874,
-              child: Image.asset(AppAssets.authBackground, fit: BoxFit.cover),
-            ),
             child,
             if (showBackButton)
               Positioned(

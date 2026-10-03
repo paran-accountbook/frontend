@@ -93,14 +93,25 @@ void main() {
     );
     expect(filtered.url.queryParametersAll['category'], ['식비', '카페']);
     expect(filtered.url.queryParametersAll['payment_method'], ['카드']);
+    expect(find.byKey(const Key('ledger-applied-filter-식비')), findsOneWidget);
+    expect(find.byKey(const Key('ledger-applied-filter-카드')), findsOneWidget);
+    expect(find.byKey(const Key('ledger-clear-all-filters')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('ledger-clear-all-filters')));
+    await tester.pumpAndSettle();
+    final cleared = requests.lastWhere(
+      (request) => request.method == 'GET' && request.url.path == '/expenses',
+    );
+    expect(cleared.url.queryParametersAll['category'], isNull);
+    expect(cleared.url.queryParametersAll['payment_method'], isNull);
   });
 
   testWidgets('주·일 탭은 기간 제목과 API period를 함께 변경한다', (tester) async {
     final requests = <http.Request>[];
     final service = _service(requests, (_) => _ledgerData);
     final now = DateTime.now();
-    final firstDay = DateTime(now.year, now.month, 1);
-    final week = ((now.day + firstDay.weekday - 2) ~/ 7) + 1;
+    final weekStart = now.subtract(Duration(days: now.weekday - 1));
+    final weekEnd = weekStart.add(const Duration(days: 6));
     const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
 
     await tester.pumpWidget(
@@ -114,7 +125,10 @@ void main() {
     await tester.tap(find.byKey(const Key('ledger-period-1')));
     await tester.pumpAndSettle();
     expect(
-      find.bySemanticsLabel('${now.year}년 ${now.month}월 $week주차'),
+      find.bySemanticsLabel(
+        '${weekStart.month}월 ${weekStart.day}일 ~ '
+        '${weekEnd.month}월 ${weekEnd.day}일',
+      ),
       findsOneWidget,
     );
     expect(requests.last.url.queryParameters['period'], 'week');
@@ -257,6 +271,27 @@ void main() {
     );
   });
 
+  testWidgets('상세 하단의 저장 버튼이 수정·PATCH 흐름을 연다', (tester) async {
+    final requests = <http.Request>[];
+    final service = _service(requests, (_) => _expenseData);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: LedgerDetailScreen(
+          expenseId: '11111111-1111-1111-1111-111111111111',
+          financeService: service,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('save-ledger-entry')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(LedgerEditScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('수정 화면의 삭제 확인 후 DELETE API를 호출한다', (tester) async {
     final requests = <http.Request>[];
     final service = _service(requests, (request) {
@@ -278,7 +313,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('delete-ledger-entry')));
     await tester.pumpAndSettle();
-    expect(find.textContaining('정산 이력이 있다면 함께 삭제됩니다'), findsOneWidget);
+    expect(find.text('더치페이 정산 기록도 함께 삭제돼요'), findsOneWidget);
     await tester.tap(find.byKey(const Key('confirm-delete-ledger-entry')));
     await tester.pumpAndSettle();
 
@@ -286,6 +321,83 @@ void main() {
       (request) => request.method == 'DELETE',
     );
     expect(delete.url.path, '/expenses/11111111-1111-1111-1111-111111111111');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('상세 하단의 내역 삭제 버튼이 DELETE API를 호출한다', (tester) async {
+    final requests = <http.Request>[];
+    final service = _service(requests, (request) {
+      if (request.method == 'DELETE') return {'message': '삭제되었습니다'};
+      return _expenseData;
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: LedgerDetailScreen(
+          expenseId: '11111111-1111-1111-1111-111111111111',
+          financeService: service,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final deleteButton = find.byKey(const Key('delete-ledger-entry'));
+    await tester.ensureVisible(deleteButton);
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-delete-ledger-entry')));
+    await tester.pumpAndSettle();
+
+    final request = requests.singleWhere(
+      (request) =>
+          request.method == 'DELETE' &&
+          request.url.path == '/expenses/11111111-1111-1111-1111-111111111111',
+    );
+    expect(request.method, 'DELETE');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('소비사진 x 버튼이 해당 사진 DELETE API를 호출한다', (tester) async {
+    final requests = <http.Request>[];
+    final service = _service(requests, (request) {
+      if (request.method == 'DELETE') return {'message': '삭제되었습니다'};
+      return {
+        ..._expenseData,
+        'photos': [
+          {'id': 'photo-1', 'url': null},
+        ],
+      };
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: LedgerDetailScreen(
+          expenseId: '11111111-1111-1111-1111-111111111111',
+          financeService: service,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final photoDelete = find.byKey(const Key('delete-expense-photo-photo-1'));
+    await tester.ensureVisible(photoDelete);
+    await tester.tap(photoDelete);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('삭제'));
+    await tester.pumpAndSettle();
+
+    expect(
+      requests.where(
+        (request) =>
+            request.method == 'DELETE' &&
+            request.url.path ==
+                '/expenses/11111111-1111-1111-1111-111111111111/photos/photo-1',
+      ),
+      hasLength(1),
+    );
+    expect(find.text('소비사진  1'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

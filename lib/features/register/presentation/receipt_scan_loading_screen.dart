@@ -60,6 +60,7 @@ class _ReceiptScanLoadingScreenState extends State<ReceiptScanLoadingScreen>
         MaterialPageRoute<void>(
           builder: (_) => ReceiptResultScreen(
             imagePath: widget.imagePath,
+            imageSource: widget.imageSource,
             initialData: result,
             financeService: widget.financeService ?? AppServices.finance,
           ),

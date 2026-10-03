@@ -376,7 +376,7 @@ void main() {
     );
 
     expect(find.text('가맹점 명'), findsOneWidget);
-    expect(find.text('더치페이 하기'), findsOneWidget);
+    expect(find.text('더치페이'), findsOneWidget);
     expect(find.text('메모'), findsOneWidget);
   });
 
@@ -686,6 +686,113 @@ void main() {
     expect(payload['paid_at'], '2026-09-13T16:38:00.000Z');
   });
 
+  testWidgets('v8.9 expense category picker exposes the fixed eight defaults', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: const Scaffold(
+          body: ReceiptEntryForm(
+            editable: true,
+            initialData: {
+              'store_name': '테스트 상점',
+              'category': '교육',
+              'items': [
+                {'item_name': '교재', 'quantity': 1, 'unit_price': 10000},
+              ],
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('교육').first);
+    await tester.pumpAndSettle();
+
+    for (final category in const [
+      '식비',
+      '카페',
+      '쇼핑',
+      '교통',
+      '의료',
+      '문화',
+      '교육',
+      '기타',
+    ]) {
+      expect(find.text(category), findsWidgets);
+    }
+    expect(find.text('+ 새 카테고리 추가'), findsNothing);
+    expect(find.text('관리'), findsNothing);
+  });
+
+  testWidgets('v8.9 keeps an unresolved OCR store name empty for user review', (
+    tester,
+  ) async {
+    final key = GlobalKey<ReceiptEntryFormState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(
+          body: ReceiptEntryForm(
+            key: key,
+            editable: true,
+            initialData: const {
+              'store_name': null,
+              'store_address': '경기도 수원시',
+              'category': '기타',
+              'items': [
+                {'item_name': '품목', 'quantity': 1, 'unit_price': 1000},
+              ],
+            },
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('입력해 주세요'), findsOneWidget);
+    expect(key.currentState!.buildPayload(source: 'ocr'), isNull);
+  });
+
+  testWidgets('직접 등록은 실시간 품목 합계와 날짜 빠른 선택을 제공한다', (tester) async {
+    final key = GlobalKey<ReceiptEntryFormState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(
+          body: ReceiptEntryForm(
+            key: key,
+            editable: true,
+            initialData: const {
+              'store_name': '테스트 카페',
+              'category': '카페',
+              'payment_method': '카드',
+              'items': [
+                {'item_name': '커피', 'quantity': 2, 'unit_price': 4500},
+              ],
+            },
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('receipt-items-total')), findsOneWidget);
+    expect(find.text('9,000원'), findsOneWidget);
+    expect(find.byKey(const Key('receipt-date-오늘')), findsOneWidget);
+    expect(find.byKey(const Key('receipt-date-어제')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('receipt-date-어제')));
+    await tester.pump();
+    final paidAt = DateTime.parse(
+      key.currentState!.buildPayload(source: 'manual')!['paid_at']! as String,
+    ).toLocal();
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    expect(paidAt.year, yesterday.year);
+    expect(paidAt.month, yesterday.month);
+    expect(paidAt.day, yesterday.day);
+    expect(paidAt.minute % 5, 0);
+  });
+
   testWidgets('edits a receipt item on double tap and deletes its memo', (
     tester,
   ) async {
@@ -969,6 +1076,26 @@ void main() {
     expect(find.text('0%'), findsOneWidget);
   });
 
+  testWidgets('analysis uses income_count to distinguish zero-value income', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: AnalysisOverviewScreen(
+          financeService: _AnalysisWithoutGoalService(
+            incomeAmount: 0,
+            incomeCount: 1,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('총 수입'), findsOneWidget);
+    expect(find.text('잔액'), findsOneWidget);
+  });
+
   testWidgets('opens analysis overview from home summary', (tester) async {
     await tester.pumpWidget(
       MaterialApp(theme: AppTheme.dark, home: const HomeScreen()),
@@ -1030,7 +1157,9 @@ void main() {
 
     expect(find.text('마이페이지'), findsOneWidget);
     expect(find.text('소비로그 님'), findsOneWidget);
-    expect(find.text('출석 현황'), findsOneWidget);
+    expect(find.text('출석 현황'), findsNothing);
+    expect(find.text('리워드 관리'), findsNothing);
+    expect(find.text('알림 설정'), findsNothing);
     expect(find.text('계정 설정'), findsOneWidget);
     expect(find.text('고객 센터'), findsOneWidget);
 
@@ -1116,6 +1245,14 @@ class _RecordingAuthService implements AuthService {
 }
 
 class _AnalysisWithoutGoalService implements FinanceService {
+  const _AnalysisWithoutGoalService({
+    this.incomeAmount = 150000,
+    this.incomeCount = 1,
+  });
+
+  final int incomeAmount;
+  final int incomeCount;
+
   @override
   Future<Map<String, dynamic>> analysis({
     required int year,
@@ -1123,8 +1260,9 @@ class _AnalysisWithoutGoalService implements FinanceService {
   }) async => {
     'total_expense_amount': 150000,
     'daily_average_expense': 40000,
-    'total_income_amount': 150000,
-    'balance': 150000,
+    'total_income_amount': incomeAmount,
+    'income_count': incomeCount,
+    'balance': incomeAmount - 150000,
     'change_amount': 2500,
     'change_rate': 12,
     'category_breakdown': <Map<String, dynamic>>[],

@@ -141,7 +141,7 @@ class _SignupNameScreenState extends State<SignupNameScreen> {
           AuthBottomAction(
             label: _isLoading ? '가입 중...' : '가입 완료',
             leadingIconAsset: AppAssets.signupComplete,
-            onPressed: _isLoading ? () {} : _continue,
+            onPressed: _isLoading ? null : _continue,
           ),
         ],
       ),

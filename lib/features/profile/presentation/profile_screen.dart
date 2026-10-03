@@ -15,10 +15,7 @@ import '../../home/presentation/home_screen.dart';
 import '../../ledger/presentation/ledger_screen.dart';
 import '../../register/presentation/register_type_screen.dart';
 import 'account_settings_screen.dart';
-import 'attendance_screen.dart';
-import 'notification_settings_screen.dart';
 import 'profile_edit_screen.dart';
-import 'reward_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
@@ -41,9 +38,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _error;
 
   static const _menuItems = [
-    _ProfileMenuData('출석 현황', AppAssets.profileAttendance),
-    _ProfileMenuData('리워드 관리', AppAssets.profileRewards),
-    _ProfileMenuData('알림 설정', AppAssets.profileNotifications),
     _ProfileMenuData('계정 설정', AppAssets.profileAccount),
     _ProfileMenuData(
       '고객 센터',
@@ -130,26 +124,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   (index) => _ProfileMenuRow(
                     data: _menuItems[index],
                     onTap: switch (index) {
-                      0 => () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => AttendanceScreen(
-                            financeService: widget.financeService,
-                          ),
-                        ),
-                      ),
-                      1 => () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const RewardScreen(),
-                        ),
-                      ),
-                      2 => () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => NotificationSettingsScreen(
-                            financeService: widget.financeService,
-                          ),
-                        ),
-                      ),
-                      3 =>
+                      0 =>
                         _profile == null && widget.financeService != null
                             ? null
                             : () => Navigator.of(context).push(
@@ -162,7 +137,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ),
                                 ),
                               ),
-                      4 => _openCustomerSupport,
+                      1 => _openCustomerSupport,
                       _ => null,
                     },
                   ),

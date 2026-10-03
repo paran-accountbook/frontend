@@ -113,107 +113,140 @@ class _DutchResultScreenState extends State<DutchResultScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: DesignCanvas(
-      width: 749,
-      height: 1628,
-      child: Stack(
-        children: [
-          const ColoredBox(color: AppColors.background),
-          Positioned(
-            left: 32,
-            top: 104,
-            child: GestureDetector(
-              onTap: () => Navigator.of(context).maybePop(),
-              child: SvgPicture.asset(
-                AppAssets.arrowBackLight,
-                width: 70,
-                height: 70,
-              ),
-            ),
-          ),
-          const Positioned(
-            left: 46,
-            top: 214,
-            child: Text(
-              '정산 결과 확인',
-              style: TextStyle(
-                color: AppColors.text,
-                fontWeight: FontWeight.w700,
-                fontSize: 50,
-              ),
-            ),
-          ),
-          Positioned(
-            left: 0,
-            top: 360,
-            child: _ReceiptTotal(total: _totalAmount),
-          ),
-          if (_isLoading)
-            const Positioned(
-              top: 620,
-              width: 749,
-              child: Center(
-                child: CircularProgressIndicator(color: AppColors.main),
-              ),
-            )
-          else
+  Widget build(BuildContext context) {
+    final allocated = _participants.fold<int>(
+      0,
+      (sum, participant) => sum + (participant['amount'] as int? ?? 0),
+    );
+    final totalsMatch = !_isLive || allocated == _totalAmount;
+    return Scaffold(
+      body: DesignCanvas(
+        width: 749,
+        height: 1628,
+        child: Stack(
+          children: [
+            const ColoredBox(color: AppColors.background),
             Positioned(
-              left: 0,
-              right: 0,
-              top: 610,
-              bottom: 210,
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    for (final participant in _participants)
-                      _PersonResultCard(
-                        name: participant['name'] as String? ?? '',
-                        amount: participant['amount'] as int? ?? 0,
-                        items:
-                            (participant['items'] as List?)
-                                ?.whereType<Map<String, dynamic>>()
-                                .toList() ??
-                            const [],
-                        self:
-                            (widget.selfName != null &&
-                            participant['name'] == widget.selfName),
-                        expanded: _expanded.contains(
-                          participant['participant_id'],
-                        ),
-                        onTap: () => _toggleExpand(
-                          participant['participant_id'] as String,
-                        ),
-                      ),
-                  ],
+              left: 32,
+              top: 104,
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).maybePop(),
+                child: SvgPicture.asset(
+                  AppAssets.arrowBackLight,
+                  width: 70,
+                  height: 70,
                 ),
               ),
             ),
-          if (_error case final message?)
-            Positioned(
+            const Positioned(
               left: 46,
-              right: 46,
-              bottom: 190,
+              top: 214,
               child: Text(
-                message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(0xFFFF6B7A), fontSize: 22),
+                '정산 결과 확인',
+                style: TextStyle(
+                  color: AppColors.text,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 50,
+                ),
               ),
             ),
-          Positioned(
-            left: 46,
-            top: 1451,
-            child: _ActionButton(
-              label: '다음',
-              gradient: true,
-              width: 657,
-              onTap: _goNext,
+            Positioned(
+              left: 0,
+              top: 360,
+              child: _ReceiptTotal(total: _totalAmount),
             ),
-          ),
-        ],
+            if (_isLoading)
+              const Positioned(
+                top: 620,
+                width: 749,
+                child: Center(
+                  child: CircularProgressIndicator(color: AppColors.main),
+                ),
+              )
+            else
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 610,
+                bottom: 210,
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      for (final participant in _participants)
+                        _PersonResultCard(
+                          name: participant['name'] as String? ?? '',
+                          amount: participant['amount'] as int? ?? 0,
+                          items:
+                              (participant['items'] as List?)
+                                  ?.whereType<Map<String, dynamic>>()
+                                  .toList() ??
+                              const [],
+                          hasRemainder:
+                              participant['has_remainder'] as bool? ?? false,
+                          self:
+                              (widget.selfName != null &&
+                              participant['name'] == widget.selfName),
+                          expanded: _expanded.contains(
+                            participant['participant_id'],
+                          ),
+                          onTap: () => _toggleExpand(
+                            participant['participant_id'] as String,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            if (_error case final message?)
+              Positioned(
+                left: 46,
+                right: 46,
+                bottom: 190,
+                child: Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFFFF6B7A),
+                    fontSize: 22,
+                  ),
+                ),
+              ),
+            if (!totalsMatch)
+              const Positioned(
+                left: 46,
+                right: 46,
+                bottom: 190,
+                child: Text(
+                  '정산 금액 합계가 영수증 총액과 일치하지 않습니다. 다시 배정해 주세요.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Color(0xFFFF6B7A), fontSize: 22),
+                ),
+              ),
+            Positioned(
+              left: 46,
+              top: 1451,
+              child: _ActionButton(
+                label: '이전',
+                gradient: false,
+                width: 317,
+                onTap: () => Navigator.of(context).maybePop(),
+              ),
+            ),
+            Positioned(
+              right: 46,
+              top: 1451,
+              child: _ActionButton(
+                label: '다음',
+                gradient: true,
+                width: 317,
+                onTap: totalsMatch ? _goNext : null,
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _ReceiptTotal extends StatelessWidget {
@@ -297,6 +330,7 @@ class _PersonResultCard extends StatelessWidget {
     required this.items,
     required this.expanded,
     required this.onTap,
+    required this.hasRemainder,
     this.self = false,
   });
 
@@ -306,6 +340,7 @@ class _PersonResultCard extends StatelessWidget {
   final bool expanded;
   final bool self;
   final VoidCallback onTap;
+  final bool hasRemainder;
 
   @override
   Widget build(BuildContext context) => GestureDetector(
@@ -369,7 +404,7 @@ class _PersonResultCard extends StatelessWidget {
                   left: 224,
                   top: 83,
                   child: Text(
-                    '배정 품목 ${items.length}개',
+                    '배정 품목 ${items.length}개${hasRemainder ? ' · 잔돈 포함' : ''}',
                     style: const TextStyle(
                       color: Color(0x80E2E2F9),
                       fontSize: 23,

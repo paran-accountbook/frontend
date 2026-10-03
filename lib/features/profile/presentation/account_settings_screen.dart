@@ -22,6 +22,7 @@ class AccountSettingsScreen extends StatelessWidget {
   final AuthService? authService;
   @override
   Widget build(BuildContext context) {
+    final service = authService ?? AppServices.auth;
     return Scaffold(
       body: DesignCanvas(
         child: Stack(
@@ -61,9 +62,8 @@ class AccountSettingsScreen extends StatelessWidget {
                       value: '*********',
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
-                          builder: (_) => PasswordChangeScreen(
-                            authService: AppServices.auth,
-                          ),
+                          builder: (_) =>
+                              PasswordChangeScreen(authService: service),
                         ),
                       ),
                     ),
@@ -79,7 +79,10 @@ class AccountSettingsScreen extends StatelessWidget {
                   ),
                   const _SettingRow(label: '앱버전', value: '1.0'),
                   const SizedBox(height: 20),
-                  _ActionButton(label: '로그아웃', onTap: () => _logout(context)),
+                  _ActionButton(
+                    label: '로그아웃',
+                    onTap: () => _logout(context, service),
+                  ),
                   const SizedBox(height: 20),
                   _ActionButton(
                     label: '회원 탈퇴',
@@ -87,7 +90,7 @@ class AccountSettingsScreen extends StatelessWidget {
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => AccountDeleteScreen(
-                          authService: AppServices.auth,
+                          authService: service,
                           provider: provider,
                         ),
                       ),
@@ -102,7 +105,7 @@ class AccountSettingsScreen extends StatelessWidget {
     );
   }
 
-  void _logout(BuildContext context) {
+  void _logout(BuildContext context, AuthService service) {
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -115,7 +118,7 @@ class AccountSettingsScreen extends StatelessWidget {
           ),
           TextButton(
             onPressed: () async {
-              await AppServices.auth.logout();
+              await service.logout();
               if (!context.mounted) return;
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
@@ -178,8 +181,10 @@ class _SettingRow extends StatelessWidget {
             value,
             style: const TextStyle(color: AppColors.text, fontSize: 14),
           ),
-          const SizedBox(width: 8),
-          const AppChevron(size: 20),
+          if (onTap != null) ...[
+            const SizedBox(width: 8),
+            const AppChevron(size: 20),
+          ],
         ],
       ),
     ),

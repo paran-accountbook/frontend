@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../core/constants/app_assets.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/app_services.dart';
 import '../../../core/theme/app_colors.dart';
@@ -15,11 +17,17 @@ class ExpenseRegistrationCompleteScreen extends StatefulWidget {
     required this.financeService,
     super.key,
     this.dutchPayService,
+    this.storeName,
+    this.totalAmount,
+    this.showDutchPay = true,
   });
 
   final String expenseId;
   final FinanceService financeService;
   final DutchPayService? dutchPayService;
+  final String? storeName;
+  final int? totalAmount;
+  final bool showDutchPay;
 
   @override
   State<ExpenseRegistrationCompleteScreen> createState() =>
@@ -70,48 +78,114 @@ class _ExpenseRegistrationCompleteScreenState
       child: Stack(
         children: [
           const ColoredBox(color: AppColors.background),
+          Positioned(
+            left: 184,
+            top: 344,
+            width: 34,
+            height: 34,
+            child: Container(
+              decoration: const BoxDecoration(
+                color: AppColors.main,
+                shape: BoxShape.circle,
+              ),
+              padding: const EdgeInsets.all(7),
+              child: SvgPicture.asset(
+                AppAssets.checkLight,
+                colorFilter: const ColorFilter.mode(
+                  AppColors.background,
+                  BlendMode.srcIn,
+                ),
+              ),
+            ),
+          ),
           const Positioned(
             left: 24,
             right: 24,
-            top: 300,
+            top: 401,
             child: Text(
-              '등록이 완료되었습니다',
+              '저장이 완료되었어요',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppColors.text,
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
               ),
+            ),
+          ),
+          Positioned(
+            left: 24,
+            right: 24,
+            top: 445,
+            child: Text(
+              '${widget.storeName ?? '가맹점'} · ${_formatAmount(widget.totalAmount ?? 0)}원',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.text50, fontSize: 12),
             ),
           ),
           if (_error case final message?)
             Positioned(
               left: 24,
               right: 24,
-              top: 370,
+              top: 485,
               child: Text(
                 message,
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Color(0xFFFF6B7A), fontSize: 12),
               ),
             ),
-          Positioned(
-            left: 24,
-            right: 24,
-            bottom: 108,
-            child: FilledButton(
-              onPressed: _isLoading ? null : _startDutchPay,
-              child: Text(_isLoading ? '불러오는 중...' : '더치페이 하기'),
+          if (widget.showDutchPay)
+            Positioned(
+              left: 24,
+              right: 24,
+              bottom: 108,
+              height: 56,
+              child: FilledButton(
+                onPressed: _isLoading ? null : _startDutchPay,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.main,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: Text(_isLoading ? '불러오는 중...' : '더치페이 하기'),
+              ),
             ),
-          ),
           Positioned(
             left: 24,
             right: 24,
             bottom: 40,
-            child: OutlinedButton(onPressed: _close, child: const Text('닫기')),
+            height: 56,
+            child: widget.showDutchPay
+                ? OutlinedButton(
+                    onPressed: _close,
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.text20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    child: const Text('가계부로 돌아가기'),
+                  )
+                : FilledButton(
+                    onPressed: _close,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.main,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    child: const Text('가계부로 돌아가기'),
+                  ),
           ),
         ],
       ),
     ),
   );
 }
+
+String _formatAmount(int value) => value.toString().replaceAllMapped(
+  RegExp(r'\B(?=(\d{3})+(?!\d))'),
+  (_) => ',',
+);

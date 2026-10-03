@@ -96,8 +96,8 @@ class _DutchPeopleScreenState extends State<DutchPeopleScreen> {
       _selfName = (widget.selfNameSuggestion?.trim().isNotEmpty ?? false)
           ? widget.selfNameSuggestion!.trim()
           : _isLive
-          ? '나 (본인)'
-          : '홍길동 (본인)';
+          ? '나'
+          : '홍길동';
       _names.add(_selfName);
     }
     if (_isLive) {
@@ -286,7 +286,9 @@ class _DutchPeopleScreenState extends State<DutchPeopleScreen> {
                 children: [
                   for (var i = 0; i < _names.length; i++)
                     _PersonChip(
-                      name: _names[i],
+                      name: _names[i] == _selfName
+                          ? '${_names[i]} (나)'
+                          : _names[i],
                       self: _names[i] == _selfName,
                       onEdit: () => _editName(i),
                       onRemove: () => _removeName(i),

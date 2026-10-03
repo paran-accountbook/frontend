@@ -6,10 +6,30 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../../shared/widgets/p1_design_components.dart';
+import '../../analysis/presentation/analysis_overview_screen.dart';
+import '../../home/presentation/home_screen.dart';
+import '../../ledger/presentation/ledger_screen.dart';
+import '../../register/presentation/register_type_screen.dart';
+import 'profile_screen.dart';
 
 /// 마이_003: Figma #보상함(705:23821) 화면.
 class RewardScreen extends StatelessWidget {
   const RewardScreen({super.key});
+
+  void _navigate(BuildContext context, int index) {
+    final Widget? destination = switch (index) {
+      0 => const HomeScreen(),
+      1 => const LedgerScreen(),
+      2 => const RegisterTypeScreen(),
+      3 => const AnalysisOverviewScreen(),
+      4 => const ProfileScreen(),
+      _ => null,
+    };
+    if (destination == null) return;
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute<void>(builder: (_) => destination));
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -33,7 +53,10 @@ class RewardScreen extends StatelessWidget {
           Positioned(
             left: 0,
             bottom: 0,
-            child: AppBottomNavigation(selectedIndex: 2, onSelected: (_) {}),
+            child: AppBottomNavigation(
+              selectedIndex: 4,
+              onSelected: (index) => _navigate(context, index),
+            ),
           ),
         ],
       ),

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -78,6 +79,24 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        if (widget.editable) ...[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('품목 합계', style: _labelStyle),
+              Text(
+                '${_formatAmount(_itemsTotal)}원',
+                key: const Key('receipt-items-total'),
+                style: const TextStyle(
+                  color: AppColors.text,
+                  fontFamily: 'Amarante',
+                  fontSize: 24,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+        ],
         if (widget.initialData?['is_duplicate'] == true) ...[
           const _RecognitionWarning('이미 등록된 영수증과 동일한 이미지예요.'),
           const SizedBox(height: 10),
@@ -89,6 +108,7 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
         _InfoRow(
           label: '가맹점 명',
           value: _storeName.isEmpty ? '입력해 주세요' : _storeName,
+          missing: _storeName.isEmpty,
           onTap: widget.editable ? _editStore : null,
         ),
         const SizedBox(height: 16),
@@ -97,6 +117,24 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
           value: _paidAtLabel,
           onTap: widget.editable ? _editPaidAt : null,
         ),
+        if (widget.editable) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _DateQuickChip(
+                label: '오늘',
+                onTap: () => _setQuickDate(DateTime.now()),
+              ),
+              const SizedBox(width: 8),
+              _DateQuickChip(
+                label: '어제',
+                onTap: () => _setQuickDate(
+                  DateTime.now().subtract(const Duration(days: 1)),
+                ),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 16),
         _InfoRow(
           label: '카테고리',
@@ -122,7 +160,12 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
                         ? const Color(0xFFA8A3FF)
                         : AppColors.selected,
                     borderRadius: BorderRadius.circular(30),
-                    border: Border.all(color: AppColors.outline, width: 0.5),
+                    border: Border.all(
+                      color: _paymentMethod == 2 && index == 2
+                          ? const Color(0xFFCF376A)
+                          : AppColors.outline,
+                      width: 0.5,
+                    ),
                   ),
                   child: Text(
                     const ['현금', '카드', '미지정'][index],
@@ -294,8 +337,16 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          item['item_name'] as String? ?? '품목',
-                          style: _valueStyle,
+                          (item['item_name'] as String?)?.isNotEmpty == true
+                              ? item['item_name'] as String
+                              : '품목명을 입력해 주세요',
+                          style:
+                              (item['item_name'] as String?)?.isNotEmpty == true
+                              ? _valueStyle
+                              : const TextStyle(
+                                  color: Color(0xFFFF9BB8),
+                                  fontSize: 14,
+                                ),
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -346,6 +397,26 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
         ],
       ),
     );
+  }
+
+  int get _itemsTotal {
+    var total = 0;
+    for (var index = 0; index < _items.length; index++) {
+      total += (_items[index]['unit_price'] as int? ?? 0) * _quantities[index];
+    }
+    return total;
+  }
+
+  void _setQuickDate(DateTime date) {
+    final now = DateTime.now();
+    final candidate = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      _paidAt.hour,
+      _paidAt.minute - (_paidAt.minute % 5),
+    );
+    setState(() => _paidAt = candidate.isAfter(now) ? now : candidate);
   }
 
   String get _paidAtLabel {
@@ -462,18 +533,8 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
       lastDate: DateTime.now(),
     );
     if (date == null || !mounted) return;
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(_paidAt),
-    );
-    if (time == null || !mounted) return;
-    final selected = DateTime(
-      date.year,
-      date.month,
-      date.day,
-      time.hour,
-      time.minute,
-    );
+    final selected = await _showFiveMinutePicker(date);
+    if (selected == null || !mounted) return;
     if (selected.isAfter(DateTime.now())) {
       ScaffoldMessenger.of(
         context,
@@ -481,6 +542,79 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
       return;
     }
     setState(() => _paidAt = selected);
+  }
+
+  Future<DateTime?> _showFiveMinutePicker(DateTime date) async {
+    final now = DateTime.now();
+    var initial = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      _paidAt.hour,
+      _paidAt.minute - (_paidAt.minute % 5),
+    );
+    if (initial.isAfter(now)) {
+      initial = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        now.hour,
+        now.minute - (now.minute % 5),
+      );
+    }
+    var value = initial;
+    return showModalBottomSheet<DateTime>(
+      context: context,
+      backgroundColor: AppColors.secondary,
+      builder: (context) => SafeArea(
+        child: SizedBox(
+          height: 320,
+          child: Column(
+            children: [
+              SizedBox(
+                height: 250,
+                child: CupertinoTheme(
+                  data: const CupertinoThemeData(
+                    brightness: Brightness.dark,
+                    textTheme: CupertinoTextThemeData(
+                      dateTimePickerTextStyle: TextStyle(
+                        color: AppColors.text,
+                        fontSize: 20,
+                      ),
+                    ),
+                  ),
+                  child: CupertinoDatePicker(
+                    key: const Key('receipt-five-minute-picker'),
+                    mode: CupertinoDatePickerMode.time,
+                    minuteInterval: 5,
+                    initialDateTime: initial,
+                    maximumDate:
+                        date.year == now.year &&
+                            date.month == now.month &&
+                            date.day == now.day
+                        ? now
+                        : null,
+                    onDateTimeChanged: (time) {
+                      value = DateTime(
+                        date.year,
+                        date.month,
+                        date.day,
+                        time.hour,
+                        time.minute,
+                      );
+                    },
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, value),
+                child: const Text('선택 완료'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Map<String, Object?>? buildPayload({required String source}) {
@@ -511,6 +645,31 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
       'receipt_image_hash': widget.initialData?['receipt_image_hash'],
     };
   }
+}
+
+class _DateQuickChip extends StatelessWidget {
+  const _DateQuickChip({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    key: Key('receipt-date-$label'),
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 7),
+      decoration: BoxDecoration(
+        color: AppColors.selected,
+        border: Border.all(color: AppColors.text20, width: .5),
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(color: AppColors.text80, fontSize: 12),
+      ),
+    ),
+  );
 }
 
 class _RecognitionWarning extends StatelessWidget {
@@ -551,10 +710,16 @@ const _valueStyle = TextStyle(
 );
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value, this.onTap});
+  const _InfoRow({
+    required this.label,
+    required this.value,
+    this.onTap,
+    this.missing = false,
+  });
   final String label;
   final String value;
   final VoidCallback? onTap;
+  final bool missing;
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -576,7 +741,13 @@ class _InfoRow extends StatelessWidget {
                       value,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: _valueStyle,
+                      style: missing
+                          ? const TextStyle(
+                              color: Color(0xFFFF9BB8),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            )
+                          : _valueStyle,
                     ),
                   ),
                   const SizedBox(width: 6),

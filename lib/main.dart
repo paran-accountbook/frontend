@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
@@ -53,6 +54,9 @@ class SobilogApp extends StatelessWidget {
       title: 'Sobilog',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
+      locale: const Locale('ko'),
+      supportedLocales: const [Locale('ko')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       home: switch (_preview) {
         'login' => const LoginScreen(),
         'verification' => const VerificationScreen(),

@@ -69,6 +69,25 @@ void main() {
     await expectP1Golden(tester, const DutchRequestScreen(), 'dutch_request');
   });
 
+  testWidgets('P1 dutch request bottom visual', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(402, 874);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const DutchRequestScreen()),
+    );
+    await tester.pump();
+    await tester.drag(
+      find.byType(SingleChildScrollView).first,
+      const Offset(0, -600),
+    );
+    await tester.pump();
+    await expectLater(
+      find.byType(Scaffold).first,
+      matchesGoldenFile('goldens/p1/dutch_request_bottom.png'),
+    );
+  });
+
   testWidgets('P1 income visual', (tester) async {
     await expectP1Golden(
       tester,

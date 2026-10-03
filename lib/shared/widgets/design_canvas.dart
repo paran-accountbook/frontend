@@ -8,23 +8,25 @@ class DesignCanvas extends StatelessWidget {
     super.key,
     this.width = 402,
     this.height = 874,
+    this.paintBackground = true,
   });
 
   final Widget child;
   final double width;
   final double height;
+  final bool paintBackground;
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppColors.background,
-      child: SizedBox.expand(
-        child: FittedBox(
-          fit: BoxFit.contain,
-          child: SizedBox(width: width, height: height, child: child),
-        ),
+    final canvas = SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.contain,
+        child: SizedBox(width: width, height: height, child: child),
       ),
     );
+    return paintBackground
+        ? ColoredBox(color: AppColors.background, child: canvas)
+        : canvas;
   }
 }
 

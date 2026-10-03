@@ -1,4 +1,7 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -104,11 +107,10 @@ class _RegisterIncomeScreenState extends State<RegisterIncomeScreen> {
   }
 
   Future<void> _pickDate() async {
-    final selected = await showDatePicker(
+    final selected = await showDialog<DateTime>(
       context: context,
-      initialDate: _incomeDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      barrierColor: Colors.transparent,
+      builder: (_) => _IncomeDateDialog(initialValue: _incomeDate),
     );
     if (selected != null && mounted) setState(() => _incomeDate = selected);
   }
@@ -334,13 +336,358 @@ class _RegisterIncomeScreenState extends State<RegisterIncomeScreen> {
           ),
           AuthBottomAction(
             label: _isLoading ? '저장 중...' : (_isEditing ? '수정 완료' : '저장'),
-            onPressed: _isLoading ? () {} : _save,
+            onPressed: _isLoading ? null : _save,
           ),
         ],
       ),
     ),
   );
 }
+
+class _IncomeDateDialog extends StatefulWidget {
+  const _IncomeDateDialog({required this.initialValue});
+  final DateTime initialValue;
+
+  @override
+  State<_IncomeDateDialog> createState() => _IncomeDateDialogState();
+}
+
+class _IncomeDateDialogState extends State<_IncomeDateDialog> {
+  late DateTime value = widget.initialValue;
+
+  @override
+  Widget build(BuildContext context) => Dialog.fullscreen(
+    backgroundColor: Colors.transparent,
+    child: ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+        child: Scaffold(
+          backgroundColor: const Color(0x80121215),
+          body: Stack(
+            children: [
+              Positioned(
+                left: 184,
+                top: 432,
+                width: 34,
+                height: 34,
+                child: IconButton(
+                  key: const Key('close-income-date-picker'),
+                  padding: EdgeInsets.zero,
+                  onPressed: () => Navigator.pop(context),
+                  icon: SvgPicture.asset(AppAssets.closeLight),
+                ),
+              ),
+              const Positioned(
+                top: 486,
+                left: 0,
+                right: 0,
+                child: Text(
+                  '수입일',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.text,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 24,
+                right: 24,
+                top: 529,
+                child: Container(height: .5, color: AppColors.text20),
+              ),
+              Positioned(
+                left: 24,
+                right: 24,
+                top: 555,
+                height: 173,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Center(
+                          child: Container(
+                            height: 59,
+                            decoration: BoxDecoration(
+                              color: AppColors.selected,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: AppColors.text20),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    _IncomeDateWheels(
+                      key: const Key('income-date-wheel'),
+                      initialValue: value,
+                      onChanged: (next) => value = next,
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                left: 24,
+                right: 24,
+                top: 778,
+                height: 56,
+                child: FilledButton(
+                  key: const Key('complete-income-date-picker'),
+                  onPressed: () => Navigator.pop(context, value),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.main,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  child: const Text(
+                    '완료',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _IncomeDateWheels extends StatefulWidget {
+  const _IncomeDateWheels({
+    required this.initialValue,
+    required this.onChanged,
+    super.key,
+  });
+
+  final DateTime initialValue;
+  final ValueChanged<DateTime> onChanged;
+
+  @override
+  State<_IncomeDateWheels> createState() => _IncomeDateWheelsState();
+}
+
+class _IncomeDateWheelsState extends State<_IncomeDateWheels> {
+  late DateTime value = widget.initialValue;
+  late final List<int> years = [value.year - 1, value.year, value.year + 1];
+
+  void _update({int? year, int? month, int? day, int? hour, int? minute}) {
+    final nextYear = year ?? value.year;
+    final nextMonth = month ?? value.month;
+    final maxDay = DateUtils.getDaysInMonth(nextYear, nextMonth);
+    final next = DateTime(
+      nextYear,
+      nextMonth,
+      (day ?? value.day).clamp(1, maxDay),
+      hour ?? value.hour,
+      minute ?? value.minute,
+    );
+    setState(() => value = next);
+    widget.onChanged(next);
+  }
+
+  String _weekday(int day) =>
+      const ['월', '화', '수', '목', '금', '토', '일'][day - 1];
+
+  @override
+  Widget build(BuildContext context) {
+    final days = DateUtils.getDaysInMonth(value.year, value.month);
+    final timeIndex = (value.hour % 12) * 12 + value.minute ~/ 5;
+    return CupertinoTheme(
+      data: const CupertinoThemeData(brightness: Brightness.dark),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 81,
+            child: _IncomeWheel(
+              itemCount: years.length,
+              initialItem: 1,
+              selectedItem: years.indexOf(value.year),
+              itemBuilder: (index, selected) => _dateWheelNumber(
+                '${years[index]}',
+                suffix: selected ? '년' : null,
+                selected: selected,
+              ),
+              onSelected: (index) => _update(year: years[index]),
+            ),
+          ),
+          Expanded(
+            flex: 51,
+            child: _IncomeWheel(
+              itemCount: 12,
+              initialItem: value.month - 1,
+              selectedItem: value.month - 1,
+              itemBuilder: (index, selected) => _dateWheelNumber(
+                '${index + 1}',
+                suffix: selected ? '월' : null,
+                selected: selected,
+              ),
+              onSelected: (index) => _update(month: index + 1),
+            ),
+          ),
+          Expanded(
+            flex: 58,
+            child: _IncomeWheel(
+              itemCount: days,
+              initialItem: value.day - 1,
+              selectedItem: value.day - 1,
+              itemBuilder: (index, selected) => _dateWheelNumber(
+                '${index + 1}',
+                suffix: selected ? '일' : null,
+                selected: selected,
+              ),
+              onSelected: (index) => _update(day: index + 1),
+            ),
+          ),
+          Expanded(
+            flex: 76,
+            child: _IncomeWheel(
+              itemCount: 2,
+              initialItem: value.hour >= 12 ? 1 : 0,
+              selectedItem: value.hour >= 12 ? 1 : 0,
+              itemBuilder: (index, selected) => _dateWheelPeriod(
+                weekday: selected ? _weekday(value.weekday) : null,
+                period: index == 0 ? '오전' : '오후',
+                selected: selected,
+              ),
+              onSelected: (index) =>
+                  _update(hour: (value.hour % 12) + index * 12),
+            ),
+          ),
+          Expanded(
+            flex: 68,
+            child: _IncomeWheel(
+              itemCount: 144,
+              initialItem: timeIndex,
+              selectedItem: timeIndex,
+              looping: true,
+              itemBuilder: (index, selected) {
+                final hour = index ~/ 12;
+                final minute = (index % 12) * 5;
+                return _dateWheelNumber(
+                  '${hour == 0 ? 12 : hour}:${minute.toString().padLeft(2, '0')}',
+                  selected: selected,
+                );
+              },
+              onSelected: (index) => _update(
+                hour: (index ~/ 12) + (value.hour >= 12 ? 12 : 0),
+                minute: (index % 12) * 5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IncomeWheel extends StatelessWidget {
+  const _IncomeWheel({
+    required this.itemCount,
+    required this.initialItem,
+    required this.selectedItem,
+    required this.itemBuilder,
+    required this.onSelected,
+    this.looping = false,
+  });
+
+  final int itemCount;
+  final int initialItem;
+  final int selectedItem;
+  final Widget Function(int index, bool selected) itemBuilder;
+  final ValueChanged<int> onSelected;
+  final bool looping;
+
+  @override
+  Widget build(BuildContext context) => CupertinoPicker.builder(
+    scrollController: FixedExtentScrollController(initialItem: initialItem),
+    itemExtent: 59,
+    diameterRatio: 1.15,
+    squeeze: 1,
+    useMagnifier: false,
+    selectionOverlay: const SizedBox.shrink(),
+    childCount: looping ? null : itemCount,
+    onSelectedItemChanged: (index) => onSelected(index % itemCount),
+    itemBuilder: (context, index) {
+      final normalized = index % itemCount;
+      final selected = normalized == selectedItem;
+      return Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: itemBuilder(normalized, selected),
+        ),
+      );
+    },
+  );
+}
+
+Widget _dateWheelNumber(
+  String value, {
+  String? suffix,
+  required bool selected,
+}) => Text.rich(
+  TextSpan(
+    children: [
+      TextSpan(
+        text: value,
+        style: TextStyle(
+          color: selected ? AppColors.text : AppColors.text20,
+          fontFamily: 'Amarante',
+          fontSize: 20,
+          fontWeight: FontWeight.w400,
+        ),
+      ),
+      if (suffix != null) ...[
+        const WidgetSpan(child: SizedBox(width: 6)),
+        TextSpan(
+          text: suffix,
+          style: const TextStyle(
+            color: AppColors.text80,
+            fontFamily: 'Pretendard',
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    ],
+  ),
+  maxLines: 1,
+);
+
+Widget _dateWheelPeriod({
+  required String? weekday,
+  required String period,
+  required bool selected,
+}) => Text.rich(
+  TextSpan(
+    children: [
+      if (weekday != null) ...[
+        TextSpan(
+          text: '($weekday)',
+          style: const TextStyle(
+            color: AppColors.text80,
+            fontFamily: 'Pretendard',
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const WidgetSpan(child: SizedBox(width: 6)),
+      ],
+      TextSpan(
+        text: period,
+        style: TextStyle(
+          color: selected ? AppColors.text : AppColors.text20,
+          fontFamily: 'Pretendard',
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    ],
+  ),
+  maxLines: 1,
+);
 
 class _IncomeAmountDialog extends StatefulWidget {
   const _IncomeAmountDialog({required this.initialValue});

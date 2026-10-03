@@ -157,7 +157,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
           ),
           AuthBottomAction(
             label: _isLoading ? '로그인 중...' : '로그인',
-            onPressed: _isLoading ? () {} : _login,
+            onPressed: _isLoading ? null : _login,
           ),
         ],
       ),

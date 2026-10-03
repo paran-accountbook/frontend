@@ -38,9 +38,9 @@ class TermsScreen extends StatefulWidget {
 
 class _TermsScreenState extends State<TermsScreen> {
   static const _labels = [
-    '서비스 이용약관 (필수)',
-    '개인정보 수집·이용 동의 (필수)',
-    '마케팅 수신 동의 (선택)',
+    '[필수] 서비스 이용약관 동의',
+    '[필수] 개인정보 수집·이용 동의',
+    '[선택] 마케팅 수신 동의',
   ];
 
   final _selected = List.filled(_labels.length, false);
@@ -262,69 +262,59 @@ class _TermsScreenState extends State<TermsScreen> {
               Positioned(
                 left: 24,
                 right: 24,
-                top: 381,
-                child: Column(
-                  children: List.generate(_labels.length, (index) {
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        bottom: index == _labels.length - 1 ? 0 : 20,
-                      ),
-                      child: _TermsRow(
-                        index: index,
-                        label: _labels[index],
-                        selected: _selected[index],
-                        onPressed: () => _toggleItem(index),
-                        onViewPressed: () => _openTerms(index),
-                      ),
-                    );
-                  }),
-                ),
-              ),
-              Positioned(
-                left: 24,
-                right: 24,
-                top: 672,
+                top: 487,
                 child: Column(
                   children: [
-                    _TermsCheckbox(
+                    _TermsAgreementRow(
+                      label: '전체 동의하기',
                       selected: _allSelected,
                       onPressed: _toggleAll,
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 20),
+                    const Divider(height: 1, color: AppColors.text10),
+                    const SizedBox(height: 20),
+                    ...List.generate(_labels.length, (index) {
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          bottom: index == _labels.length - 1 ? 0 : 20,
+                        ),
+                        child: _TermsRow(
+                          index: index,
+                          label: _labels[index],
+                          selected: _selected[index],
+                          onPressed: () => _toggleItem(index),
+                          onViewPressed: () => _openTerms(index),
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 14),
                     GestureDetector(
-                      onTap: _toggleAll,
-                      child: Text(
-                        '전체 동의하기',
-                        style: TextStyle(color: AppColors.text80, fontSize: 12),
+                      onTap: () => _openTerms(1),
+                      child: const Text(
+                        '개인정보 처리방침 보기',
+                        style: TextStyle(color: AppColors.text50, fontSize: 12),
                       ),
                     ),
-                    if (_showRequiredError) ...[
-                      const SizedBox(height: 10),
-                      const Text(
-                        '필수 약관에 동의해 주세요',
-                        style: TextStyle(
-                          color: Color(0xFFFF6B7A),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                    if (_apiError case final message?) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        message,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Color(0xFFFF6B7A),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
+              if (_showRequiredError || _apiError != null)
+                Positioned(
+                  left: 24,
+                  right: 24,
+                  bottom: 88,
+                  child: Text(
+                    _apiError ?? '필수 약관에 동의해 주세요',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFFFF6B7A),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
               AuthBottomAction(
                 label: _isLoading ? '가입 중...' : '동의합니다',
-                onPressed: _isLoading ? () {} : _agree,
+                onPressed: _isLoading ? null : _agree,
               ),
             ],
           ),
@@ -332,6 +322,41 @@ class _TermsScreenState extends State<TermsScreen> {
       ),
     );
   }
+}
+
+class _TermsAgreementRow extends StatelessWidget {
+  const _TermsAgreementRow({
+    required this.label,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    behavior: HitTestBehavior.opaque,
+    onTap: onPressed,
+    child: SizedBox(
+      height: 30,
+      child: Row(
+        children: [
+          _TermsCheckbox(selected: selected, onPressed: onPressed),
+          const SizedBox(width: 20),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.text,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _TermsRow extends StatelessWidget {
@@ -360,10 +385,20 @@ class _TermsRow extends StatelessWidget {
           Expanded(
             child: GestureDetector(
               onTap: onPressed,
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: AppColors.text80,
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: label.substring(0, 4),
+                      style: const TextStyle(color: AppColors.main),
+                    ),
+                    TextSpan(
+                      text: label.substring(4),
+                      style: const TextStyle(color: AppColors.text80),
+                    ),
+                  ],
+                ),
+                style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -157,6 +158,13 @@ class RegisterMethodScreen extends StatelessWidget {
         callback(image);
         return;
       }
+      final useImage = await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(
+          builder: (_) =>
+              ReceiptImageConfirmationScreen(image: image, source: source),
+        ),
+      );
+      if (useImage != true || !context.mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => ReceiptScanLoadingScreen(
@@ -168,8 +176,168 @@ class RegisterMethodScreen extends StatelessWidget {
       );
     } on PlatformException catch (error, stackTrace) {
       AppLogger.error('Failed to open native image picker', error, stackTrace);
+      if (!context.mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('사진 접근 권한이 필요합니다'),
+          content: const Text('iPhone 설정에서 카메라 또는 사진 권한을 허용한 뒤 다시 시도해 주세요.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
     }
   }
+}
+
+class ReceiptImageConfirmationScreen extends StatelessWidget {
+  const ReceiptImageConfirmationScreen({
+    required this.image,
+    required this.source,
+    this.previewImage,
+    super.key,
+  });
+
+  final XFile image;
+  final ImageSource source;
+  final ImageProvider? previewImage;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: DesignCanvas(
+      child: Stack(
+        children: [
+          const ColoredBox(color: AppColors.background),
+          Positioned(
+            left: 24,
+            top: 50,
+            width: 34,
+            height: 34,
+            child: IconButton(
+              padding: EdgeInsets.zero,
+              tooltip: '뒤로가기',
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: SvgPicture.asset(AppAssets.arrowBackLight),
+            ),
+          ),
+          const Positioned(
+            left: 24,
+            right: 24,
+            top: 80,
+            child: Column(
+              children: [
+                Text(
+                  '촬영 확인',
+                  style: TextStyle(
+                    color: AppColors.text,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: 11),
+                Text(
+                  '영수증 글자가 또렷한지 확인해 주세요',
+                  style: TextStyle(color: AppColors.text50, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            left: 24,
+            top: 153,
+            width: 354,
+            height: 593,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: InteractiveViewer(
+                child: Image(
+                  image: previewImage ?? FileImage(File(image.path)),
+                  width: 354,
+                  height: 593,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const ColoredBox(
+                    color: AppColors.secondary,
+                    child: Center(
+                      child: Icon(
+                        Icons.receipt_long,
+                        color: AppColors.text50,
+                        size: 72,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 24,
+            right: 24,
+            bottom: 40,
+            child: Row(
+              children: [
+                Expanded(
+                  child: _ConfirmationButton(
+                    key: const Key('receipt-image-retry'),
+                    onPressed: () => Navigator.pop(context, false),
+                    label: source == ImageSource.camera ? '다시 촬영' : '다시 선택',
+                    primary: false,
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: _ConfirmationButton(
+                    key: const Key('receipt-image-use'),
+                    onPressed: () => Navigator.pop(context, true),
+                    label: '이 사진 사용',
+                    primary: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _ConfirmationButton extends StatelessWidget {
+  const _ConfirmationButton({
+    required this.label,
+    required this.primary,
+    required this.onPressed,
+    super.key,
+  });
+
+  final String label;
+  final bool primary;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onPressed,
+    child: Container(
+      height: 56,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: primary ? AppColors.main : AppColors.selected,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.text20),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.text,
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+  );
 }
 
 class _MethodChoice extends StatelessWidget {

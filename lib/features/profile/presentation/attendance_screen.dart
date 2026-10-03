@@ -7,8 +7,12 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../../shared/widgets/p1_design_components.dart';
+import '../../analysis/presentation/analysis_overview_screen.dart';
 import '../../finance/data/finance_service.dart';
+import '../../home/presentation/home_screen.dart';
 import '../../ledger/presentation/ledger_screen.dart';
+import '../../register/presentation/register_type_screen.dart';
+import 'profile_screen.dart';
 
 /// 마이_002: 출석 및 기록 현황 화면.
 ///
@@ -128,6 +132,21 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       _message = null;
     });
     await _load();
+  }
+
+  void _navigate(int index) {
+    final Widget? destination = switch (index) {
+      0 => HomeScreen(financeService: widget.financeService),
+      1 => LedgerScreen(financeService: widget.financeService),
+      2 => RegisterTypeScreen(financeService: widget.financeService),
+      3 => AnalysisOverviewScreen(financeService: widget.financeService),
+      4 => ProfileScreen(financeService: widget.financeService),
+      _ => null,
+    };
+    if (destination == null) return;
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute<void>(builder: (_) => destination));
   }
 
   @override
@@ -338,7 +357,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             Positioned(
               left: 0,
               bottom: 0,
-              child: AppBottomNavigation(selectedIndex: 2, onSelected: (_) {}),
+              child: AppBottomNavigation(
+                selectedIndex: 4,
+                onSelected: _navigate,
+              ),
             ),
           ],
         ),

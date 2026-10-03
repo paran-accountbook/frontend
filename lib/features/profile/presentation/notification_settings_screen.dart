@@ -8,7 +8,12 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/app_chevron.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../../analysis/presentation/analysis_overview_screen.dart';
 import '../../finance/data/finance_service.dart';
+import '../../home/presentation/home_screen.dart';
+import '../../ledger/presentation/ledger_screen.dart';
+import '../../register/presentation/register_type_screen.dart';
+import 'profile_screen.dart';
 
 /// 마이_004: 알림 설정 화면.
 class NotificationSettingsScreen extends StatefulWidget {
@@ -69,13 +74,40 @@ class _NotificationSettingsScreenState
     if (service == null) return;
     try {
       await service.updateNotificationSettings(body);
-      setState(() => _error = null);
+      if (mounted) setState(() => _error = null);
     } on ApiException catch (error) {
       if (mounted) {
         setState(() => _error = error.message);
         await _load();
       }
     }
+  }
+
+  Future<void> _openSystemSettings() async {
+    try {
+      final opened = await launchUrl(Uri.parse('app-settings:'));
+      if (opened || !mounted) return;
+    } catch (_) {
+      if (!mounted) return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('시스템 설정을 열 수 없습니다.')));
+  }
+
+  void _navigate(int index) {
+    final Widget? destination = switch (index) {
+      0 => HomeScreen(financeService: widget.financeService),
+      1 => LedgerScreen(financeService: widget.financeService),
+      2 => RegisterTypeScreen(financeService: widget.financeService),
+      3 => AnalysisOverviewScreen(financeService: widget.financeService),
+      4 => ProfileScreen(financeService: widget.financeService),
+      _ => null,
+    };
+    if (destination == null) return;
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute<void>(builder: (_) => destination));
   }
 
   Future<void> _pickReminderTime() async {
@@ -199,7 +231,7 @@ class _NotificationSettingsScreenState
                     _RowButton(
                       label: 'iOS 알림 권한',
                       value: '시스템 설정 열기',
-                      onTap: () => launchUrl(Uri.parse('app-settings:')),
+                      onTap: _openSystemSettings,
                     ),
                     if (_error case final message?) ...[
                       const SizedBox(height: 12),
@@ -217,7 +249,10 @@ class _NotificationSettingsScreenState
             Positioned(
               left: 0,
               bottom: 0,
-              child: AppBottomNavigation(selectedIndex: 2, onSelected: (_) {}),
+              child: AppBottomNavigation(
+                selectedIndex: 4,
+                onSelected: _navigate,
+              ),
             ),
           ],
         ),

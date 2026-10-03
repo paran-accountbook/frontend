@@ -31,6 +31,7 @@ void main() {
     );
     await service.updateExpense('expense-1', {'store_name': '소비로그 카페'});
     await service.deleteExpense('expense-1');
+    await service.deleteExpensePhoto('expense-1', 'photo-1');
     await service.incomeDetail('income-1');
     await service.updateIncome('income-1', {'amount': 250000});
     await service.deleteIncome('income-1');
@@ -51,16 +52,18 @@ void main() {
     expect(jsonDecode(requests[3].body), {'store_name': '소비로그 카페'});
     expect(requests[4].method, 'DELETE');
     expect(requests[4].url.path, '/expenses/expense-1');
-    expect(requests[5].method, 'GET');
-    expect(requests[5].url.path, '/incomes/income-1');
-    expect(requests[6].method, 'PATCH');
+    expect(requests[5].method, 'DELETE');
+    expect(requests[5].url.path, '/expenses/expense-1/photos/photo-1');
+    expect(requests[6].method, 'GET');
     expect(requests[6].url.path, '/incomes/income-1');
-    expect(jsonDecode(requests[6].body), {'amount': 250000});
-    expect(requests[7].method, 'DELETE');
+    expect(requests[7].method, 'PATCH');
     expect(requests[7].url.path, '/incomes/income-1');
-    expect(requests[8].url.queryParameters, {'month': '2026-09'});
-    expect(requests[9].url.path, '/mypage/attendance');
-    expect(requests[9].url.queryParameters, {'month': '2026-08'});
+    expect(jsonDecode(requests[7].body), {'amount': 250000});
+    expect(requests[8].method, 'DELETE');
+    expect(requests[8].url.path, '/incomes/income-1');
+    expect(requests[9].url.queryParameters, {'month': '2026-09'});
+    expect(requests[10].url.path, '/mypage/attendance');
+    expect(requests[10].url.queryParameters, {'month': '2026-08'});
     expect(
       requests.every(
         (request) => request.headers['authorization'] == 'Bearer access',

@@ -8,6 +8,10 @@ import 'package:sobilog/features/auth/presentation/kakao_signup_name_screen.dart
 import 'package:sobilog/features/auth/presentation/login_screen.dart';
 import 'package:sobilog/features/auth/presentation/terms_screen.dart';
 import 'package:sobilog/features/finance/data/finance_service.dart';
+import 'package:sobilog/features/dutch/data/dutch_pay_service.dart';
+import 'package:sobilog/features/dutch/presentation/dutch_assignment_screen.dart';
+import 'package:sobilog/features/dutch/presentation/dutch_request_screen.dart';
+import 'package:sobilog/features/dutch/presentation/dutch_result_screen.dart';
 import 'package:sobilog/features/ledger/presentation/income_detail_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_screen.dart';
 import 'package:sobilog/features/profile/presentation/attendance_screen.dart';
@@ -142,6 +146,115 @@ void main() {
     await tester.pumpAndSettle();
     expect(service.requestedMonths.last, DateTime(2026, 9));
   });
+
+  testWidgets('P1 품목 배정은 전원 선택과 원 단위 나머지를 정확히 표시한다', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: const DutchAssignmentScreen(
+          items: [
+            {'id': 'demo-1', 'item_name': '커피', 'amount': 10000, 'quantity': 1},
+          ],
+          participants: [
+            {'id': 'self', 'name': '나', 'is_self': true},
+            {'id': 'p2', 'name': '철수', 'is_self': false},
+            {'id': 'p3', 'name': '영희', 'is_self': false},
+          ],
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('dutch-select-all-demo-1')));
+    await tester.pump();
+
+    expect(find.text('전원 해제'), findsWidgets);
+    expect(find.text('3,334'), findsOneWidget);
+    expect(find.text('3,333'), findsNWidgets(2));
+  });
+
+  testWidgets('P1 정산 결과는 서버의 잔돈 포함 상태와 이전 버튼을 표시한다', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: DutchResultScreen(
+          sessionId: 'session-1',
+          dutchPayService: _DutchResultService(),
+          selfName: '나',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('잔돈 포함'), findsOneWidget);
+    expect(find.text('이전'), findsOneWidget);
+    expect(find.text('다음'), findsOneWidget);
+  });
+
+  testWidgets('P1 정산 요청은 선택한 인원의 미리보기와 공유 텍스트를 갱신한다', (tester) async {
+    String? sharedMessage;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: DutchRequestScreen(
+          onShareText: (message) async => sharedMessage = message,
+        ),
+      ),
+    );
+
+    final shareButton = find.byKey(const ValueKey('dutch-share-p3'));
+    await tester.ensureVisible(shareButton);
+    await tester.pumpAndSettle();
+    await tester.tap(shareButton);
+    await tester.pumpAndSettle();
+    expect(find.text('공유'), findsWidgets);
+    await tester.tap(find.byKey(const Key('share-via-kakao')));
+    await tester.pumpAndSettle();
+
+    expect(sharedMessage, contains('영희'));
+    expect(find.text('개별 · 영희'), findsOneWidget);
+    expect(find.text('이전'), findsNothing);
+    expect(find.text('완료'), findsOneWidget);
+  });
+}
+
+class _DutchResultService implements DutchPayService {
+  @override
+  Future<Map<String, dynamic>> result(String sessionId) async => {
+    'total_amount': 10000,
+    'participants': [
+      {
+        'participant_id': 'self',
+        'name': '나',
+        'amount': 3334,
+        'has_remainder': true,
+        'items': [
+          {
+            'expense_item_id': 'item-1',
+            'item_name': '커피',
+            'share_amount': 3334,
+            'has_remainder': true,
+          },
+        ],
+      },
+      {
+        'participant_id': 'p2',
+        'name': '철수',
+        'amount': 3333,
+        'has_remainder': false,
+        'items': <Map<String, dynamic>>[],
+      },
+      {
+        'participant_id': 'p3',
+        'name': '영희',
+        'amount': 3333,
+        'has_remainder': false,
+        'items': <Map<String, dynamic>>[],
+      },
+    ],
+  };
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _FakeKakaoLoginClient implements KakaoLoginClient {

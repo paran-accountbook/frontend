@@ -9,6 +9,14 @@ abstract final class AppAssets {
       '$_iconRoot/splash_logo_wordmark.svg';
   static const String kakao = '$_iconRoot/kakao.svg';
   static const String mail = '$_iconRoot/mail.svg';
+  static const String receiptOriginal = '$_iconRoot/receipt_original.svg';
+  static const String expensePhoto = '$_iconRoot/expense_photo.svg';
+  static const String expensePhotoRemove =
+      '$_iconRoot/expense_photo_remove.svg';
+  static const String trashRed = '$_iconRoot/trash_red.svg';
+  static const String toastSuccess = '$_iconRoot/toast_success.svg';
+  static const String shareKakaoBubble = '$_iconRoot/share_kakao_bubble.svg';
+  static const String shareMessage = '$_iconRoot/share_message.svg';
   static const String arrowDown = '$_iconRoot/arrow_down.svg';
   static const String arrowSmall = '$_iconRoot/arrow_small.svg';
   static const String arrowBackLight = '$_iconRoot/arrow_back_light.svg';
@@ -28,6 +36,11 @@ abstract final class AppAssets {
   static const String termsArrowRight = '$_iconRoot/terms_arrow_right.svg';
   static const String arrowRightLight = termsArrowRight;
   static const String filterLight = '$_iconRoot/filter_light.svg';
+  static const String ledgerFilterSelected =
+      '$_iconRoot/ledger_filter_selected.svg';
+  static const String ledgerFilterRemove =
+      '$_iconRoot/ledger_filter_remove.svg';
+  static const String ledgerEmptyFilter = '$_iconRoot/ledger_empty_filter.svg';
   static const String ledgerFilterClose = '$_iconRoot/ledger_filter_close.svg';
   static const String avatarSelf = '$_iconRoot/avatar_self.svg';
   static const String editLight = '$_iconRoot/edit_light.svg';
@@ -80,6 +93,10 @@ abstract final class AppAssets {
   static const String receiptAddItem = '$_iconRoot/receipt_add_item.svg';
   static const String receiptRemoveItem = '$_iconRoot/receipt_remove_item.svg';
   static const String receiptDeleteItem = '$_iconRoot/receipt_delete_item.svg';
+  static const String ledgerItemAdd = '$_iconRoot/ledger_item_add.svg';
+  static const String ledgerItemRemove = '$_iconRoot/ledger_item_remove.svg';
+  static const String ledgerItemDelete = '$_iconRoot/ledger_item_delete.svg';
+  static const String ledgerItemDivider = '$_iconRoot/ledger_item_divider.svg';
 
   static String categoryIconFor(String? category) => switch (category) {
     '쇼핑' => categoryShopping,
@@ -107,6 +124,10 @@ abstract final class AppAssets {
   static const String homeReceipt = '$_imageRoot/home/summary_receipt.svg';
   static const String homeReceiptCompact =
       '$_imageRoot/home/summary_receipt_402.svg';
+  static const String expenseReceiptBackground =
+      '$_imageRoot/home/expense_receipt_background.svg';
+  static const String expenseReceiptBackgroundBottom =
+      '$_imageRoot/home/expense_receipt_background_bottom.svg';
   static const String homeBarcode = '$_imageRoot/home/barcode.svg';
   static const String verificationReceipt =
       '$_imageRoot/auth/verification_receipt.svg';

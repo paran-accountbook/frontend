@@ -8,7 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/auth_widgets.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../finance/data/finance_service.dart';
-import '../../ledger/presentation/ledger_screen.dart';
+import 'expense_registration_complete_screen.dart';
 import 'receipt_entry_form.dart';
 
 class RegisterDirectScreen extends StatefulWidget {
@@ -48,10 +48,12 @@ class _RegisterDirectScreenState extends State<RegisterDirectScreen> {
       _isLoading = true;
       _error = null;
     });
+    Map<String, dynamic>? createdExpense;
     try {
       final created = _createdExpenseId == null
           ? await service.createExpense(payload)
           : null;
+      createdExpense = created;
       final expenseId = _createdExpenseId ?? created?['id'] as String?;
       _createdExpenseId = expenseId;
       if (expenseId != null && service is ExpensePhotoService) {
@@ -72,7 +74,17 @@ class _RegisterDirectScreenState extends State<RegisterDirectScreen> {
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(
-        builder: (_) => LedgerScreen(financeService: service),
+        builder: (_) => ExpenseRegistrationCompleteScreen(
+          expenseId: _createdExpenseId!,
+          financeService: service,
+          storeName:
+              createdExpense?['store_name'] as String? ??
+              payload['store_name'] as String?,
+          totalAmount:
+              createdExpense?['total_amount'] as int? ??
+              payload['total_amount'] as int?,
+          showDutchPay: false,
+        ),
       ),
       (_) => false,
     );
@@ -157,7 +169,7 @@ class _RegisterDirectScreenState extends State<RegisterDirectScreen> {
             ),
           AuthBottomAction(
             label: _isLoading ? '저장 중...' : '저장',
-            onPressed: _isLoading ? () {} : _save,
+            onPressed: _isLoading ? null : _save,
           ),
         ],
       ),

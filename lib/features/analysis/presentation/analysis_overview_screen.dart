@@ -384,6 +384,8 @@ class _Report extends StatelessWidget {
         data?['daily_average_expense'] as int? ?? (preview ? 40000 : 0);
     final income =
         data?['total_income_amount'] as int? ?? (preview ? 150000 : 0);
+    final incomeCount =
+        data?['income_count'] as int? ?? ((preview || income > 0) ? 1 : 0);
     final balance = data?['balance'] as int? ?? (preview ? 150000 : 0);
     final change = data?['change_amount'] as int? ?? (preview ? 2500 : 0);
     final changeRate = data?['change_rate'] as num? ?? (preview ? 12 : 0);
@@ -408,6 +410,13 @@ class _Report extends StatelessWidget {
     final remainingBudget = goal?['remaining_budget'] as int?;
     final overBudget = goal?['over_budget_amount'] as int? ?? 0;
     final dailyBudget = goal?['daily_budget_remaining'] as int?;
+    final today = DateTime.now();
+    final remainingDays =
+        data != null &&
+            data?['year'] == today.year &&
+            data?['month'] == today.month
+        ? DateTime(today.year, today.month + 1, 0).day - today.day + 1
+        : null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -437,12 +446,14 @@ class _Report extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         _Metric(label: '일 평균 지출액', value: _formatAmount(daily)),
-        _Metric(label: '총 수입', value: _formatAmount(income)),
-        _Metric(
-          label: '잔액',
-          value: '${balance >= 0 ? '+' : ''}${_formatAmount(balance)}',
-          accent: true,
-        ),
+        if (incomeCount > 0) ...[
+          _Metric(label: '총 수입', value: _formatAmount(income)),
+          _Metric(
+            label: '잔액',
+            value: '${balance >= 0 ? '+' : ''}${_formatAmount(balance)}',
+            accent: true,
+          ),
+        ],
         const SizedBox(height: 16),
         const _Asterisks(),
         const SizedBox(height: 24),
@@ -498,24 +509,41 @@ class _Report extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '$month월 지출 목표',
-                    style: const TextStyle(
-                      color: AppColors.text50,
-                      fontSize: 14,
+              if (goalAmount == 0)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    '지출 목표를 설정하면 하루 예산을 알려드려요',
+                    style: TextStyle(color: AppColors.text, fontSize: 14),
+                  ),
+                )
+              else
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '$month월 지출 목표',
+                      style: const TextStyle(
+                        color: AppColors.text50,
+                        fontSize: 14,
+                      ),
                     ),
-                  ),
-                  Text(
-                    goalAmount > 0
-                        ? '${_formatAmount(goalAmount)}원 중 ${_formatAmount(total)}원 사용'
-                        : '목표를 설정해 주세요',
-                    style: const TextStyle(color: AppColors.text, fontSize: 14),
-                  ),
-                ],
-              ),
+                    Text(
+                      goalAmount > 0
+                          ? '${_formatAmount(goalAmount)}원 중 ${_formatAmount(total)}원 사용'
+                          : '목표를 설정해 주세요',
+                      style: const TextStyle(
+                        color: AppColors.text,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
               const SizedBox(height: 6),
               Row(
                 children: [
@@ -558,9 +586,28 @@ class _Report extends StatelessWidget {
                     ),
                   ),
                 if (dailyBudget != null)
-                  Text(
-                    '하루 사용 가능액 ${_formatAmount(dailyBudget)}원',
-                    style: const TextStyle(color: AppColors.text, fontSize: 14),
+                  Container(
+                    margin: const EdgeInsets.only(top: 10),
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Column(
+                      children: [
+                        if (remainingDays != null)
+                          _GoalMetricRow(
+                            label: '남은 일수',
+                            value: '오늘 포함 $remainingDays일',
+                          ),
+                        if (remainingDays != null) const SizedBox(height: 14),
+                        _GoalMetricRow(
+                          label: '하루 사용 가능',
+                          value: '${_formatAmount(dailyBudget)}원',
+                          accent: true,
+                        ),
+                      ],
+                    ),
                   ),
               ],
             ],
@@ -569,6 +616,37 @@ class _Report extends StatelessWidget {
       ],
     );
   }
+}
+
+class _GoalMetricRow extends StatelessWidget {
+  const _GoalMetricRow({
+    required this.label,
+    required this.value,
+    this.accent = false,
+  });
+
+  final String label;
+  final String value;
+  final bool accent;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(color: AppColors.text50, fontSize: 14),
+      ),
+      Text(
+        value,
+        style: TextStyle(
+          color: accent ? const Color(0xFFA8A3FF) : AppColors.text,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    ],
+  );
 }
 
 class _BarSegment extends StatelessWidget {

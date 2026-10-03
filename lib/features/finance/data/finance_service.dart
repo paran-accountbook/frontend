@@ -64,6 +64,11 @@ abstract interface class ExpensePhotoService {
     String expenseId,
     String imagePath,
   );
+
+  Future<Map<String, dynamic>> deleteExpensePhoto(
+    String expenseId,
+    String photoId,
+  );
 }
 
 class FinanceApiService implements FinanceService, ExpensePhotoService {
@@ -147,6 +152,14 @@ class FinanceApiService implements FinanceService, ExpensePhotoService {
             filePath: imagePath,
             field: 'files',
           )
+          as Map<String, dynamic>;
+
+  @override
+  Future<Map<String, dynamic>> deleteExpensePhoto(
+    String expenseId,
+    String photoId,
+  ) async =>
+      await _client.delete('/expenses/$expenseId/photos/$photoId')
           as Map<String, dynamic>;
   @override
   Future<Map<String, dynamic>> createIncome(Map<String, Object?> body) async =>

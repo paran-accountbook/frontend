@@ -242,6 +242,7 @@ class _SummaryReceipt extends StatelessWidget {
     final income =
         summary?['total_income_amount'] as int? ?? (preview ? 30000 : 0);
     final balance = summary?['balance'] as int? ?? (preview ? 10000 : 0);
+    final hasIncome = preview || (summary?['income_count'] as int? ?? 0) > 0;
     final hasRecords = summary?['has_records'] as bool? ?? preview;
     final goalUsageRate = goal?['usage_rate'] as num? ?? 0;
     final changeColor = changeAmount > 0
@@ -373,6 +374,21 @@ class _SummaryReceipt extends StatelessWidget {
               ],
             ),
           ),
+        if (summary != null && goal == null)
+          const Positioned(
+            left: 17,
+            right: 17,
+            top: 224,
+            child: Text(
+              '지출 목표를 설정하면 하루 예산을 알려드려요',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF1B1B1B),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
         if (dailyBudget != null)
           Positioned(
             left: 17,
@@ -397,7 +413,7 @@ class _SummaryReceipt extends StatelessWidget {
               borderRadius: BorderRadius.circular(3),
             ),
           ),
-        if (summary == null || summary?['total_income_amount'] != null)
+        if (hasIncome)
           Positioned(
             left: 17,
             right: 17,

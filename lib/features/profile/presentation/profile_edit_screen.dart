@@ -7,7 +7,12 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/app_chevron.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../../analysis/presentation/analysis_overview_screen.dart';
 import '../../finance/data/finance_service.dart';
+import '../../home/presentation/home_screen.dart';
+import '../../ledger/presentation/ledger_screen.dart';
+import '../../register/presentation/register_type_screen.dart';
+import 'profile_screen.dart';
 
 class ProfileEditScreen extends StatefulWidget {
   const ProfileEditScreen({super.key, this.initialData, this.financeService});
@@ -158,6 +163,21 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     return '${local.year}년 ${local.month}월 ${local.day}일 $period $hour:${local.minute.toString().padLeft(2, '0')}';
   }
 
+  void _navigate(int index) {
+    final Widget? destination = switch (index) {
+      0 => HomeScreen(financeService: widget.financeService),
+      1 => LedgerScreen(financeService: widget.financeService),
+      2 => RegisterTypeScreen(financeService: widget.financeService),
+      3 => AnalysisOverviewScreen(financeService: widget.financeService),
+      4 => ProfileScreen(financeService: widget.financeService),
+      _ => null,
+    };
+    if (destination == null) return;
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute<void>(builder: (_) => destination));
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     body: DesignCanvas(
@@ -209,7 +229,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                       (widget.financeService == null
                           ? 'welcome@sobilog.com'
                           : '-'),
-                  arrow: true,
+                  helper: '수정할 수 없어요',
                 ),
                 const SizedBox(height: 20),
                 _ProfileRow(label: '가입일', value: _createdAt),
@@ -245,10 +265,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
               ],
             ),
           ),
-          const Positioned(
+          Positioned(
             left: 0,
             bottom: 0,
-            child: AppBottomNavigation(selectedIndex: 4),
+            child: AppBottomNavigation(selectedIndex: 4, onSelected: _navigate),
           ),
         ],
       ),
@@ -262,11 +282,13 @@ class _ProfileRow extends StatelessWidget {
     required this.value,
     this.arrow = false,
     this.onTap,
+    this.helper,
   });
   final String label;
   final String value;
   final bool arrow;
   final VoidCallback? onTap;
+  final String? helper;
   @override
   Widget build(BuildContext context) => GestureDetector(
     onTap: onTap,
@@ -289,15 +311,28 @@ class _ProfileRow extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Flexible(
-                  child: Text(
-                    value,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.text,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      height: 17 / 14,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        value,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.text,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          height: 17 / 14,
+                        ),
+                      ),
+                      if (helper case final message?)
+                        Text(
+                          message,
+                          style: const TextStyle(
+                            color: AppColors.text50,
+                            fontSize: 11,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 if (arrow) ...[

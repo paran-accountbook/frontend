@@ -114,7 +114,7 @@ class _EmailSignupScreenState extends State<EmailSignupScreen> {
           ),
           AuthBottomAction(
             label: _isLoading ? '전송 중...' : '인증번호 받기',
-            onPressed: _isLoading ? () {} : _requestCode,
+            onPressed: _isLoading ? null : _requestCode,
           ),
         ],
       ),

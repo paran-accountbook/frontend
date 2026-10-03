@@ -31,7 +31,12 @@ void main() {
     );
     await service.updateExpense('expense-1', {'store_name': '소비로그 카페'});
     await service.deleteExpense('expense-1');
+    await service.deleteExpensePhoto('expense-1', 'photo-1');
+    await service.incomeDetail('income-1');
+    await service.updateIncome('income-1', {'amount': 250000});
+    await service.deleteIncome('income-1');
     await service.analysis(year: 2026, month: 9);
+    await service.attendance(month: DateTime(2026, 8));
 
     expect(requests[0].url.path, '/home/summary');
     expect(requests[1].url.path, '/home/recent');
@@ -47,13 +52,72 @@ void main() {
     expect(jsonDecode(requests[3].body), {'store_name': '소비로그 카페'});
     expect(requests[4].method, 'DELETE');
     expect(requests[4].url.path, '/expenses/expense-1');
-    expect(requests[5].url.queryParameters, {'month': '2026-09'});
+    expect(requests[5].method, 'DELETE');
+    expect(requests[5].url.path, '/expenses/expense-1/photos/photo-1');
+    expect(requests[6].method, 'GET');
+    expect(requests[6].url.path, '/incomes/income-1');
+    expect(requests[7].method, 'PATCH');
+    expect(requests[7].url.path, '/incomes/income-1');
+    expect(jsonDecode(requests[7].body), {'amount': 250000});
+    expect(requests[8].method, 'DELETE');
+    expect(requests[8].url.path, '/incomes/income-1');
+    expect(requests[9].url.queryParameters, {'month': '2026-09'});
+    expect(requests[10].url.path, '/mypage/attendance');
+    expect(requests[10].url.queryParameters, {'month': '2026-08'});
     expect(
       requests.every(
         (request) => request.headers['authorization'] == 'Bearer access',
       ),
       isTrue,
     );
+  });
+
+  test('kakao and all terms endpoints follow backend contracts', () async {
+    final requests = <http.Request>[];
+    final store = _MemorySessionStore();
+    final client = ApiClient(
+      baseUrl: 'https://api.sobilog.kr',
+      sessionStore: store,
+      httpClient: MockClient((request) async {
+        requests.add(request);
+        final data = request.url.path == '/auth/kakao'
+            ? {
+                'access_token': 'access',
+                'refresh_token': 'refresh',
+                'is_new_user': true,
+              }
+            : <String, dynamic>{};
+        return http.Response(jsonEncode({'data': data}), 200);
+      }),
+    );
+    final service = AuthApiService(client);
+
+    await service.loginWithKakao('kakao-token');
+    await service.termsDocument();
+    await service.termsStatus();
+    await service.myAgreement();
+    await service.agreeToLatestTerms();
+    await service.initialAgree(nickname: '소비로그', marketingAgreed: true);
+
+    expect(requests.map((request) => '${request.method} ${request.url.path}'), [
+      'POST /auth/kakao',
+      'GET /auth/terms/document',
+      'GET /auth/terms/status',
+      'GET /auth/terms/my-agreement',
+      'POST /auth/terms/agree',
+      'POST /auth/terms/initial-agree',
+    ]);
+    expect(jsonDecode(requests.first.body), {
+      'kakao_access_token': 'kakao-token',
+    });
+    expect(jsonDecode(requests.last.body), {
+      'nickname': '소비로그',
+      'terms_agreed': true,
+      'privacy_agreed': true,
+      'marketing_agreed': true,
+    });
+    expect(store.accessToken, 'access');
+    expect(store.refreshToken, 'refresh');
   });
 
   test('login persists access and refresh tokens', () async {

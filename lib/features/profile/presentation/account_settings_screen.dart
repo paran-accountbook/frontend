@@ -8,14 +8,21 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../../shared/widgets/app_chevron.dart';
 import '../../auth/presentation/login_screen.dart';
+import '../../auth/data/auth_service.dart';
 import 'account_delete_screen.dart';
 import 'password_change_screen.dart';
 
 class AccountSettingsScreen extends StatelessWidget {
-  const AccountSettingsScreen({super.key, this.provider = 'email'});
+  const AccountSettingsScreen({
+    super.key,
+    this.provider = 'email',
+    this.authService,
+  });
   final String provider;
+  final AuthService? authService;
   @override
   Widget build(BuildContext context) {
+    final service = authService ?? AppServices.auth;
     return Scaffold(
       body: DesignCanvas(
         child: Stack(
@@ -55,9 +62,8 @@ class AccountSettingsScreen extends StatelessWidget {
                       value: '*********',
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
-                          builder: (_) => PasswordChangeScreen(
-                            authService: AppServices.auth,
-                          ),
+                          builder: (_) =>
+                              PasswordChangeScreen(authService: service),
                         ),
                       ),
                     ),
@@ -73,7 +79,10 @@ class AccountSettingsScreen extends StatelessWidget {
                   ),
                   const _SettingRow(label: '앱버전', value: '1.0'),
                   const SizedBox(height: 20),
-                  _ActionButton(label: '로그아웃', onTap: () => _logout(context)),
+                  _ActionButton(
+                    label: '로그아웃',
+                    onTap: () => _logout(context, service),
+                  ),
                   const SizedBox(height: 20),
                   _ActionButton(
                     label: '회원 탈퇴',
@@ -81,7 +90,7 @@ class AccountSettingsScreen extends StatelessWidget {
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => AccountDeleteScreen(
-                          authService: AppServices.auth,
+                          authService: service,
                           provider: provider,
                         ),
                       ),
@@ -96,7 +105,7 @@ class AccountSettingsScreen extends StatelessWidget {
     );
   }
 
-  void _logout(BuildContext context) {
+  void _logout(BuildContext context, AuthService service) {
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -109,7 +118,7 @@ class AccountSettingsScreen extends StatelessWidget {
           ),
           TextButton(
             onPressed: () async {
-              await AppServices.auth.logout();
+              await service.logout();
               if (!context.mounted) return;
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
@@ -124,7 +133,18 @@ class AccountSettingsScreen extends StatelessWidget {
   }
 
   Future<void> _openTerms(BuildContext context) async {
-    final url = Uri.tryParse(AppConfig.termsDocumentUrl.trim());
+    String? documentUrl;
+    if (authService != null) {
+      try {
+        final agreement = await authService!.myAgreement();
+        documentUrl = agreement['document_url'] as String?;
+      } catch (_) {
+        // 환경설정 URL로 한 번 더 시도한다.
+      }
+    }
+    final url = Uri.tryParse(
+      (documentUrl ?? AppConfig.termsDocumentUrl).trim(),
+    );
     if (url != null &&
         url.hasScheme &&
         await launchUrl(url, mode: LaunchMode.inAppBrowserView)) {
@@ -161,8 +181,10 @@ class _SettingRow extends StatelessWidget {
             value,
             style: const TextStyle(color: AppColors.text, fontSize: 14),
           ),
-          const SizedBox(width: 8),
-          const AppChevron(size: 20),
+          if (onTap != null) ...[
+            const SizedBox(width: 8),
+            const AppChevron(size: 20),
+          ],
         ],
       ),
     ),

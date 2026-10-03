@@ -14,6 +14,15 @@ abstract interface class AuthService {
     required String email,
     required String password,
   });
+  Future<Map<String, dynamic>> loginWithKakao(String kakaoAccessToken);
+  Future<Map<String, dynamic>> termsDocument();
+  Future<Map<String, dynamic>> termsStatus();
+  Future<Map<String, dynamic>> myAgreement();
+  Future<Map<String, dynamic>> agreeToLatestTerms();
+  Future<Map<String, dynamic>> initialAgree({
+    required String nickname,
+    required bool marketingAgreed,
+  });
   Future<void> sendPasswordResetCode(String email);
   Future<void> resetPassword({
     required String email,
@@ -100,6 +109,52 @@ class AuthApiService implements AuthService {
     await _saveTokens(data);
     return data;
   }
+
+  @override
+  Future<Map<String, dynamic>> loginWithKakao(String kakaoAccessToken) async {
+    final data =
+        await _client.post(
+              '/auth/kakao',
+              body: {'kakao_access_token': kakaoAccessToken},
+              authenticated: false,
+            )
+            as Map<String, dynamic>;
+    await _saveTokens(data);
+    return data;
+  }
+
+  @override
+  Future<Map<String, dynamic>> termsDocument() async =>
+      await _client.get('/auth/terms/document', authenticated: false)
+          as Map<String, dynamic>;
+
+  @override
+  Future<Map<String, dynamic>> termsStatus() async =>
+      await _client.get('/auth/terms/status') as Map<String, dynamic>;
+
+  @override
+  Future<Map<String, dynamic>> myAgreement() async =>
+      await _client.get('/auth/terms/my-agreement') as Map<String, dynamic>;
+
+  @override
+  Future<Map<String, dynamic>> agreeToLatestTerms() async =>
+      await _client.post('/auth/terms/agree') as Map<String, dynamic>;
+
+  @override
+  Future<Map<String, dynamic>> initialAgree({
+    required String nickname,
+    required bool marketingAgreed,
+  }) async =>
+      await _client.post(
+            '/auth/terms/initial-agree',
+            body: {
+              'nickname': nickname,
+              'terms_agreed': true,
+              'privacy_agreed': true,
+              'marketing_agreed': marketingAgreed,
+            },
+          )
+          as Map<String, dynamic>;
 
   Future<void> _saveTokens(Map<String, dynamic> data) async {
     final access = data['access_token'] as String?;

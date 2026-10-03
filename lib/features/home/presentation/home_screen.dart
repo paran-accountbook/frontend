@@ -7,9 +7,12 @@ import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/app_category_icon.dart';
 import '../../../shared/widgets/app_chevron.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../../../shared/widgets/app_skeleton.dart';
 import '../../analysis/presentation/analysis_overview_screen.dart';
 import '../../finance/data/finance_service.dart';
+import '../../ledger/presentation/income_detail_screen.dart';
 import '../../ledger/presentation/ledger_screen.dart';
+import '../../ledger/presentation/ledger_detail_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../register/presentation/register_type_screen.dart';
 
@@ -25,10 +28,13 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic>? _data;
+  late bool _isLoading;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
+    _isLoading = widget.financeService != null;
     _load();
   }
 
@@ -36,27 +42,31 @@ class _HomeScreenState extends State<HomeScreen> {
     final service = widget.financeService;
     if (service == null) return;
     try {
+      if (mounted) setState(() => _error = null);
       final data = await service.home();
       if (mounted) setState(() => _data = data);
     } catch (_) {
-      // The static preview remains visible; authenticated retry is available on refresh/re-entry.
+      if (mounted && _data == null) {
+        setState(() => _error = '홈 정보를 불러오지 못했습니다.');
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final recentEntries =
+        (_data?['recent'] as Map<String, dynamic>?)?['entries'] as List?;
+    final showAllRecent =
+        widget.financeService == null ||
+        recentEntries == null ||
+        recentEntries.isNotEmpty;
     return Scaffold(
       body: DesignCanvas(
         child: Stack(
           children: [
             const ColoredBox(color: AppColors.background),
-            Positioned(
-              left: -110,
-              top: 0,
-              width: 623,
-              height: 874,
-              child: Image.asset(AppAssets.homeBackground, fit: BoxFit.cover),
-            ),
             Positioned(
               left: 24,
               top: 67,
@@ -90,35 +100,49 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-                child: _SummaryReceipt(
-                  summary: _data?['summary'] as Map<String, dynamic>?,
-                ),
+                child: _error != null && _data == null
+                    ? _HomeLoadError(message: _error!, onRetry: _load)
+                    : _SummaryReceipt(
+                        summary: _data?['summary'] as Map<String, dynamic>?,
+                        preview: widget.financeService == null,
+                        onRegister: () => _navigate(context, 2),
+                      ),
               ),
             ),
             Positioned(
               left: 24,
               top: 452,
               width: 354,
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('최근 등록 내역', style: _smallText),
-                  Row(
-                    children: [
-                      Text('전체 보기', style: _smallText),
-                      SizedBox(width: 2),
-                      AppChevron(size: 18),
-                    ],
-                  ),
+                  const Text('최근 등록 내역', style: _smallText),
+                  if (showAllRecent)
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _navigate(context, 1),
+                      child: const Row(
+                        children: [
+                          Text('전체 보기', style: _smallText),
+                          SizedBox(width: 2),
+                          AppChevron(size: 18),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),
             Positioned(
               left: 24,
               top: 489,
-              child: _RecentList(
-                data: _data?['recent'] as Map<String, dynamic>?,
-              ),
+              child: _isLoading
+                  ? const AppSkeletonList()
+                  : _RecentList(
+                      data: _data?['recent'] as Map<String, dynamic>?,
+                      preview: widget.financeService == null,
+                      onRegister: () => _navigate(context, 2),
+                      onEntryTap: _openRecentEntry,
+                    ),
             ),
             Positioned(
               left: 0,
@@ -154,6 +178,43 @@ class _HomeScreenState extends State<HomeScreen> {
       Navigator.of(context).pushReplacement(route);
     }
   }
+
+  Future<void> _openRecentEntry(Map<String, dynamic> entry) async {
+    if (entry['type'] == 'expense' && entry['id'] is String) {
+      final changed = await Navigator.of(context).push<Object?>(
+        MaterialPageRoute<Object?>(
+          builder: (_) => LedgerDetailScreen(
+            expenseId: entry['id'] as String,
+            financeService: widget.financeService,
+          ),
+        ),
+      );
+      if (changed == true) await _load();
+      return;
+    }
+    if (entry['type'] == 'income' && entry['id'] is String) {
+      final changed = await Navigator.of(context).push<Object?>(
+        MaterialPageRoute<Object?>(
+          builder: (_) => IncomeDetailScreen(
+            incomeId: entry['id'] as String,
+            financeService: widget.financeService,
+          ),
+        ),
+      );
+      if (changed == true) await _load();
+      return;
+    }
+    final date = _recentRegisteredAt(entry) ?? DateTime.now();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => LedgerScreen(
+          financeService: widget.financeService,
+          initialAnchor: date,
+          initialPeriod: 2,
+        ),
+      ),
+    );
+  }
 }
 
 const _smallText = TextStyle(
@@ -163,22 +224,63 @@ const _smallText = TextStyle(
 );
 
 class _SummaryReceipt extends StatelessWidget {
-  const _SummaryReceipt({this.summary});
+  const _SummaryReceipt({this.summary, this.preview = false, this.onRegister});
   final Map<String, dynamic>? summary;
+  final bool preview;
+  final VoidCallback? onRegister;
 
   @override
   Widget build(BuildContext context) {
-    final total = summary?['total_expense_amount'] as int? ?? 150000;
-    final changeAmount = summary?['change_amount'] as int? ?? 2500;
-    final changeRate = summary?['change_rate'] as num? ?? 12;
+    final total =
+        summary?['total_expense_amount'] as int? ?? (preview ? 150000 : 0);
+    final changeAmount =
+        summary?['change_amount'] as int? ?? (preview ? 2500 : 0);
+    final changeRate = summary?['change_rate'] as num? ?? (preview ? 12 : 0);
     final goal = summary?['goal'] as Map<String, dynamic>?;
-    final month = summary?['month'] as int? ?? 8;
-    final income = summary?['total_income_amount'] as int? ?? 30000;
-    final balance = summary?['balance'] as int? ?? 10000;
+    final month =
+        summary?['month'] as int? ?? (preview ? 8 : DateTime.now().month);
+    final income =
+        summary?['total_income_amount'] as int? ?? (preview ? 30000 : 0);
+    final balance = summary?['balance'] as int? ?? (preview ? 10000 : 0);
+    final hasIncome = preview || (summary?['income_count'] as int? ?? 0) > 0;
+    final hasRecords = summary?['has_records'] as bool? ?? preview;
+    final goalUsageRate = goal?['usage_rate'] as num? ?? 0;
     final changeColor = changeAmount > 0
         ? const Color(0xFFCF376A)
         : const Color(0xFF4777D9);
     final sign = changeAmount > 0 ? '+' : '';
+    if (!hasRecords) {
+      return Stack(
+        children: [
+          Positioned.fill(
+            child: SvgPicture.asset(
+              AppAssets.homeReceiptCompact,
+              fit: BoxFit.fill,
+            ),
+          ),
+          const Positioned(
+            left: 24,
+            right: 24,
+            top: 105,
+            child: Text(
+              '아직 등록 내역이 없어요!',
+              textAlign: TextAlign.center,
+              style: _receiptLabel,
+            ),
+          ),
+          Positioned(
+            left: 72,
+            right: 72,
+            top: 160,
+            child: FilledButton(
+              onPressed: onRegister,
+              child: const Text('소비 등록하기'),
+            ),
+          ),
+        ],
+      );
+    }
+    final dailyBudget = goal?['daily_budget_remaining'] as int?;
     return Stack(
       children: [
         Positioned.fill(
@@ -272,11 +374,50 @@ class _SummaryReceipt extends StatelessWidget {
               ],
             ),
           ),
-        if (summary == null || summary?['total_income_amount'] != null)
+        if (summary != null && goal == null)
+          const Positioned(
+            left: 17,
+            right: 17,
+            top: 224,
+            child: Text(
+              '지출 목표를 설정하면 하루 예산을 알려드려요',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF1B1B1B),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        if (dailyBudget != null)
           Positioned(
             left: 17,
             right: 17,
-            top: 281,
+            top: 263,
+            child: Text(
+              '오늘 쓸 수 있는 금액 ${_formatAmount(dailyBudget)}원',
+              textAlign: TextAlign.right,
+              style: _receiptBody,
+            ),
+          ),
+        if (goal != null)
+          Positioned(
+            left: 17,
+            right: 17,
+            top: 250,
+            child: LinearProgressIndicator(
+              value: (goalUsageRate / 100).clamp(0, 1).toDouble(),
+              minHeight: 6,
+              color: AppColors.main,
+              backgroundColor: const Color(0x331B1B1B),
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+        if (hasIncome)
+          Positioned(
+            left: 17,
+            right: 17,
+            top: 291,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -304,8 +445,16 @@ const _receiptAmountLarge = TextStyle(
 );
 
 class _RecentList extends StatelessWidget {
-  const _RecentList({this.data});
+  const _RecentList({
+    this.data,
+    this.preview = false,
+    this.onRegister,
+    this.onEntryTap,
+  });
   final Map<String, dynamic>? data;
+  final bool preview;
+  final VoidCallback? onRegister;
+  final ValueChanged<Map<String, dynamic>>? onEntryTap;
 
   @override
   Widget build(BuildContext context) {
@@ -313,36 +462,46 @@ class _RecentList extends StatelessWidget {
         ?.whereType<Map<String, dynamic>>()
         .toList();
     if (data != null && (entries == null || entries.isEmpty)) {
-      return Container(
-        width: 354,
-        height: 72,
-        alignment: Alignment.center,
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Color(0x0DE2E2F9))),
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onRegister,
+        child: Container(
+          width: 354,
+          height: 72,
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: Color(0x0DE2E2F9))),
+          ),
+          child: const Text('첫 소비를 등록해보세요', style: _smallText),
         ),
-        child: const Text('첫 소비를 등록해보세요', style: _smallText),
       );
     }
     final visible =
         entries ??
-        List.generate(
-          3,
-          (_) => const <String, dynamic>{
-            'registered_at': '2026-08-19T10:30:00+09:00',
-          },
-        );
+        (preview
+            ? List.generate(
+                3,
+                (_) => const <String, dynamic>{
+                  'registered_at': '2026-08-19T10:30:00+09:00',
+                },
+              )
+            : const <Map<String, dynamic>>[]);
     return Column(
       children: visible
           .take(3)
-          .map((entry) => _RecentRow(entry: entry))
+          .map(
+            (entry) =>
+                _RecentRow(entry: entry, onTap: () => onEntryTap?.call(entry)),
+          )
           .toList(),
     );
   }
 }
 
 class _RecentRow extends StatelessWidget {
-  const _RecentRow({required this.entry});
+  const _RecentRow({required this.entry, this.onTap});
   final Map<String, dynamic> entry;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -350,57 +509,83 @@ class _RecentRow extends StatelessWidget {
     final time = _recentTimeLabel(entry);
     final isIncome = entry['type'] == 'income';
     final amount = entry['amount'] as int? ?? 150000;
-    return Container(
-      width: 354,
-      height: 72,
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0x0DE2E2F9))),
-      ),
-      child: Row(
-        children: [
-          Text(
-            date == null ? '8/19' : '${date.month}/${date.day}',
-            style: TextStyle(
-              color: AppColors.text50,
-              fontFamily: 'Amarante',
-              fontSize: 14,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        width: 354,
+        height: 72,
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: Color(0x0DE2E2F9))),
+        ),
+        child: Row(
+          children: [
+            Text(
+              date == null ? '8/19' : '${date.month}/${date.day}',
+              style: TextStyle(
+                color: AppColors.text50,
+                fontFamily: 'Amarante',
+                fontSize: 14,
+              ),
             ),
-          ),
-          const SizedBox(width: 10),
-          const AppCategoryIcon(),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  entry['label'] as String? ?? '아주대학교 카페',
-                  maxLines: 1,
-                  overflow: TextOverflow.clip,
-                  style: _smallText,
-                ),
-                if (time != null) ...[
-                  const SizedBox(height: 7),
+            const SizedBox(width: 10),
+            const AppCategoryIcon(),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    time,
-                    style: const TextStyle(
-                      color: AppColors.text50,
-                      fontSize: 12,
-                    ),
+                    entry['label'] as String? ?? '아주대학교 카페',
+                    maxLines: 1,
+                    overflow: TextOverflow.clip,
+                    style: _smallText,
                   ),
+                  if (time != null) ...[
+                    const SizedBox(height: 7),
+                    Text(
+                      time,
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.text50,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-          _LightPrice(
-            amount: '${isIncome ? '+' : ''}${_formatAmount(amount)}',
-            color: isIncome ? const Color(0xFF6E9CFF) : AppColors.text,
-          ),
-        ],
+            _LightPrice(
+              amount: '${isIncome ? '+' : ''}${_formatAmount(amount)}',
+              color: isIncome ? const Color(0xFF6E9CFF) : AppColors.text,
+            ),
+          ],
+        ),
       ),
     );
   }
+}
+
+class _HomeLoadError extends StatelessWidget {
+  const _HomeLoadError({required this.message, required this.onRetry});
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    color: AppColors.secondary,
+    alignment: Alignment.center,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(message, style: const TextStyle(color: AppColors.text50)),
+        TextButton(onPressed: onRetry, child: const Text('다시 시도')),
+      ],
+    ),
+  );
 }
 
 String? _recentTimeLabel(Map<String, dynamic> entry) {

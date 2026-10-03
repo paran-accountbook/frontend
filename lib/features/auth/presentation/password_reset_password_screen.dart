@@ -148,7 +148,7 @@ class _PasswordResetPasswordScreenState
           ),
           AuthBottomAction(
             label: _isLoading ? '변경 중...' : '비밀번호 변경',
-            onPressed: _isLoading ? () {} : _changePassword,
+            onPressed: _isLoading ? null : _changePassword,
           ),
         ],
       ),

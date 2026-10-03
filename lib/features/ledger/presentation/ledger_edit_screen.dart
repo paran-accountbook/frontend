@@ -5,7 +5,9 @@ import '../../../core/constants/app_assets.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../../../shared/widgets/app_skeleton.dart';
 import '../../../shared/widgets/editable_receipt_form.dart';
+import '../../../shared/widgets/p1_design_components.dart';
 import '../../finance/data/finance_service.dart';
 
 enum LedgerEditResult { updated, deleted }
@@ -96,23 +98,16 @@ class _LedgerEditScreenState extends State<LedgerEditScreen> {
     if (service == null || id == null || _isSubmitting) return;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('내역 삭제'),
-        content: const Text('삭제한 내역은 되돌릴 수 없습니다. 삭제할까요?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            key: const Key('confirm-delete-ledger-entry'),
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFFF6B7A),
-            ),
-            child: const Text('삭제'),
-          ),
-        ],
+      barrierColor: const Color(0x99121215),
+      builder: (context) => P1ConfirmDialog(
+        title: '이 내역을 삭제할까요?',
+        description:
+            '${_data?['store_name'] as String? ?? '가맹점'} · ${_formatDeleteAmount(_data?['total_amount'] as int? ?? 0)}원',
+        warning: '더치페이 정산 기록도 함께 삭제돼요',
+        cancelLabel: '취소',
+        confirmLabel: '삭제하기',
+        confirmKey: const Key('confirm-delete-ledger-entry'),
+        onConfirm: () => Navigator.pop(context, true),
       ),
     );
     if (confirmed != true || !mounted) return;
@@ -135,6 +130,7 @@ class _LedgerEditScreenState extends State<LedgerEditScreen> {
   Widget build(BuildContext context) {
     final canSubmit = _hasRemoteTarget && _data != null;
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: DesignCanvas(
         child: Stack(
           children: [
@@ -184,17 +180,11 @@ class _LedgerEditScreenState extends State<LedgerEditScreen> {
                 ),
               ),
             if (_isLoading)
-              const Positioned.fill(
-                child: Center(
-                  child: SizedBox.square(
-                    key: Key('ledger-edit-loading'),
-                    dimension: 28,
-                    child: CircularProgressIndicator(
-                      color: AppColors.main,
-                      strokeWidth: 2.5,
-                    ),
-                  ),
-                ),
+              const Positioned(
+                key: Key('ledger-edit-loading'),
+                left: 24,
+                top: 112,
+                child: AppSkeletonReceipt(height: 621),
               ),
             if (_error case final message?)
               Positioned(
@@ -259,3 +249,8 @@ class _LedgerEditScreenState extends State<LedgerEditScreen> {
     );
   }
 }
+
+String _formatDeleteAmount(int value) => value.toString().replaceAllMapped(
+  RegExp(r'\B(?=(\d{3})+(?!\d))'),
+  (_) => ',',
+);

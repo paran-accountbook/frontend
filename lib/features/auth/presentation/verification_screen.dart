@@ -102,6 +102,14 @@ class _VerificationScreenState extends State<VerificationScreen> {
     _startTimer();
   }
 
+  void _showResendCooldown() {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text('$_resendSeconds초 후 다시 요청할 수 있어요.')),
+      );
+  }
+
   Future<void> _complete() async {
     if (_controller.text.length != 6 || _remainingSeconds == 0) return;
     if (_isLoading) return;
@@ -134,7 +142,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
       return;
     }
     final email = widget.email ?? '';
-    final service = widget.authService;
+    final service = widget.authService ?? AppServices.auth;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => TermsScreen(
@@ -287,7 +295,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
           AuthBottomAction(
             label: '인증번호 재발송',
             bottom: 339,
-            onPressed: _resendSeconds == 0 ? _resend : () {},
+            onPressed: _resendSeconds == 0 ? _resend : _showResendCooldown,
           ),
           if (_errorMessage case final message?)
             Positioned(

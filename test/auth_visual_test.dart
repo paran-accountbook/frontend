@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:sobilog/core/theme/app_theme.dart';
 import 'package:sobilog/features/auth/presentation/email_login_screen.dart';
 import 'package:sobilog/features/auth/presentation/email_signup_screen.dart';
@@ -243,6 +246,28 @@ void main() {
     );
   });
 
+  testWidgets('ledger applied filters match the latest visual baseline', (
+    tester,
+  ) async {
+    await configureViewport(tester);
+    await pumpScreen(
+      tester,
+      LedgerScreen(financeService: _LedgerVisualService()),
+    );
+    await tester.tap(find.text('필터'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('ledger-filter-식비')));
+    await tester.tap(find.byKey(const Key('ledger-filter-카드')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('apply-ledger-filter')));
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(Scaffold),
+      matchesGoldenFile('goldens/ledger_filters_applied.png'),
+    );
+  });
+
   testWidgets('register type matches its visual baseline', (tester) async {
     await configureViewport(tester);
     await pumpScreen(tester, const RegisterTypeScreen());
@@ -259,6 +284,28 @@ void main() {
     await expectLater(
       find.byType(Scaffold),
       matchesGoldenFile('goldens/register_method.png'),
+    );
+  });
+
+  testWidgets('receipt image confirmation matches the latest visual baseline', (
+    tester,
+  ) async {
+    await configureViewport(tester);
+    await pumpScreen(
+      tester,
+      ReceiptImageConfirmationScreen(
+        image: XFile('test/fixtures/receipt_confirmation_sample.png'),
+        source: ImageSource.camera,
+        previewImage: MemoryImage(
+          File(
+            'test/fixtures/receipt_confirmation_sample.png',
+          ).readAsBytesSync(),
+        ),
+      ),
+    );
+    await expectLater(
+      find.byType(Scaffold),
+      matchesGoldenFile('goldens/receipt_image_confirmation.png'),
     );
   });
 
@@ -300,7 +347,12 @@ void main() {
 
   testWidgets('income register matches its visual baseline', (tester) async {
     await configureViewport(tester);
-    await pumpScreen(tester, const RegisterIncomeScreen());
+    await pumpScreen(
+      tester,
+      const RegisterIncomeScreen(
+        initialData: <String, dynamic>{'income_date': '2026-09-24'},
+      ),
+    );
     await expectLater(
       find.byType(Scaffold),
       matchesGoldenFile('goldens/register_income.png'),
@@ -355,7 +407,12 @@ void main() {
   testWidgets('AI analysis matches its visual baseline', (tester) async {
     await configureViewport(tester);
     await pumpScreen(tester, const AnalysisOverviewScreen());
-    await tester.tap(find.text('AI분석'));
+    await tester.scrollUntilVisible(
+      find.text('AI'),
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('AI'));
     await tester.pump();
 
     await expectLater(
@@ -370,7 +427,7 @@ void main() {
     await configureViewport(tester);
     await pumpScreen(tester, const AnalysisOverviewScreen());
     await tester.drag(
-      find.byType(SingleChildScrollView),
+      find.byType(SingleChildScrollView).first,
       const Offset(0, -900),
     );
     await tester.pump();

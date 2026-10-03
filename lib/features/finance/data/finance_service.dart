@@ -59,6 +59,12 @@ abstract interface class FinanceService {
   });
 }
 
+/// Allows the home summary and recent entries to render independently.
+abstract interface class ProgressiveHomeFinanceService {
+  Future<Map<String, dynamic>> homeSummary();
+  Future<Map<String, dynamic>> homeRecent();
+}
+
 abstract interface class ExpensePhotoService {
   Future<Map<String, dynamic>> uploadExpensePhoto(
     String expenseId,
@@ -71,21 +77,27 @@ abstract interface class ExpensePhotoService {
   );
 }
 
-class FinanceApiService implements FinanceService, ExpensePhotoService {
+class FinanceApiService
+    implements
+        FinanceService,
+        ExpensePhotoService,
+        ProgressiveHomeFinanceService {
   const FinanceApiService(this._client);
   final ApiClient _client;
 
   @override
   Future<Map<String, dynamic>> home() async {
-    final responses = await Future.wait([
-      _client.get('/home/summary'),
-      _client.get('/home/recent'),
-    ]);
-    return {
-      'summary': responses[0] as Map<String, dynamic>,
-      'recent': responses[1] as Map<String, dynamic>,
-    };
+    final responses = await Future.wait([homeSummary(), homeRecent()]);
+    return {'summary': responses[0], 'recent': responses[1]};
   }
+
+  @override
+  Future<Map<String, dynamic>> homeSummary() async =>
+      await _client.get('/home/summary') as Map<String, dynamic>;
+
+  @override
+  Future<Map<String, dynamic>> homeRecent() async =>
+      await _client.get('/home/recent') as Map<String, dynamic>;
 
   @override
   Future<Map<String, dynamic>> ledger({

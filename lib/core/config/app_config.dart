@@ -9,6 +9,9 @@ abstract final class AppConfig {
       : 'https://api.sobilog.kr/';
   static String get termsDocumentUrl =>
       dotenv.isInitialized ? dotenv.env['TERMS_DOCUMENT_URL'] ?? '' : '';
+  static const String privacyPolicyUrl =
+      'https://congruous-watercress-e5d.notion.site/'
+      'v1-0-3d5e4eb8942280c3a5bdd250f54963de';
   static String get kakaoNativeAppKey =>
       dotenv.isInitialized ? dotenv.env['KAKAO_NATIVE_APP_KEY'] ?? '' : '';
 

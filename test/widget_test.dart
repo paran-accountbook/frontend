@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:sobilog/core/config/app_config.dart';
 import 'package:sobilog/core/network/api_exception.dart';
 import 'package:sobilog/core/theme/app_colors.dart';
 import 'package:sobilog/core/theme/app_theme.dart';
@@ -11,7 +12,6 @@ import 'package:sobilog/features/auth/presentation/email_login_screen.dart';
 import 'package:sobilog/features/auth/presentation/login_screen.dart';
 import 'package:sobilog/features/auth/presentation/signup_name_screen.dart';
 import 'package:sobilog/features/auth/presentation/signup_password_screen.dart';
-import 'package:sobilog/features/auth/presentation/terms_detail_screen.dart';
 import 'package:sobilog/features/auth/presentation/terms_screen.dart';
 import 'package:sobilog/features/auth/presentation/verification_screen.dart';
 import 'package:sobilog/features/analysis/presentation/analysis_overview_screen.dart';
@@ -103,13 +103,6 @@ void main() {
     expect(authService.verifiedCode, '123456');
     expect(find.byType(TermsScreen), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('terms-view-0')));
-    await tester.pumpAndSettle();
-    expect(find.byType(TermsDetailScreen), findsOneWidget);
-    expect(find.text('서비스 이용 약관'), findsOneWidget);
-    await tester.tap(find.text('확인'));
-    await tester.pumpAndSettle();
-
     await tester.tap(find.text('전체 동의하기'));
     await tester.tap(find.text('동의합니다'));
     await tester.pumpAndSettle();
@@ -129,7 +122,7 @@ void main() {
 
     expect(authService.signupEmail, 'user@test.com');
     expect(authService.signupNickname, '소비로그');
-    expect(authService.marketingAgreed, isTrue);
+    expect(authService.marketingAgreed, isFalse);
   });
 
   testWidgets('bottom navigation matches the Figma item geometry', (
@@ -199,22 +192,17 @@ void main() {
     );
   });
 
-  testWidgets('analysis locked icons match the Figma geometry', (tester) async {
+  testWidgets('analysis matches the current report-only Figma navigation', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(theme: AppTheme.dark, home: const AnalysisOverviewScreen()),
     );
 
-    await tester.tap(find.text('패턴'));
-    await tester.pump();
-
-    expect(
-      tester.getSize(find.byKey(const ValueKey('analysis-locked-icon-slot-0'))),
-      const Size.square(26),
-    );
-    expect(
-      tester.getSize(find.byKey(const ValueKey('analysis-locked-icon-0'))),
-      const Size.square(18),
-    );
+    expect(find.text('리포트'), findsOneWidget);
+    expect(find.text('패턴'), findsNothing);
+    expect(find.text('반복지출'), findsNothing);
+    expect(find.text('AI'), findsNothing);
   });
 
   testWidgets('renders the splash logo', (tester) async {
@@ -296,6 +284,40 @@ void main() {
     expect(find.text('최근 등록 내역'), findsOneWidget);
   });
 
+  testWidgets('terms details open the configured privacy policy URL', (
+    tester,
+  ) async {
+    final openedUris = <Uri>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: TermsScreen(
+          documentLauncher: (uri) async {
+            openedUris.add(uri);
+            return true;
+          },
+        ),
+      ),
+    );
+
+    expect(find.text('[필수] 만 18세 이상입니다'), findsOneWidget);
+    expect(find.text('[선택] 마케팅 수신 동의'), findsNothing);
+    expect(find.byKey(const ValueKey('terms-view-0')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('terms-view-1')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('terms-view-2')));
+    await tester.pump();
+    await tester.tap(find.text('개인정보 처리방침 보기'));
+    await tester.pump();
+
+    expect(openedUris, hasLength(3));
+    expect(
+      openedUris.every((uri) => uri.toString() == AppConfig.privacyPolicyUrl),
+      isTrue,
+    );
+  });
+
   testWidgets('renders ledger entries and filters', (tester) async {
     await tester.pumpWidget(
       MaterialApp(theme: AppTheme.dark, home: const LedgerScreen()),
@@ -304,6 +326,43 @@ void main() {
     expect(find.byType(LedgerScreen), findsOneWidget);
     expect(find.text('가계부'), findsOneWidget);
     expect(find.text('아주대학교 카페'), findsNWidgets(4));
+  });
+
+  testWidgets('수입이 없으면 카운트 필드가 누락되어도 수입 등록 안내를 표시한다', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: const LedgerScreen(
+          initialData: {
+            'total_expense_amount': 4500,
+            'total_income_amount': 0,
+            'balance': -4500,
+            'days': [
+              {
+                'date': '2026-08-19',
+                'expenses': [
+                  {
+                    'store_name': '아주대학교 카페',
+                    'category': '카페',
+                    'payment_method': '카드',
+                    'amount': 4500,
+                  },
+                ],
+                'incomes': <Map<String, dynamic>>[],
+              },
+            ],
+          },
+        ),
+      ),
+    );
+
+    expect(find.text('수입을 등록하면\n잔액도 함께 보여요'), findsOneWidget);
+    expect(
+      find.byKey(const Key('ledger-income-zero-register')),
+      findsOneWidget,
+    );
+    expect(find.text('총 수입'), findsNothing);
+    expect(find.text('잔액'), findsNothing);
   });
 
   testWidgets('ledger month arrows point and move in opposite directions', (
@@ -655,6 +714,45 @@ void main() {
     expect(find.text('직접 등록'), findsOneWidget);
     expect(find.text('저장'), findsOneWidget);
     expect(find.text('아메리카노'), findsNWidgets(3));
+  });
+
+  testWidgets('직접 등록 완료 후 더치페이 진입 버튼을 표시한다', (tester) async {
+    final service = _SuccessfulExpenseService();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: RegisterDirectScreen(financeService: service),
+      ),
+    );
+
+    await tester.tap(find.text('입력해 주세요'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), '테스트 카페');
+    await tester.tap(find.text('확인'));
+    await tester.pumpAndSettle();
+
+    final item = find.byKey(const Key('receipt-item-0'));
+    await tester.tap(item);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(item);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('receipt-item-name-input-0')),
+      '아메리카노',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.next);
+    await tester.enterText(
+      find.byKey(const Key('receipt-item-price-input-0')),
+      '4500',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+
+    expect(service.createdPayload, isNotNull);
+    expect(find.text('더치페이 하기'), findsOneWidget);
   });
 
   testWidgets('serializes expense payment time as an absolute UTC instant', (
@@ -1072,7 +1170,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.textContaining('지출 목표'), findsOneWidget);
+    expect(find.textContaining('지출 목표'), findsNWidgets(2));
     expect(find.text('0%'), findsOneWidget);
   });
 
@@ -1176,6 +1274,24 @@ class _FailingReceiptService implements FinanceService {
   Future<Map<String, dynamic>> recognizeReceipt(String imagePath) async {
     recognitionCalls += 1;
     throw const ApiException(message: '영수증 인식 실패');
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _SuccessfulExpenseService implements FinanceService {
+  Map<String, Object?>? createdPayload;
+
+  @override
+  Future<Map<String, dynamic>> createExpense(Map<String, Object?> body) async {
+    createdPayload = body;
+    return {
+      'id': 'expense-1',
+      'store_name': body['store_name'],
+      'total_amount': 4500,
+      'can_dutch_pay': false,
+    };
   }
 
   @override

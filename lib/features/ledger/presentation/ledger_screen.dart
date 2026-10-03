@@ -105,8 +105,8 @@ class _LedgerScreenState extends State<LedgerScreen> {
         !hasFilters &&
         _type == 0 &&
         !_isLoading &&
-        (_data?['income_count'] as int? ?? 0) == 0 &&
-        (_data?['expense_count'] as int? ?? 0) > 0;
+        !_hasLedgerIncome(_data) &&
+        _hasLedgerExpense(_data);
     final hasSingleTypeSummary = !hasFilters && !showIncomePrompt && _type != 0;
     Future<void> openDetail(_LedgerEntryTarget target) async {
       if (widget.onEntrySelected case final callback?) {
@@ -1029,7 +1029,7 @@ class _Totals extends StatelessWidget {
     final income =
         data?['total_income_amount'] as int? ?? (preview ? 150000 : 0);
     final balance = data?['balance'] as int? ?? (preview ? 150000 : 0);
-    final incomeCount = data?['income_count'] as int? ?? (preview ? 1 : 0);
+    final hasIncome = data == null ? preview : _hasLedgerIncome(data);
     final count = type == 1
         ? (data?['expense_count'] as int? ?? 0)
         : (data?['income_count'] as int? ?? 0);
@@ -1053,7 +1053,7 @@ class _Totals extends StatelessWidget {
         ],
       );
     }
-    if (incomeCount == 0 && expense > 0) {
+    if (!hasIncome && _hasLedgerExpense(data)) {
       return _TotalRow(label: '총 지출', amount: '-${_formatAmount(expense)} ₩');
     }
     return Column(
@@ -1070,6 +1070,33 @@ class _Totals extends StatelessWidget {
       ],
     );
   }
+}
+
+bool _hasLedgerIncome(Map<String, dynamic>? data) {
+  if (data == null) return false;
+  final count = data['income_count'];
+  if (count is num && count > 0) return true;
+  final total = data['total_income_amount'];
+  if (total is num && total != 0) return true;
+  return _ledgerDaysContain(data, 'incomes');
+}
+
+bool _hasLedgerExpense(Map<String, dynamic>? data) {
+  if (data == null) return false;
+  final count = data['expense_count'];
+  if (count is num && count > 0) return true;
+  final total = data['total_expense_amount'];
+  if (total is num && total != 0) return true;
+  return _ledgerDaysContain(data, 'expenses');
+}
+
+bool _ledgerDaysContain(Map<String, dynamic> data, String key) {
+  final days = data['days'];
+  if (days is! List) return false;
+  return days.whereType<Map<String, dynamic>>().any((day) {
+    final entries = day[key];
+    return entries is List && entries.isNotEmpty;
+  });
 }
 
 class _IncomePromptCard extends StatelessWidget {

@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sobilog/core/theme/app_theme.dart';
 import 'package:sobilog/shared/widgets/app_toast.dart';
+import 'package:sobilog/shared/widgets/app_skeleton.dart';
+import 'package:sobilog/features/dutch/data/dutch_pay_service.dart';
 import 'package:sobilog/features/dutch/presentation/dutch_request_screen.dart';
 import 'package:sobilog/features/finance/data/finance_service.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_detail_screen.dart';
@@ -54,6 +58,38 @@ void main() {
     await capture(tester, 'dutch_no_account');
   });
 
+  testWidgets(
+    'latest Dutch loading state uses skeleton instead of no-account',
+    (tester) async {
+      final service = _PendingDutchPayService();
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(402, 874);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.dark,
+          locale: const Locale('ko'),
+          supportedLocales: const [Locale('ko')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: DutchRequestScreen(
+            sessionId: 'loading-session',
+            dutchPayService: service,
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 700));
+
+      expect(
+        find.byKey(const Key('dutch-request-loading-skeleton')),
+        findsOneWidget,
+      );
+      expect(find.byType(AppSkeleton), findsOneWidget);
+      expect(find.text('등록된 계좌가 없어요'), findsNothing);
+      await capture(tester, 'dutch_request_loading_skeleton');
+    },
+  );
+
   testWidgets('latest Dutch bank picker', (tester) async {
     await pumpScreen(tester, const DutchRequestScreen());
     tester
@@ -103,7 +139,13 @@ void main() {
         .onTap!();
     await tester.pumpAndSettle();
     expect(find.text('철수에게 보낼 메시지'), findsOneWidget);
-    expect(find.text('홍길동님이 철수님께 더치페이를 요청했어요'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(Dialog),
+        matching: find.text('홍길동님이 철수님께 더치페이를 요청했어요'),
+      ),
+      findsOneWidget,
+    );
     await capture(tester, 'dutch_share_individual');
   });
 
@@ -127,10 +169,54 @@ void main() {
         .onTap!();
     await tester.pumpAndSettle();
     expect(find.text('전체 메시지 · 4명 총 50,800원'), findsOneWidget);
-    expect(find.text('홍길동님이 더치페이를 요청했어요'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(Dialog),
+        matching: find.text('홍길동님이 더치페이를 요청했어요'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('영희'), findsWidgets);
     expect(find.text('민수'), findsWidgets);
     await capture(tester, 'dutch_share_all');
+  });
+
+  testWidgets('latest Dutch preview shows whole and every individual message', (
+    tester,
+  ) async {
+    await pumpScreen(
+      tester,
+      const DutchRequestScreen(
+        settlementData: _sharePreviewData,
+        selfName: '홍길동',
+      ),
+    );
+
+    expect(find.byKey(const Key('dutch-preview-all')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('dutch-preview-individual-p2')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('dutch-preview-individual-p3')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('dutch-preview-individual-p4')),
+      findsOneWidget,
+    );
+    expect(find.text('개별 · 철수'), findsOneWidget);
+    expect(find.text('개별 · 영희'), findsOneWidget);
+    expect(find.text('개별 · 민수'), findsOneWidget);
+    await capture(tester, 'dutch_message_typography_top');
+    await tester.ensureVisible(find.byKey(const Key('dutch-preview-all')));
+    await tester.pumpAndSettle();
+    await capture(tester, 'dutch_message_typography_middle');
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('dutch-preview-individual-p4')),
+    );
+    await tester.pumpAndSettle();
+    await capture(tester, 'dutch_message_typography_bottom');
   });
 
   testWidgets('latest income date picker', (tester) async {
@@ -148,6 +234,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('income-date-wheel')), findsOneWidget);
     await capture(tester, 'income_date_picker');
+  });
+
+  testWidgets('latest income category picker', (tester) async {
+    await pumpScreen(
+      tester,
+      RegisterIncomeScreen(
+        initialData: {
+          'amount': 30000,
+          'income_date': DateTime(2026, 9, 1, 15, 20).toIso8601String(),
+          'category': '급여',
+          'memo': '안녕하세요',
+        },
+      ),
+    );
+    await tester.tap(find.byKey(const Key('income-category-picker')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('close-income-category-picker')),
+      findsOneWidget,
+    );
+    await capture(tester, 'income_category_picker');
+
+    await tester.tap(find.byKey(const ValueKey('income-category-option-3')));
+    await tester.pumpAndSettle();
+    expect(find.text('부수입'), findsOneWidget);
   });
 
   testWidgets('latest expense detail', (tester) async {
@@ -337,6 +448,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('수입 등록'), findsOneWidget);
   });
+}
+
+class _PendingDutchPayService implements DutchPayService {
+  final summaryCompleter = Completer<Map<String, dynamic>>();
+
+  @override
+  Future<Map<String, dynamic>> summary(String sessionId) =>
+      summaryCompleter.future;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 const _sharePreviewData = <String, dynamic>{

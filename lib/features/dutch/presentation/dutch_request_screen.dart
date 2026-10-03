@@ -8,7 +8,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/app_skeleton.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../data/kakao_share_service.dart';
 import '../data/dutch_pay_service.dart';
 
 /// 더치_005: 인원별 정산 요청(계좌+요청금액 복사·공유) 화면.
@@ -20,6 +22,7 @@ class DutchRequestScreen extends StatefulWidget {
     this.settlementData,
     this.selfName,
     this.onShareText,
+    this.kakaoShareService,
   });
 
   final String? sessionId;
@@ -27,6 +30,7 @@ class DutchRequestScreen extends StatefulWidget {
   final Map<String, dynamic>? settlementData;
   final String? selfName;
   final Future<void> Function(String message)? onShareText;
+  final KakaoShareService? kakaoShareService;
 
   @override
   State<DutchRequestScreen> createState() => _DutchRequestScreenState();
@@ -223,31 +227,6 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
     '입금 계좌 $_bankLabel ($_requesterName)',
   ].join('\n');
 
-  String get _previewCombinedMessage {
-    final visible = _requests.take(4).toList();
-    final hiddenCount = _requests.length - visible.length;
-    return [
-      for (final request in visible)
-        request['message'] as String? ??
-            '${request['name']} 님  ${_formatAmount(request['amount'] as int? ?? 0)}원',
-      if (hiddenCount > 0) '외 $hiddenCount명',
-      ..._selfMessage,
-      '총 ${_formatAmount(_settlementTotal)}원',
-      _bankLabel,
-    ].join('\n');
-  }
-
-  Iterable<String> get _selfMessage {
-    final participants = (widget.settlementData?['participants'] as List?)
-        ?.whereType<Map<String, dynamic>>();
-    final matches = participants
-        ?.where((item) => item['name'] == widget.selfName)
-        .toList();
-    final self = matches == null || matches.isEmpty ? null : matches.first;
-    if (self == null) return const ['나(본인)  0원'];
-    return ['나(본인)  ${_formatAmount(self['amount'] as int? ?? 0)}원'];
-  }
-
   int get _settlementTotal =>
       widget.settlementData?['total_amount'] as int? ??
       _requests.fold<int>(
@@ -290,13 +269,14 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
     }
     switch (target) {
       case _ShareTarget.kakao:
-        await Clipboard.setData(ClipboardData(text: message));
-        final uri = Uri.parse('kakaotalk://launch');
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        } else if (mounted) {
+        try {
+          await (widget.kakaoShareService ?? const KakaoSdkShareService())
+              .shareText(message);
+        } catch (_) {
+          await Clipboard.setData(ClipboardData(text: message));
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('메시지를 복사했어요. 카카오톡에 붙여 넣어 주세요')),
+            const SnackBar(content: Text('카카오톡 공유를 열지 못했습니다. 메시지를 복사했어요')),
           );
         }
         return;
@@ -407,15 +387,17 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
               accountLabel: _bankLabel,
               hasAccount: _hasAccount,
               loading: _isLoading,
-              combinedMessage: _previewCombinedMessage,
-              selectedName: _requests.isEmpty
-                  ? ''
-                  : _requests[_selectedRequestIndex.clamp(
-                              0,
-                              _requests.length - 1,
-                            )]['name']
-                            as String? ??
-                        '',
+              requesterName: _requesterName,
+              settlementParticipants: _settlementParticipants,
+              settlementTotal: _settlementTotal,
+              individualRequests: [
+                for (final request in _requests)
+                  (
+                    id: request['participant_id'] as String? ?? '',
+                    name: request['name'] as String? ?? '',
+                    amount: request['amount'] as int? ?? 0,
+                  ),
+              ],
               onEditAccount: _editAccount,
               onCopy: _copyRequest,
               onShare: _shareRequest,
@@ -488,8 +470,10 @@ class _CompactRequestBody extends StatelessWidget {
     required this.accountLabel,
     required this.hasAccount,
     required this.loading,
-    required this.combinedMessage,
-    required this.selectedName,
+    required this.requesterName,
+    required this.settlementParticipants,
+    required this.settlementTotal,
+    required this.individualRequests,
     required this.onEditAccount,
     required this.onCopy,
     required this.onShare,
@@ -501,8 +485,10 @@ class _CompactRequestBody extends StatelessWidget {
   final String accountLabel;
   final bool hasAccount;
   final bool loading;
-  final String combinedMessage;
-  final String selectedName;
+  final String requesterName;
+  final List<Map<String, dynamic>> settlementParticipants;
+  final int settlementTotal;
+  final List<({String id, String name, int amount})> individualRequests;
   final VoidCallback onEditAccount;
   final ValueChanged<int> onCopy;
   final ValueChanged<int> onShare;
@@ -516,7 +502,9 @@ class _CompactRequestBody extends StatelessWidget {
       children: [
         const _CompactDivider(),
         const SizedBox(height: 20),
-        if (hasAccount)
+        if (loading)
+          const _CompactRequestSkeleton()
+        else if (hasAccount)
           _CompactAccount(label: accountLabel, onEdit: onEditAccount)
         else ...[
           const SizedBox(
@@ -549,37 +537,56 @@ class _CompactRequestBody extends StatelessWidget {
               onPressed: onEditAccount,
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.main,
+                foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
               ),
               child: const Text(
                 '계좌 등록하기',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
         ],
-        const SizedBox(height: 20),
-        const _CompactDivider(),
-        const SizedBox(height: 20),
-        Text(
-          '요청할 인원 ${requests.length}명',
-          style: const TextStyle(
-            color: AppColors.text80,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
+        if (!loading) ...[
+          const SizedBox(height: 20),
+          const _CompactDivider(),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '요청할 인원 ${requests.length}명',
+                style: const TextStyle(
+                  color: AppColors.text80,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              GestureDetector(
+                key: const Key('dutch-copy-all-header'),
+                onTap: onCopyAll,
+                behavior: HitTestBehavior.opaque,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 4),
+                  child: Text(
+                    '전체 복사',
+                    style: TextStyle(
+                      color: AppColors.text80,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: 20),
-        if (loading)
-          const SizedBox(
-            height: 168,
-            child: Center(
-              child: CircularProgressIndicator(color: AppColors.main),
-            ),
-          )
-        else
+          const SizedBox(height: 20),
           for (var index = 0; index < requests.length; index++) ...[
             _CompactPerson(
               request: requests[index],
@@ -589,33 +596,108 @@ class _CompactRequestBody extends StatelessWidget {
             ),
             if (index != requests.length - 1) const SizedBox(height: 20),
           ],
-        const SizedBox(height: 20),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: _CompactAction(
+                  label: '전체 복사',
+                  enabled: hasAccount,
+                  onTap: onCopyAll,
+                ),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: _CompactAction(
+                  label: '전체 공유',
+                  enabled: hasAccount,
+                  onTap: onShareAll,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _CompactPreview(
+            expanded: hasAccount,
+            accountLabel: accountLabel,
+            requesterName: requesterName,
+            settlementParticipants: settlementParticipants,
+            settlementTotal: settlementTotal,
+            individualRequests: individualRequests,
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
+class _CompactRequestSkeleton extends StatelessWidget {
+  const _CompactRequestSkeleton();
+
+  @override
+  Widget build(BuildContext context) => const AppSkeleton(
+    key: Key('dutch-request-loading-skeleton'),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSkeletonBox(width: 47, height: 14),
+        SizedBox(height: 13),
         Row(
           children: [
-            Expanded(
-              child: _CompactAction(
-                label: '전체 복사',
-                enabled: hasAccount,
-                onTap: onCopyAll,
-              ),
-            ),
-            const SizedBox(width: 15),
-            Expanded(
-              child: _CompactAction(
-                label: '전체 공유',
-                enabled: hasAccount,
-                onTap: onShareAll,
-              ),
-            ),
+            AppSkeletonBox(width: 235, height: 20),
+            Spacer(),
+            AppSkeletonBox(width: 24, height: 24, shape: BoxShape.circle),
           ],
         ),
-        const SizedBox(height: 20),
-        _CompactPreview(
-          expanded: hasAccount,
-          message: combinedMessage,
-          accountLabel: accountLabel,
-          selectedName: selectedName,
+        SizedBox(height: 10),
+        AppSkeletonBox(width: 205, height: 12),
+        SizedBox(height: 27),
+        AppSkeletonBox(width: 354, height: 7, radius: 0),
+        SizedBox(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            AppSkeletonBox(width: 104, height: 14),
+            AppSkeletonBox(width: 52, height: 14),
+          ],
         ),
+        SizedBox(height: 20),
+        _CompactPersonSkeleton(),
+        SizedBox(height: 20),
+        _CompactPersonSkeleton(),
+        SizedBox(height: 20),
+        _CompactPersonSkeleton(),
+        SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(child: AppSkeletonBox(width: 170, height: 56, radius: 20)),
+            SizedBox(width: 15),
+            Expanded(child: AppSkeletonBox(width: 170, height: 56, radius: 20)),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+class _CompactPersonSkeleton extends StatelessWidget {
+  const _CompactPersonSkeleton();
+
+  @override
+  Widget build(BuildContext context) => const SizedBox(
+    width: 354,
+    height: 74,
+    child: Row(
+      children: [
+        AppSkeletonBox(width: 38, height: 38, shape: BoxShape.circle),
+        SizedBox(width: 14),
+        AppSkeletonBox(width: 52, height: 15),
+        Spacer(),
+        AppSkeletonBox(width: 75, height: 22),
+        SizedBox(width: 16),
+        AppSkeletonBox(width: 46, height: 14),
+        SizedBox(width: 16),
+        AppSkeletonBox(width: 24, height: 24),
       ],
     ),
   );
@@ -796,70 +878,232 @@ class _CompactAction extends StatelessWidget {
 class _CompactPreview extends StatelessWidget {
   const _CompactPreview({
     required this.expanded,
-    required this.message,
     required this.accountLabel,
-    required this.selectedName,
+    required this.requesterName,
+    required this.settlementParticipants,
+    required this.settlementTotal,
+    required this.individualRequests,
   });
 
   final bool expanded;
-  final String message;
   final String accountLabel;
-  final String selectedName;
+  final String requesterName;
+  final List<Map<String, dynamic>> settlementParticipants;
+  final int settlementTotal;
+  final List<({String id, String name, int amount})> individualRequests;
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: 354,
-    height: expanded ? 436 : 119,
-    padding: const EdgeInsets.fromLTRB(24, 25, 24, 20),
-    decoration: BoxDecoration(
-      color: AppColors.secondary,
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          expanded ? '공유되는 메시지' : '복사되는 메시지',
-          style: const TextStyle(
-            color: AppColors.text,
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          ),
+  Widget build(BuildContext context) {
+    if (!expanded) {
+      return Container(
+        width: 354,
+        padding: const EdgeInsets.fromLTRB(24, 25, 24, 20),
+        decoration: BoxDecoration(
+          color: AppColors.secondary,
+          borderRadius: BorderRadius.circular(20),
         ),
-        const SizedBox(height: 9),
-        Text(
-          expanded ? message : '철수 님  14,500원\n홍길동 / $accountLabel',
-          maxLines: expanded ? 14 : 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: AppColors.text80,
-            fontSize: 12,
-            height: 1.75,
-          ),
-        ),
-        if (expanded) ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 7),
-            decoration: BoxDecoration(
-              color: AppColors.outline,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.text20),
-            ),
-            child: Text(
-              '개별 · $selectedName',
-              style: const TextStyle(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '복사되는 메시지',
+              style: TextStyle(
                 color: AppColors.text,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 9),
+            Text(
+              '철수 님  14,500원\n홍길동 / $accountLabel',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.text80,
                 fontSize: 12,
+                height: 1.75,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return Container(
+      width: 354,
+      decoration: BoxDecoration(
+        color: AppColors.secondary,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(21, 18, 21, 0),
+            child: Text(
+              '공유되는 메시지',
+              style: TextStyle(
+                color: AppColors.text,
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ),
+          _WholeMessagePreview(
+            key: const Key('dutch-preview-all'),
+            requesterName: requesterName,
+            participants: settlementParticipants,
+            total: settlementTotal,
+            accountLabel: accountLabel,
+          ),
+          for (final individual in individualRequests) ...[
+            const Divider(height: 1, color: AppColors.text10),
+            _IndividualMessagePreview(
+              key: ValueKey('dutch-preview-individual-${individual.id}'),
+              requesterName: requesterName,
+              participantName: individual.name,
+              amount: individual.amount,
+              accountLabel: accountLabel,
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+class _WholeMessagePreview extends StatelessWidget {
+  const _WholeMessagePreview({
+    required this.requesterName,
+    required this.participants,
+    required this.total,
+    required this.accountLabel,
+    super.key,
+  });
+
+  final String requesterName;
+  final List<Map<String, dynamic>> participants;
+  final int total;
+  final String accountLabel;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(21, 17, 21, 11),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _MessageTypeChip('전체'),
+        const SizedBox(height: 15),
+        Text('$requesterName님이 더치페이를 요청했어요', style: _messageHeadlineStyle),
+        const SizedBox(height: 8),
+        for (final participant in participants)
+          _MessageRow(
+            label: participant['name'] as String? ?? '',
+            value: '${_formatAmount(participant['amount'] as int? ?? 0)}원',
+          ),
+        _MessageRow(label: '총', value: '${_formatAmount(total)}원'),
+        _MessageRow(label: '입금 계좌', value: '$accountLabel ($requesterName)'),
       ],
     ),
   );
 }
+
+class _IndividualMessagePreview extends StatelessWidget {
+  const _IndividualMessagePreview({
+    required this.requesterName,
+    required this.participantName,
+    required this.amount,
+    required this.accountLabel,
+    super.key,
+  });
+
+  final String requesterName;
+  final String participantName;
+  final int amount;
+  final String accountLabel;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(21, 21, 21, 11),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _MessageTypeChip('개별 · $participantName'),
+        const SizedBox(height: 15),
+        Text(
+          '$requesterName님이 $participantName님께 더치페이를 요청했어요',
+          style: _messageHeadlineStyle,
+        ),
+        const SizedBox(height: 8),
+        _MessageRow(label: '보낼 금액', value: '${_formatAmount(amount)}원'),
+        _MessageRow(label: '입금 계좌', value: '$accountLabel ($requesterName)'),
+      ],
+    ),
+  );
+}
+
+class _MessageTypeChip extends StatelessWidget {
+  const _MessageTypeChip(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 7),
+    decoration: BoxDecoration(
+      color: AppColors.outline,
+      borderRadius: BorderRadius.circular(30),
+      border: Border.all(color: AppColors.text20, width: .5),
+    ),
+    child: Text(
+      label,
+      style: const TextStyle(
+        color: AppColors.text,
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
+}
+
+class _MessageRow extends StatelessWidget {
+  const _MessageRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 23,
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(width: 99, child: Text(label, style: _messageLabelStyle)),
+        Expanded(child: Text(value, style: _messageValueStyle)),
+      ],
+    ),
+  );
+}
+
+const _messageHeadlineStyle = TextStyle(
+  color: AppColors.text,
+  fontSize: 14,
+  fontWeight: FontWeight.w500,
+);
+
+const _messageLabelStyle = TextStyle(
+  color: AppColors.text50,
+  fontSize: 12,
+  fontWeight: FontWeight.w400,
+  height: 1.75,
+);
+
+const _messageValueStyle = TextStyle(
+  color: AppColors.text,
+  fontSize: 12,
+  fontWeight: FontWeight.w400,
+  height: 1.75,
+);
 
 class _RequestDivider extends StatelessWidget {
   const _RequestDivider();

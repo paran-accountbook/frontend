@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/app_services.dart';
@@ -9,10 +10,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/auth_widgets.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../home/presentation/home_screen.dart';
-import '../domain/signup_draft.dart';
 import '../data/auth_service.dart';
+import '../domain/signup_draft.dart';
 import 'kakao_signup_name_screen.dart';
-import 'terms_detail_screen.dart';
 
 class TermsScreen extends StatefulWidget {
   const TermsScreen({
@@ -23,6 +23,7 @@ class TermsScreen extends StatefulWidget {
     this.authService,
     this.kakaoSignup = false,
     this.reconsent = false,
+    this.documentLauncher,
   });
 
   final SignupDraft? signupDraft;
@@ -31,6 +32,7 @@ class TermsScreen extends StatefulWidget {
   final AuthService? authService;
   final bool kakaoSignup;
   final bool reconsent;
+  final Future<bool> Function(Uri uri)? documentLauncher;
 
   @override
   State<TermsScreen> createState() => _TermsScreenState();
@@ -38,69 +40,28 @@ class TermsScreen extends StatefulWidget {
 
 class _TermsScreenState extends State<TermsScreen> {
   static const _labels = [
+    '[필수] 만 18세 이상입니다',
     '[필수] 서비스 이용약관 동의',
-    '[필수] 개인정보 수집·이용 동의',
-    '[선택] 마케팅 수신 동의',
+    '[필수] 개인정보 수집 · 이용 동의',
   ];
 
   final _selected = List.filled(_labels.length, false);
   bool _showRequiredError = false;
   bool _isLoading = false;
   String? _apiError;
-  String? _documentUrl;
-  bool _isDocumentLoading = false;
-  String? _documentError;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.authService != null) {
-      _loadDocument();
-    }
-  }
 
   bool get _allSelected => _selected.every((selected) => selected);
-  bool get _requiredSelected => _selected[0] && _selected[1];
+  bool get _requiredSelected => _allSelected;
 
-  Future<void> _loadDocument() async {
-    setState(() {
-      _isDocumentLoading = true;
-      _documentError = null;
-    });
-    try {
-      final data = await widget.authService!.termsDocument();
-      if (mounted) {
-        setState(() => _documentUrl = data['document_url'] as String?);
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _documentError = '약관을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요');
-      }
-    } finally {
-      if (mounted) setState(() => _isDocumentLoading = false);
-    }
-  }
-
-  Future<void> _openTerms(int index) async {
-    final uri = Uri.tryParse(_documentUrl ?? '');
-    if (uri != null && uri.hasScheme) {
-      final opened = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
-      if (opened || !mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('약관을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요')),
-      );
-      return;
-    }
-    if (widget.authService == null) {
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => TermsDetailScreen(document: termsDocuments[index]),
-        ),
-      );
-      return;
-    }
-    if (_isDocumentLoading) return;
-    setState(() => _documentError = '약관을 불러오지 못했습니다. 다시 시도해 주세요');
+  Future<void> _openTerms() async {
+    final uri = Uri.parse(AppConfig.privacyPolicyUrl);
+    final opened = widget.documentLauncher != null
+        ? await widget.documentLauncher!(uri)
+        : await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+    if (opened || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('약관을 열지 못했습니다. 잠시 후 다시 시도해 주세요')),
+    );
   }
 
   void _toggleItem(int index) {
@@ -126,7 +87,7 @@ class _TermsScreenState extends State<TermsScreen> {
       return;
     }
     if (widget.onConsentCompleted case final callback?) {
-      callback(_selected[2]);
+      callback(false);
       return;
     }
     if (widget.onAgreed case final callback?) {
@@ -143,7 +104,7 @@ class _TermsScreenState extends State<TermsScreen> {
           email: draft.email,
           password: draft.password,
           nickname: draft.name,
-          marketingAgreed: _selected[2],
+          marketingAgreed: false,
         );
       } on ApiException catch (error) {
         if (mounted) setState(() => _apiError = error.message);
@@ -157,7 +118,7 @@ class _TermsScreenState extends State<TermsScreen> {
         MaterialPageRoute<void>(
           builder: (_) => KakaoSignupNameScreen(
             authService: widget.authService ?? AppServices.auth,
-            marketingAgreed: _selected[2],
+            marketingAgreed: false,
           ),
         ),
       );
@@ -212,28 +173,6 @@ class _TermsScreenState extends State<TermsScreen> {
                   icon: SvgPicture.asset(AppAssets.arrowBackLight),
                 ),
               ),
-              if (_documentError case final message?)
-                Positioned(
-                  left: 24,
-                  right: 24,
-                  top: 555,
-                  child: Column(
-                    children: [
-                      Text(
-                        message,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Color(0xFFFF6B7A),
-                          fontSize: 12,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: _isDocumentLoading ? null : _loadDocument,
-                        child: Text(_isDocumentLoading ? '불러오는 중...' : '다시 시도'),
-                      ),
-                    ],
-                  ),
-                ),
               const Positioned(
                 left: 24,
                 top: 129,
@@ -283,13 +222,13 @@ class _TermsScreenState extends State<TermsScreen> {
                           label: _labels[index],
                           selected: _selected[index],
                           onPressed: () => _toggleItem(index),
-                          onViewPressed: () => _openTerms(index),
+                          onViewPressed: index == 0 ? null : _openTerms,
                         ),
                       );
                     }),
                     const SizedBox(height: 14),
                     GestureDetector(
-                      onTap: () => _openTerms(1),
+                      onTap: _openTerms,
                       child: const Text(
                         '개인정보 처리방침 보기',
                         style: TextStyle(color: AppColors.text50, fontSize: 12),
@@ -365,14 +304,14 @@ class _TermsRow extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onPressed,
-    required this.onViewPressed,
+    this.onViewPressed,
   });
 
   final int index;
   final String label;
   final bool selected;
   final VoidCallback onPressed;
-  final VoidCallback onViewPressed;
+  final VoidCallback? onViewPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -405,18 +344,19 @@ class _TermsRow extends StatelessWidget {
               ),
             ),
           ),
-          IconButton(
-            key: ValueKey('terms-view-$index'),
-            padding: const EdgeInsets.all(3),
-            constraints: const BoxConstraints.tightFor(width: 30, height: 30),
-            tooltip: '$label 보기',
-            onPressed: onViewPressed,
-            icon: SvgPicture.asset(
-              AppAssets.termsArrowRight,
-              width: 24,
-              height: 24,
+          if (onViewPressed != null)
+            IconButton(
+              key: ValueKey('terms-view-$index'),
+              padding: const EdgeInsets.all(3),
+              constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+              tooltip: '$label 보기',
+              onPressed: onViewPressed,
+              icon: SvgPicture.asset(
+                AppAssets.termsArrowRight,
+                width: 24,
+                height: 24,
+              ),
             ),
-          ),
         ],
       ),
     );

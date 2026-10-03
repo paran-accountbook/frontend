@@ -41,8 +41,17 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _load() async {
     final service = widget.financeService;
     if (service == null) return;
+    if (mounted) {
+      setState(() {
+        _error = null;
+        _isLoading = true;
+      });
+    }
+    if (service is ProgressiveHomeFinanceService) {
+      await _loadProgressively(service as ProgressiveHomeFinanceService);
+      return;
+    }
     try {
-      if (mounted) setState(() => _error = null);
       final data = await service.home();
       if (mounted) setState(() => _data = data);
     } catch (_) {
@@ -54,8 +63,39 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _loadProgressively(ProgressiveHomeFinanceService service) async {
+    final summaryRequest = service.homeSummary();
+    final recentRequest = service.homeRecent();
+    try {
+      final summary = await summaryRequest;
+      if (mounted) {
+        setState(() => _data = {...?_data, 'summary': summary});
+      }
+    } catch (_) {
+      if (mounted && _data?['summary'] == null) {
+        setState(() => _error = '홈 정보를 불러오지 못했습니다.');
+      }
+    }
+    try {
+      final recent = await recentRequest;
+      if (mounted) {
+        setState(() => _data = {...?_data, 'recent': recent});
+      }
+    } catch (_) {
+      // Keep the summary visible. The next screen entry or mutation retries both.
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final summary = _data?['summary'] as Map<String, dynamic>?;
+    final compactSummary = _isCompactHomeSummary(summary);
+    final summaryHeight = compactSummary ? 229.534 : 318.0;
+    final recentHeaderTop = compactSummary ? 358.0 : 446.0;
+    final recentListTop = compactSummary ? 402.0 : 490.0;
+    final showSummaryPreview = widget.financeService == null;
     final recentEntries =
         (_data?['recent'] as Map<String, dynamic>?)?['entries'] as List?;
     final showAllRecent =
@@ -69,7 +109,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const ColoredBox(color: AppColors.background),
             Positioned(
               left: 24,
-              top: 67,
+              top: 68,
               width: 100,
               height: 20,
               child: Row(
@@ -90,7 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
               left: 24,
               top: 108,
               width: 354,
-              height: 318,
+              height: summaryHeight,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => Navigator.of(context).push(
@@ -100,43 +140,49 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-                child: _error != null && _data == null
+                child: _error != null && summary == null
                     ? _HomeLoadError(message: _error!, onRetry: _load)
                     : _SummaryReceipt(
-                        summary: _data?['summary'] as Map<String, dynamic>?,
-                        preview: widget.financeService == null,
+                        summary: summary,
+                        preview: showSummaryPreview,
                         onRegister: () => _navigate(context, 2),
                       ),
               ),
             ),
             Positioned(
               left: 24,
-              top: 452,
+              top: recentHeaderTop,
               width: 354,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('최근 등록 내역', style: _smallText),
-                  if (showAllRecent)
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => _navigate(context, 1),
-                      child: const Row(
-                        children: [
-                          Text('전체 보기', style: _smallText),
-                          SizedBox(width: 2),
-                          AppChevron(size: 18),
-                        ],
+              height: 24,
+              child: Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('최근 등록 내역', style: _smallText),
+                    if (showAllRecent)
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _navigate(context, 1),
+                        child: const Row(
+                          children: [
+                            Text('전체 보기', style: _smallText),
+                            SizedBox(width: 2),
+                            AppChevron(size: 18),
+                          ],
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
             Positioned(
               left: 24,
-              top: 489,
+              top: recentListTop,
               child: _isLoading
-                  ? const AppSkeletonList()
+                  ? Transform.translate(
+                      offset: const Offset(0, 7),
+                      child: const AppSkeletonList(),
+                    )
                   : _RecentList(
                       data: _data?['recent'] as Map<String, dynamic>?,
                       preview: widget.financeService == null,
@@ -242,9 +288,9 @@ class _SummaryReceipt extends StatelessWidget {
     final income =
         summary?['total_income_amount'] as int? ?? (preview ? 30000 : 0);
     final balance = summary?['balance'] as int? ?? (preview ? 10000 : 0);
-    final hasIncome = preview || (summary?['income_count'] as int? ?? 0) > 0;
+    final hasIncome = preview || _homeHasIncome(summary);
     final hasRecords = summary?['has_records'] as bool? ?? preview;
-    final goalUsageRate = goal?['usage_rate'] as num? ?? 0;
+    final compact = _isCompactHomeSummary(summary);
     final changeColor = changeAmount > 0
         ? const Color(0xFFCF376A)
         : const Color(0xFF4777D9);
@@ -280,17 +326,26 @@ class _SummaryReceipt extends StatelessWidget {
         ],
       );
     }
-    final dailyBudget = goal?['daily_budget_remaining'] as int?;
     return Stack(
+      clipBehavior: Clip.none,
       children: [
-        Positioned.fill(
-          child: SvgPicture.asset(
-            AppAssets.homeReceiptCompact,
-            fit: BoxFit.fill,
+        if (compact)
+          Positioned(
+            left: -14,
+            top: -12,
+            width: 382,
+            height: 257,
+            child: SvgPicture.asset(AppAssets.homeReceipt, fit: BoxFit.fill),
+          )
+        else
+          Positioned.fill(
+            child: SvgPicture.asset(
+              AppAssets.homeReceiptCompact,
+              fit: BoxFit.fill,
+            ),
           ),
-        ),
         Positioned(
-          top: 27,
+          top: 26,
           width: 354,
           child: Text(
             '소비요약',
@@ -299,7 +354,7 @@ class _SummaryReceipt extends StatelessWidget {
           ),
         ),
         Positioned(
-          top: 66,
+          top: 74,
           width: 354,
           child: Text(
             '이번 달 총 지출액',
@@ -311,7 +366,7 @@ class _SummaryReceipt extends StatelessWidget {
             ),
           ),
         ),
-        ...[54.0, 154.0, 254.0].map(
+        ...[55.0, 164.0, if (!compact) 257.0].map(
           (top) => Positioned(
             left: 17,
             top: top,
@@ -321,7 +376,7 @@ class _SummaryReceipt extends StatelessWidget {
           ),
         ),
         Positioned(
-          top: 105,
+          top: 114,
           width: 354,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -340,7 +395,7 @@ class _SummaryReceipt extends StatelessWidget {
         Positioned(
           left: 17,
           right: 17,
-          top: 188,
+          top: 183,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -359,11 +414,11 @@ class _SummaryReceipt extends StatelessWidget {
             ],
           ),
         ),
-        if (summary == null || goal != null)
+        if (!compact && (summary == null || goal != null))
           Positioned(
             left: 17,
             right: 17,
-            top: 229,
+            top: 220,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -374,50 +429,11 @@ class _SummaryReceipt extends StatelessWidget {
               ],
             ),
           ),
-        if (summary != null && goal == null)
-          const Positioned(
-            left: 17,
-            right: 17,
-            top: 224,
-            child: Text(
-              '지출 목표를 설정하면 하루 예산을 알려드려요',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Color(0xFF1B1B1B),
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        if (dailyBudget != null)
+        if (!compact && hasIncome)
           Positioned(
             left: 17,
             right: 17,
-            top: 263,
-            child: Text(
-              '오늘 쓸 수 있는 금액 ${_formatAmount(dailyBudget)}원',
-              textAlign: TextAlign.right,
-              style: _receiptBody,
-            ),
-          ),
-        if (goal != null)
-          Positioned(
-            left: 17,
-            right: 17,
-            top: 250,
-            child: LinearProgressIndicator(
-              value: (goalUsageRate / 100).clamp(0, 1).toDouble(),
-              minHeight: 6,
-              color: AppColors.main,
-              backgroundColor: const Color(0x331B1B1B),
-              borderRadius: BorderRadius.circular(3),
-            ),
-          ),
-        if (hasIncome)
-          Positioned(
-            left: 17,
-            right: 17,
-            top: 291,
+            top: 276,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -429,6 +445,18 @@ class _SummaryReceipt extends StatelessWidget {
       ],
     );
   }
+}
+
+bool _isCompactHomeSummary(Map<String, dynamic>? summary) {
+  if (summary == null || summary['has_records'] != true) return false;
+  return summary['goal'] == null && !_homeHasIncome(summary);
+}
+
+bool _homeHasIncome(Map<String, dynamic>? summary) {
+  if (summary == null) return false;
+  final count = summary['income_count'];
+  if (count is num) return count > 0;
+  return summary['total_income_amount'] != null || summary['balance'] != null;
 }
 
 const _receiptLabel = TextStyle(
@@ -514,7 +542,7 @@ class _RecentRow extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: 354,
-        height: 72,
+        height: 79,
         decoration: const BoxDecoration(
           border: Border(top: BorderSide(color: Color(0x0DE2E2F9))),
         ),

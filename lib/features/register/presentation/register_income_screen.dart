@@ -32,7 +32,7 @@ class RegisterIncomeScreen extends StatefulWidget {
 class _RegisterIncomeScreenState extends State<RegisterIncomeScreen> {
   final _amount = TextEditingController();
   final _memo = TextEditingController();
-  final _categories = const ['급여', '용돈', '부수입', '환급·환불', '기타'];
+  final _categories = const ['급여', '용돈', '환급·환불', '부수입', '기타'];
   int _category = 0;
   late DateTime _incomeDate;
   bool _isLoading = false;
@@ -129,36 +129,12 @@ class _RegisterIncomeScreenState extends State<RegisterIncomeScreen> {
   }
 
   Future<void> _selectCategory() async {
-    final selected = await showModalBottomSheet<int>(
+    final selected = await showDialog<int>(
       context: context,
-      backgroundColor: AppColors.background,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 36),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                '카테고리',
-                style: TextStyle(color: AppColors.text, fontSize: 15),
-              ),
-              const SizedBox(height: 24),
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 8,
-                runSpacing: 10,
-                children: List.generate(
-                  _categories.length,
-                  (index) => ChoiceChip(
-                    label: Text(_categories[index]),
-                    selected: _category == index,
-                    onSelected: (_) => Navigator.pop(context, index),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+      barrierColor: Colors.transparent,
+      builder: (_) => _IncomeCategoryDialog(
+        categories: _categories,
+        selectedIndex: _category,
       ),
     );
     if (selected != null && mounted) setState(() => _category = selected);
@@ -339,6 +315,109 @@ class _RegisterIncomeScreenState extends State<RegisterIncomeScreen> {
             onPressed: _isLoading ? null : _save,
           ),
         ],
+      ),
+    ),
+  );
+}
+
+class _IncomeCategoryDialog extends StatelessWidget {
+  const _IncomeCategoryDialog({
+    required this.categories,
+    required this.selectedIndex,
+  });
+
+  final List<String> categories;
+  final int selectedIndex;
+
+  @override
+  Widget build(BuildContext context) => Dialog.fullscreen(
+    backgroundColor: Colors.transparent,
+    child: ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+        child: Scaffold(
+          backgroundColor: const Color(0x80121215),
+          body: Stack(
+            children: [
+              Positioned(
+                left: 184,
+                top: 554,
+                width: 34,
+                height: 34,
+                child: IconButton(
+                  key: const Key('close-income-category-picker'),
+                  padding: EdgeInsets.zero,
+                  onPressed: () => Navigator.pop(context),
+                  icon: SvgPicture.asset(AppAssets.closeLight),
+                ),
+              ),
+              const Positioned(
+                top: 613,
+                left: 0,
+                right: 0,
+                child: Text(
+                  '카테고리',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.text,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 24,
+                right: 24,
+                top: 653,
+                child: Container(height: .5, color: AppColors.text10),
+              ),
+              Positioned(
+                left: 24,
+                right: 24,
+                top: 680,
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: List.generate(
+                    categories.length,
+                    (index) => GestureDetector(
+                      key: ValueKey('income-category-option-$index'),
+                      onTap: () => Navigator.pop(context, index),
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 26,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: selectedIndex == index
+                              ? const Color(0xFFA8A3FF)
+                              : AppColors.selected,
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(
+                            color: AppColors.text20,
+                            width: .5,
+                          ),
+                        ),
+                        child: Text(
+                          categories[index],
+                          style: TextStyle(
+                            color: selectedIndex == index
+                                ? const Color(0xFF1B1B1B)
+                                : AppColors.text50,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     ),
   );

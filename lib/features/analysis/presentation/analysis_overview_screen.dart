@@ -18,15 +18,16 @@ class AnalysisOverviewScreen extends StatefulWidget {
     super.key,
     this.onNavigationSelected,
     this.financeService,
+    this.initialMonth,
   });
   final ValueChanged<int>? onNavigationSelected;
   final FinanceService? financeService;
+  final DateTime? initialMonth;
   @override
   State<AnalysisOverviewScreen> createState() => _AnalysisOverviewScreenState();
 }
 
 class _AnalysisOverviewScreenState extends State<AnalysisOverviewScreen> {
-  int _tab = 0;
   late DateTime _month;
   Map<String, dynamic>? _report;
   late bool _isLoading;
@@ -35,7 +36,9 @@ class _AnalysisOverviewScreenState extends State<AnalysisOverviewScreen> {
   @override
   void initState() {
     super.initState();
-    _month = widget.financeService == null ? DateTime(2026, 8) : DateTime.now();
+    _month =
+        widget.initialMonth ??
+        (widget.financeService == null ? DateTime(2026, 8) : DateTime.now());
     _isLoading = widget.financeService != null;
     _load();
   }
@@ -87,18 +90,17 @@ class _AnalysisOverviewScreenState extends State<AnalysisOverviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final reportMode = _tab == 0;
+    final hasGoalLayout =
+        widget.financeService == null || _report?['goal'] != null;
     return Scaffold(
       body: Stack(
         children: [
           Positioned.fill(
-            child: reportMode
-                ? ScrollableDesignCanvas(
-                    width: 402,
-                    height: 1490,
-                    child: _buildCanvas(),
-                  )
-                : DesignCanvas(width: 402, height: 874, child: _buildCanvas()),
+            child: ScrollableDesignCanvas(
+              width: 402,
+              height: hasGoalLayout ? 1723 : 1808,
+              child: _buildCanvas(),
+            ),
           ),
           Positioned(
             left: 0,
@@ -135,26 +137,14 @@ class _AnalysisOverviewScreenState extends State<AnalysisOverviewScreen> {
         left: 24,
         top: 192,
         width: 354,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: List.generate(
-              4,
-              (index) => Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: _TabChip(
-                  label: const ['요약', '패턴', '반복지출', 'AI'][index],
-                  selected: _tab == index,
-                  onTap: () => setState(() => _tab = index),
-                ),
-              ),
-            ),
-          ),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: _TabChip(label: '리포트', selected: true, onTap: () {}),
         ),
       ),
       Positioned(
         left: 24,
-        top: 264,
+        top: 265,
         width: 354,
         child: _MonthSelector(
           month: _month,
@@ -165,26 +155,20 @@ class _AnalysisOverviewScreenState extends State<AnalysisOverviewScreen> {
           ),
         ),
       ),
-      Positioned(left: 24, top: 321, width: 354, child: _content()),
+      Positioned(left: 24, top: 322, width: 354, child: _content()),
     ],
   );
 
-  Widget _content() => switch (_tab) {
-    0 =>
-      _isLoading
-          ? const _AnalysisSkeleton()
-          : _error != null && _report == null
-          ? _AnalysisLoadError(message: _error!, onRetry: _load)
-          : _Report(
-              data: _report,
-              month: _month.month,
-              preview: widget.financeService == null,
-              onEditGoal: () => _openGoalEditor(),
-            ),
-    1 => const _LockedList(items: [('소비 패턴 분석', '연속 7일 기록하면 열려요')]),
-    2 => const _LockedList(items: [('재구매 분석', '연속 20일 기록하면 열려요')]),
-    _ => const _LockedList(items: [('AI 소비 의견', '연속 14일 기록하면 열려요')]),
-  };
+  Widget _content() => _isLoading
+      ? const _AnalysisSkeleton()
+      : _error != null && _report == null
+      ? _AnalysisLoadError(message: _error!, onRetry: _load)
+      : _Report(
+          data: _report,
+          month: _month.month,
+          preview: widget.financeService == null,
+          onEditGoal: () => _openGoalEditor(),
+        );
 
   void _navigate(BuildContext context, int index) {
     if (widget.onNavigationSelected case final callback?) {
@@ -265,8 +249,9 @@ class _TabChip extends StatelessWidget {
   Widget build(BuildContext context) => GestureDetector(
     onTap: onTap,
     child: Container(
+      width: 92,
       height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 26),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: selected ? const Color(0xFFA8A3FF) : AppColors.selected,
@@ -275,6 +260,8 @@ class _TabChip extends StatelessWidget {
       ),
       child: Text(
         label,
+        maxLines: 1,
+        softWrap: false,
         style: TextStyle(
           color: selected ? const Color(0xFF1B1B1B) : AppColors.text50,
           fontSize: 15,
@@ -403,20 +390,30 @@ class _Report extends StatelessWidget {
                 ),
               )
               .toList();
-    final goal = data?['goal'] as Map<String, dynamic>?;
-    final goalAmount = goal?['amount'] as int? ?? 0;
+    final remoteGoal = data?['goal'] as Map<String, dynamic>?;
+    final hasGoal = remoteGoal != null || preview;
+    final goalAmount = remoteGoal?['amount'] as int? ?? (preview ? 563700 : 0);
     final goalUsageRate =
-        goal?['usage_rate'] as num? ?? (data == null ? 20 : 0);
-    final remainingBudget = goal?['remaining_budget'] as int?;
-    final overBudget = goal?['over_budget_amount'] as int? ?? 0;
-    final dailyBudget = goal?['daily_budget_remaining'] as int?;
+        remoteGoal?['usage_rate'] as num? ?? (preview ? 20 : 0);
+    final remainingBudget =
+        remoteGoal?['remaining_budget'] as int? ??
+        (preview
+            ? 413700
+            : hasGoal
+            ? goalAmount - total
+            : 0);
+    final dailyBudget =
+        remoteGoal?['daily_budget_remaining'] as int? ?? (preview ? 17200 : 0);
     final today = DateTime.now();
     final remainingDays =
-        data != null &&
-            data?['year'] == today.year &&
-            data?['month'] == today.month
-        ? DateTime(today.year, today.month + 1, 0).day - today.day + 1
-        : null;
+        remoteGoal?['remaining_days'] as int? ??
+        (preview
+            ? 24
+            : data != null &&
+                  data?['year'] == today.year &&
+                  data?['month'] == today.month
+            ? DateTime(today.year, today.month + 1, 0).day - today.day + 1
+            : null);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -469,7 +466,7 @@ class _Report extends StatelessWidget {
         const SizedBox(height: 16),
         ...visibleCategories.map(
           (item) => SizedBox(
-            height: 64,
+            height: 73,
             child: Row(
               children: [
                 AppCategoryIcon(category: item.$1),
@@ -503,131 +500,271 @@ class _Report extends StatelessWidget {
         ),
         const _Asterisks(),
         const SizedBox(height: 24),
-        GestureDetector(
-          onTap: onEditGoal,
-          behavior: HitTestBehavior.opaque,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (goalAmount == 0)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    '지출 목표를 설정하면 하루 예산을 알려드려요',
-                    style: TextStyle(color: AppColors.text, fontSize: 14),
-                  ),
-                )
-              else
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '$month월 지출 목표',
-                      style: const TextStyle(
-                        color: AppColors.text50,
-                        fontSize: 14,
-                      ),
-                    ),
-                    Text(
-                      goalAmount > 0
-                          ? '${_formatAmount(goalAmount)}원 중 ${_formatAmount(total)}원 사용'
-                          : '목표를 설정해 주세요',
-                      style: const TextStyle(
-                        color: AppColors.text,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Text(
-                    '$goalUsageRate%',
-                    style: const TextStyle(
-                      color: AppColors.text,
-                      fontFamily: 'Amarante',
-                      fontSize: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: LinearProgressIndicator(
-                      value: (goalUsageRate / 100).clamp(0, 1).toDouble(),
-                      minHeight: 15,
-                      color: AppColors.main,
-                      backgroundColor: AppColors.selected,
-                      borderRadius: BorderRadius.all(Radius.circular(5)),
-                    ),
-                  ),
-                ],
-              ),
-              if (goalAmount > 0) ...[
-                const SizedBox(height: 10),
-                if (overBudget > 0)
-                  Text(
-                    '이번 달 목표를 ${_formatAmount(overBudget)}원 초과했어요',
-                    style: const TextStyle(
-                      color: Color(0xFFCF376A),
-                      fontSize: 12,
-                    ),
-                  )
-                else if (remainingBudget != null)
-                  Text(
-                    '남은 예산 ${_formatAmount(remainingBudget)}원',
-                    style: const TextStyle(
-                      color: AppColors.text50,
-                      fontSize: 12,
-                    ),
-                  ),
-                if (dailyBudget != null)
-                  Container(
-                    margin: const EdgeInsets.only(top: 10),
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: AppColors.secondary,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Column(
-                      children: [
-                        if (remainingDays != null)
-                          _GoalMetricRow(
-                            label: '남은 일수',
-                            value: '오늘 포함 $remainingDays일',
-                          ),
-                        if (remainingDays != null) const SizedBox(height: 14),
-                        _GoalMetricRow(
-                          label: '하루 사용 가능',
-                          value: '${_formatAmount(dailyBudget)}원',
-                          accent: true,
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ],
-          ),
+        _GoalReportSection(
+          month: month,
+          hasGoal: hasGoal,
+          goalAmount: goalAmount,
+          spentAmount: total,
+          usageRate: goalUsageRate,
+          remainingBudget: remainingBudget,
+          remainingDays: remainingDays,
+          dailyBudget: dailyBudget,
+          onEditGoal: onEditGoal,
         ),
       ],
     );
   }
 }
 
-class _GoalMetricRow extends StatelessWidget {
-  const _GoalMetricRow({
-    required this.label,
-    required this.value,
-    this.accent = false,
+class _GoalReportSection extends StatelessWidget {
+  const _GoalReportSection({
+    required this.month,
+    required this.hasGoal,
+    required this.goalAmount,
+    required this.spentAmount,
+    required this.usageRate,
+    required this.remainingBudget,
+    required this.remainingDays,
+    required this.dailyBudget,
+    this.onEditGoal,
   });
 
+  final int month;
+  final bool hasGoal;
+  final int goalAmount;
+  final int spentAmount;
+  final num usageRate;
+  final int remainingBudget;
+  final int? remainingDays;
+  final int dailyBudget;
+  final VoidCallback? onEditGoal;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (!hasGoal) ...[
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppColors.secondary,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Expanded(
+                child: Text(
+                  '이번달 지출 목표를 등록하면\n하루 사용 가능 금액을 확인할 수 있어요',
+                  maxLines: 2,
+                  style: TextStyle(
+                    color: AppColors.text80,
+                    fontSize: 12,
+                    height: 1.51,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                key: const ValueKey('analysis-register-goal'),
+                onTap: onEditGoal,
+                child: Container(
+                  width: 118,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.main,
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(color: AppColors.text20, width: .5),
+                  ),
+                  child: const Text(
+                    '목표 등록하기',
+                    style: TextStyle(
+                      color: AppColors.text,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 11),
+      ],
+      GestureDetector(
+        onTap: hasGoal ? onEditGoal : null,
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '$month월 지출 목표',
+                    style: const TextStyle(
+                      color: AppColors.text50,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        '${_formatAmount(hasGoal ? goalAmount : 0)}원 중 '
+                        '${_formatAmount(hasGoal ? spentAmount : 0)}원 사용',
+                        maxLines: 1,
+                        style: const TextStyle(
+                          color: AppColors.text,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Text(
+                  '${hasGoal ? usageRate : 0}%',
+                  style: const TextStyle(
+                    color: AppColors.text,
+                    fontFamily: 'Amarante',
+                    fontSize: 20,
+                  ),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: LinearProgressIndicator(
+                    value: hasGoal
+                        ? (usageRate / 100).clamp(0, 1).toDouble()
+                        : 0,
+                    minHeight: 15,
+                    color: AppColors.main,
+                    backgroundColor: AppColors.selected,
+                    borderRadius: const BorderRadius.all(Radius.circular(5)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 26),
+            _GoalBudgetCard(
+              hasGoal: hasGoal,
+              remainingBudget: hasGoal ? remainingBudget : 0,
+              remainingDays: hasGoal ? remainingDays : null,
+              dailyBudget: hasGoal ? dailyBudget : 0,
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
+class _GoalBudgetCard extends StatelessWidget {
+  const _GoalBudgetCard({
+    required this.hasGoal,
+    required this.remainingBudget,
+    required this.remainingDays,
+    required this.dailyBudget,
+  });
+
+  final bool hasGoal;
+  final int remainingBudget;
+  final int? remainingDays;
+  final int dailyBudget;
+
+  @override
+  Widget build(BuildContext context) {
+    final daysText = hasGoal && remainingDays != null
+        ? '$remainingDays일'
+        : '-일';
+    final calculation = hasGoal && remainingDays != null
+        ? '남은 예산 ${_formatAmount(remainingBudget)}원 ÷ $daysText'
+        : '남은 예산 -원 ÷ -일';
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.secondary,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            child: Column(
+              children: [
+                _GoalMetricRow(label: '남은 예산', amount: remainingBudget),
+                const SizedBox(height: 16),
+                _GoalMetricRow(
+                  label: '남은 일수',
+                  remainingDays: hasGoal ? remainingDays : null,
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, thickness: .5, color: AppColors.text20),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '하루 사용 가능',
+                        style: TextStyle(
+                          color: AppColors.text,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 9),
+                      Text(
+                        calculation,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.text80,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _PriceText(
+                  value: _formatAmount(dailyBudget),
+                  size: 20,
+                  accent: true,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GoalMetricRow extends StatelessWidget {
+  const _GoalMetricRow({required this.label, this.amount, this.remainingDays});
+
   final String label;
-  final String value;
-  final bool accent;
+  final int? amount;
+  final int? remainingDays;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -637,14 +774,30 @@ class _GoalMetricRow extends StatelessWidget {
         label,
         style: const TextStyle(color: AppColors.text50, fontSize: 14),
       ),
-      Text(
-        value,
-        style: TextStyle(
-          color: accent ? const Color(0xFFA8A3FF) : AppColors.text,
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
+      if (amount case final value?)
+        _PriceText(value: _formatAmount(value), size: 20)
+      else
+        Row(
+          children: [
+            const Text(
+              '오늘 포함',
+              style: TextStyle(color: AppColors.text50, fontSize: 12),
+            ),
+            const SizedBox(width: 7),
+            Text(
+              remainingDays?.toString() ?? '-',
+              style: const TextStyle(
+                color: AppColors.text,
+                fontFamily: 'Amarante',
+                fontSize: 20,
+              ),
+            ),
+            const Text(
+              '일',
+              style: TextStyle(color: AppColors.text, fontSize: 20),
+            ),
+          ],
         ),
-      ),
     ],
   );
 }
@@ -851,75 +1004,5 @@ class _Asterisks extends StatelessWidget {
         style: TextStyle(color: AppColors.text20, fontSize: 10),
       ),
     ),
-  );
-}
-
-class _LockedList extends StatelessWidget {
-  const _LockedList({required this.items});
-  final List<(String, String)> items;
-  @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      const _Asterisks(),
-      const SizedBox(height: 12),
-      ...List.generate(
-        items.length,
-        (index) => Container(
-          height: 80,
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Color(0x0DE2E2F9))),
-          ),
-          child: Row(
-            children: [
-              SizedBox.square(
-                key: ValueKey('analysis-locked-icon-slot-$index'),
-                dimension: 26,
-                child: Center(
-                  child: SizedBox(
-                    key: ValueKey('analysis-locked-icon-$index'),
-                    width: index == 0 ? 18 : 26,
-                    height: index == 0 ? 18 : 26,
-                    child: SvgPicture.asset(switch (index) {
-                      0 => AppAssets.analysisPattern,
-                      1 => AppAssets.analysisAi,
-                      _ => AppAssets.analysisRepurchase,
-                    }, fit: BoxFit.fill),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      items[index].$1,
-                      style: const TextStyle(
-                        color: AppColors.text,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      items[index].$2,
-                      style: const TextStyle(
-                        color: AppColors.text50,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SvgPicture.asset(
-                AppAssets.analysisArrowRight,
-                width: 24,
-                height: 24,
-              ),
-            ],
-          ),
-        ),
-      ),
-    ],
   );
 }

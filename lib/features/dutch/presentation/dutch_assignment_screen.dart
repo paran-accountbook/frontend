@@ -85,24 +85,6 @@ class _DutchAssignmentScreenState extends State<DutchAssignmentScreen> {
     });
   }
 
-  void _toggleAll(String itemId) {
-    setState(() {
-      final selected = _assignments.putIfAbsent(itemId, () => <String>{});
-      if (selected.length == _participants.length) {
-        selected.clear();
-      } else {
-        selected
-          ..clear()
-          ..addAll(
-            _participants
-                .map((participant) => participant['id'] as String?)
-                .whereType<String>(),
-          );
-      }
-      _error = null;
-    });
-  }
-
   int get _assignedCount =>
       _assignments.values.where((value) => value.isNotEmpty).length;
 
@@ -201,8 +183,6 @@ class _DutchAssignmentScreenState extends State<DutchAssignmentScreen> {
                           _assignments[_items[index]['id']] ?? const <String>{},
                       onToggle: (participantId) =>
                           _toggle(_items[index]['id'] as String, participantId),
-                      onToggleAll: () =>
-                          _toggleAll(_items[index]['id'] as String),
                     ),
                   ],
                   if (_error case final message?) ...[
@@ -236,13 +216,11 @@ class _AssignmentCard extends StatelessWidget {
     required this.participants,
     required this.selected,
     required this.onToggle,
-    required this.onToggleAll,
   });
   final Map<String, dynamic> item;
   final List<Map<String, dynamic>> participants;
   final Set<String> selected;
   final ValueChanged<String> onToggle;
-  final VoidCallback onToggleAll;
 
   @override
   Widget build(BuildContext context) {
@@ -288,16 +266,6 @@ class _AssignmentCard extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton(
-            key: Key('dutch-select-all-${item['id']}'),
-            onPressed: onToggleAll,
-            child: Text(
-              selected.length == participants.length ? '전원 해제' : '전원 선택',
-            ),
-          ),
-        ),
         for (final participant in participants)
           _ParticipantRow(
             name: participant['name'] as String? ?? '',

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sobilog/core/network/api_exception.dart';
 import 'package:sobilog/core/theme/app_theme.dart';
@@ -9,6 +10,7 @@ import 'package:sobilog/features/auth/presentation/login_screen.dart';
 import 'package:sobilog/features/auth/presentation/terms_screen.dart';
 import 'package:sobilog/features/finance/data/finance_service.dart';
 import 'package:sobilog/features/dutch/data/dutch_pay_service.dart';
+import 'package:sobilog/features/dutch/data/kakao_share_service.dart';
 import 'package:sobilog/features/dutch/presentation/dutch_assignment_screen.dart';
 import 'package:sobilog/features/dutch/presentation/dutch_request_screen.dart';
 import 'package:sobilog/features/dutch/presentation/dutch_result_screen.dart';
@@ -63,7 +65,7 @@ void main() {
     await tester.pump();
 
     expect(auth.agreedNickname, '소비로그');
-    expect(auth.marketingAgreed, isTrue);
+    expect(auth.marketingAgreed, isFalse);
   });
 
   testWidgets('P1 수입 목록에서 상세를 열고 PATCH 수정한다', (tester) async {
@@ -147,7 +149,7 @@ void main() {
     expect(service.requestedMonths.last, DateTime(2026, 9));
   });
 
-  testWidgets('P1 품목 배정은 전원 선택과 원 단위 나머지를 정확히 표시한다', (tester) async {
+  testWidgets('P1 품목 배정은 개별 선택과 원 단위 나머지를 정확히 표시한다', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.dark,
@@ -164,10 +166,13 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byKey(const Key('dutch-select-all-demo-1')));
+    expect(find.text('전원 선택'), findsNothing);
+    await tester.tap(find.text('나'));
+    await tester.tap(find.text('철수'));
+    await tester.tap(find.text('영희'));
     await tester.pump();
 
-    expect(find.text('전원 해제'), findsWidgets);
+    expect(find.text('전원 해제'), findsNothing);
     expect(find.text('3,334'), findsOneWidget);
     expect(find.text('3,333'), findsNWidgets(2));
   });
@@ -215,6 +220,60 @@ void main() {
     expect(find.text('이전'), findsNothing);
     expect(find.text('완료'), findsOneWidget);
   });
+
+  testWidgets('P1 정산 요청 상단 전체 복사는 전체 메시지를 복사한다', (tester) async {
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async => null,
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.dark, home: const DutchRequestScreen()),
+    );
+
+    expect(find.text('전체 복사'), findsNWidgets(2));
+    tester
+        .widget<GestureDetector>(find.byKey(const Key('dutch-copy-all-header')))
+        .onTap!();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('메시지를 복사했어요'), findsOneWidget);
+  });
+
+  testWidgets('P1 카카오톡 공유는 선택한 멤버 메시지를 Share SDK로 전달한다', (tester) async {
+    final kakaoShare = _FakeKakaoShareService();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: DutchRequestScreen(kakaoShareService: kakaoShare),
+      ),
+    );
+
+    final shareButton = find.byKey(const ValueKey('dutch-share-p3'));
+    await tester.ensureVisible(shareButton);
+    await tester.pumpAndSettle();
+    await tester.tap(shareButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('share-via-kakao')));
+    await tester.pumpAndSettle();
+
+    expect(kakaoShare.messages, hasLength(1));
+    expect(kakaoShare.messages.single, contains('홍길동님이 영희님께'));
+    expect(kakaoShare.messages.single, contains('14,500원'));
+    expect(kakaoShare.messages.single, contains('아주은행 000-0000-0000'));
+  });
+}
+
+class _FakeKakaoShareService implements KakaoShareService {
+  final messages = <String>[];
+
+  @override
+  Future<void> shareText(String message) async => messages.add(message);
 }
 
 class _DutchResultService implements DutchPayService {

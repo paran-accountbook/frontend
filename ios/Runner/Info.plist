@@ -43,6 +43,7 @@
 	<array>
 		<string>kakaokompassauth</string>
 		<string>kakaolink</string>
+		<string>kakaotalk</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>영수증을 촬영해 소비 내역을 등록하기 위해 카메라를 사용합니다.</string>

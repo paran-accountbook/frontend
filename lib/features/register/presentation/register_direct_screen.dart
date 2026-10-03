@@ -83,7 +83,6 @@ class _RegisterDirectScreenState extends State<RegisterDirectScreen> {
           totalAmount:
               createdExpense?['total_amount'] as int? ??
               payload['total_amount'] as int?,
-          showDutchPay: false,
         ),
       ),
       (_) => false,

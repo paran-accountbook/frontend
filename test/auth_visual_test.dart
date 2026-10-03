@@ -404,21 +404,11 @@ void main() {
     );
   });
 
-  testWidgets('AI analysis matches its visual baseline', (tester) async {
+  testWidgets('analysis exposes the current report tab only', (tester) async {
     await configureViewport(tester);
     await pumpScreen(tester, const AnalysisOverviewScreen());
-    await tester.scrollUntilVisible(
-      find.text('AI'),
-      120,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('AI'));
-    await tester.pump();
-
-    await expectLater(
-      find.byType(Scaffold),
-      matchesGoldenFile('goldens/analysis_ai.png'),
-    );
+    expect(find.text('리포트'), findsOneWidget);
+    expect(find.text('AI'), findsNothing);
   });
 
   testWidgets('analysis report bottom matches its visual baseline', (

@@ -3,7 +3,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_assets.dart';
-import '../../../core/config/app_config.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/app_services.dart';
 import '../../../core/theme/app_colors.dart';
@@ -12,18 +11,26 @@ import '../../../shared/widgets/design_canvas.dart';
 import '../../home/presentation/home_screen.dart';
 import '../domain/signup_draft.dart';
 import '../data/auth_service.dart';
+import 'kakao_signup_name_screen.dart';
+import 'terms_detail_screen.dart';
 
 class TermsScreen extends StatefulWidget {
   const TermsScreen({
     super.key,
     this.signupDraft,
     this.onAgreed,
+    this.onConsentCompleted,
     this.authService,
+    this.kakaoSignup = false,
+    this.reconsent = false,
   });
 
   final SignupDraft? signupDraft;
   final VoidCallback? onAgreed;
+  final ValueChanged<bool>? onConsentCompleted;
   final AuthService? authService;
+  final bool kakaoSignup;
+  final bool reconsent;
 
   @override
   State<TermsScreen> createState() => _TermsScreenState();
@@ -31,30 +38,69 @@ class TermsScreen extends StatefulWidget {
 
 class _TermsScreenState extends State<TermsScreen> {
   static const _labels = [
-    '서비스 이용약관 (필수)',
-    '개인정보 수집·이용 동의 (필수)',
-    '마케팅 수신 동의 (선택)',
+    '[필수] 서비스 이용약관 동의',
+    '[필수] 개인정보 수집·이용 동의',
+    '[선택] 마케팅 수신 동의',
   ];
 
   final _selected = List.filled(_labels.length, false);
   bool _showRequiredError = false;
   bool _isLoading = false;
   String? _apiError;
+  String? _documentUrl;
+  bool _isDocumentLoading = false;
+  String? _documentError;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.authService != null) {
+      _loadDocument();
+    }
+  }
 
   bool get _allSelected => _selected.every((selected) => selected);
   bool get _requiredSelected => _selected[0] && _selected[1];
 
-  Future<void> _openTerms() async {
-    final rawUrl = AppConfig.termsDocumentUrl.trim();
-    final url = Uri.tryParse(rawUrl);
-    if (url == null ||
-        !url.hasScheme ||
-        !await launchUrl(url, mode: LaunchMode.inAppBrowserView)) {
-      if (!mounted) return;
+  Future<void> _loadDocument() async {
+    setState(() {
+      _isDocumentLoading = true;
+      _documentError = null;
+    });
+    try {
+      final data = await widget.authService!.termsDocument();
+      if (mounted) {
+        setState(() => _documentUrl = data['document_url'] as String?);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _documentError = '약관을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요');
+      }
+    } finally {
+      if (mounted) setState(() => _isDocumentLoading = false);
+    }
+  }
+
+  Future<void> _openTerms(int index) async {
+    final uri = Uri.tryParse(_documentUrl ?? '');
+    if (uri != null && uri.hasScheme) {
+      final opened = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+      if (opened || !mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('약관을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요')),
       );
+      return;
     }
+    if (widget.authService == null) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => TermsDetailScreen(document: termsDocuments[index]),
+        ),
+      );
+      return;
+    }
+    if (_isDocumentLoading) return;
+    setState(() => _documentError = '약관을 불러오지 못했습니다. 다시 시도해 주세요');
   }
 
   void _toggleItem(int index) {
@@ -77,6 +123,10 @@ class _TermsScreenState extends State<TermsScreen> {
   Future<void> _agree() async {
     if (!_requiredSelected) {
       setState(() => _showRequiredError = true);
+      return;
+    }
+    if (widget.onConsentCompleted case final callback?) {
+      callback(_selected[2]);
       return;
     }
     if (widget.onAgreed case final callback?) {
@@ -102,10 +152,37 @@ class _TermsScreenState extends State<TermsScreen> {
         if (mounted) setState(() => _isLoading = false);
       }
       if (!mounted) return;
+    } else if (widget.kakaoSignup) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => KakaoSignupNameScreen(
+            authService: widget.authService ?? AppServices.auth,
+            marketingAgreed: _selected[2],
+          ),
+        ),
+      );
+      return;
+    } else if (widget.reconsent) {
+      setState(() {
+        _isLoading = true;
+        _apiError = null;
+      });
+      try {
+        await (widget.authService ?? AppServices.auth).agreeToLatestTerms();
+      } on ApiException catch (error) {
+        if (mounted) setState(() => _apiError = error.message);
+        return;
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+      if (!mounted) return;
     }
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(
-        builder: (_) => widget.signupDraft == null
+        builder: (_) =>
+            widget.authService == null &&
+                widget.signupDraft == null &&
+                !widget.reconsent
             ? const HomeScreen()
             : HomeScreen(financeService: AppServices.finance),
       ),
@@ -135,6 +212,28 @@ class _TermsScreenState extends State<TermsScreen> {
                   icon: SvgPicture.asset(AppAssets.arrowBackLight),
                 ),
               ),
+              if (_documentError case final message?)
+                Positioned(
+                  left: 24,
+                  right: 24,
+                  top: 555,
+                  child: Column(
+                    children: [
+                      Text(
+                        message,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Color(0xFFFF6B7A),
+                          fontSize: 12,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _isDocumentLoading ? null : _loadDocument,
+                        child: Text(_isDocumentLoading ? '불러오는 중...' : '다시 시도'),
+                      ),
+                    ],
+                  ),
+                ),
               const Positioned(
                 left: 24,
                 top: 129,
@@ -163,68 +262,59 @@ class _TermsScreenState extends State<TermsScreen> {
               Positioned(
                 left: 24,
                 right: 24,
-                top: 470,
-                child: Column(
-                  children: List.generate(_labels.length, (index) {
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        bottom: index == _labels.length - 1 ? 0 : 20,
-                      ),
-                      child: _TermsRow(
-                        label: _labels[index],
-                        selected: _selected[index],
-                        onPressed: () => _toggleItem(index),
-                        onViewPressed: _openTerms,
-                      ),
-                    );
-                  }),
-                ),
-              ),
-              Positioned(
-                left: 24,
-                right: 24,
-                top: 672,
+                top: 487,
                 child: Column(
                   children: [
-                    _TermsCheckbox(
+                    _TermsAgreementRow(
+                      label: '전체 동의하기',
                       selected: _allSelected,
                       onPressed: _toggleAll,
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 20),
+                    const Divider(height: 1, color: AppColors.text10),
+                    const SizedBox(height: 20),
+                    ...List.generate(_labels.length, (index) {
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          bottom: index == _labels.length - 1 ? 0 : 20,
+                        ),
+                        child: _TermsRow(
+                          index: index,
+                          label: _labels[index],
+                          selected: _selected[index],
+                          onPressed: () => _toggleItem(index),
+                          onViewPressed: () => _openTerms(index),
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 14),
                     GestureDetector(
-                      onTap: _toggleAll,
-                      child: Text(
-                        '전체 동의하기',
-                        style: TextStyle(color: AppColors.text80, fontSize: 12),
+                      onTap: () => _openTerms(1),
+                      child: const Text(
+                        '개인정보 처리방침 보기',
+                        style: TextStyle(color: AppColors.text50, fontSize: 12),
                       ),
                     ),
-                    if (_showRequiredError) ...[
-                      const SizedBox(height: 10),
-                      const Text(
-                        '필수 약관에 동의해 주세요',
-                        style: TextStyle(
-                          color: Color(0xFFFF6B7A),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                    if (_apiError case final message?) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        message,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Color(0xFFFF6B7A),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
+              if (_showRequiredError || _apiError != null)
+                Positioned(
+                  left: 24,
+                  right: 24,
+                  bottom: 88,
+                  child: Text(
+                    _apiError ?? '필수 약관에 동의해 주세요',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFFFF6B7A),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
               AuthBottomAction(
                 label: _isLoading ? '가입 중...' : '동의합니다',
-                onPressed: _isLoading ? () {} : _agree,
+                onPressed: _isLoading ? null : _agree,
               ),
             ],
           ),
@@ -234,14 +324,51 @@ class _TermsScreenState extends State<TermsScreen> {
   }
 }
 
+class _TermsAgreementRow extends StatelessWidget {
+  const _TermsAgreementRow({
+    required this.label,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    behavior: HitTestBehavior.opaque,
+    onTap: onPressed,
+    child: SizedBox(
+      height: 30,
+      child: Row(
+        children: [
+          _TermsCheckbox(selected: selected, onPressed: onPressed),
+          const SizedBox(width: 20),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.text,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class _TermsRow extends StatelessWidget {
   const _TermsRow({
+    required this.index,
     required this.label,
     required this.selected,
     required this.onPressed,
     required this.onViewPressed,
   });
 
+  final int index;
   final String label;
   final bool selected;
   final VoidCallback onPressed;
@@ -258,10 +385,20 @@ class _TermsRow extends StatelessWidget {
           Expanded(
             child: GestureDetector(
               onTap: onPressed,
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: AppColors.text80,
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: label.substring(0, 4),
+                      style: const TextStyle(color: AppColors.main),
+                    ),
+                    TextSpan(
+                      text: label.substring(4),
+                      style: const TextStyle(color: AppColors.text80),
+                    ),
+                  ],
+                ),
+                style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
@@ -269,6 +406,7 @@ class _TermsRow extends StatelessWidget {
             ),
           ),
           IconButton(
+            key: ValueKey('terms-view-$index'),
             padding: const EdgeInsets.all(3),
             constraints: const BoxConstraints.tightFor(width: 30, height: 30),
             tooltip: '$label 보기',

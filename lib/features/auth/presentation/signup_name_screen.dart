@@ -1,21 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/constants/app_assets.dart';
+import '../../../core/network/api_exception.dart';
+import '../../../core/network/app_services.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/auth_widgets.dart';
-import '../domain/signup_draft.dart';
-import 'terms_screen.dart';
+import '../../home/presentation/home_screen.dart';
+import '../data/auth_service.dart';
 
 class SignupNameScreen extends StatefulWidget {
   const SignupNameScreen({
     required this.email,
     required this.password,
     super.key,
+    this.marketingAgreed = false,
+    this.authService,
   });
 
   final String email;
   final String password;
+  final bool marketingAgreed;
+  final AuthService? authService;
 
   @override
   State<SignupNameScreen> createState() => _SignupNameScreenState();
@@ -24,6 +29,8 @@ class SignupNameScreen extends StatefulWidget {
 class _SignupNameScreenState extends State<SignupNameScreen> {
   final _nameController = TextEditingController();
   bool _showError = false;
+  bool _isLoading = false;
+  String? _apiError;
 
   @override
   void dispose() {
@@ -31,22 +38,36 @@ class _SignupNameScreenState extends State<SignupNameScreen> {
     super.dispose();
   }
 
-  void _continue() {
+  Future<void> _continue() async {
     final name = _nameController.text.trim();
     if (name.length < 2 || name.length > 10) {
       setState(() => _showError = true);
       return;
     }
-    Navigator.of(context).push(
+    if (_isLoading) return;
+    setState(() {
+      _isLoading = true;
+      _apiError = null;
+    });
+    try {
+      await (widget.authService ?? AppServices.auth).signup(
+        email: widget.email,
+        password: widget.password,
+        nickname: name,
+        marketingAgreed: widget.marketingAgreed,
+      );
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _apiError = error.message);
+      return;
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(
-        builder: (_) => TermsScreen(
-          signupDraft: SignupDraft(
-            email: widget.email,
-            password: widget.password,
-            name: name,
-          ),
-        ),
+        builder: (_) => HomeScreen(financeService: AppServices.finance),
       ),
+      (_) => false,
     );
   }
 
@@ -76,6 +97,7 @@ class _SignupNameScreenState extends State<SignupNameScreen> {
                   textInputAction: TextInputAction.done,
                   onChanged: (_) {
                     if (_showError) setState(() => _showError = false);
+                    if (_apiError != null) setState(() => _apiError = null);
                   },
                 ),
                 const SizedBox(height: 18),
@@ -100,28 +122,29 @@ class _SignupNameScreenState extends State<SignupNameScreen> {
                     ),
                   ),
                 ],
+                if (_apiError case final message?) ...[
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      message,
+                      style: const TextStyle(
+                        color: Color(0xFFFF6B7A),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
-          AuthBottomAction(label: '가입 완료', onPressed: _continue),
-          const Positioned(
-            left: 158,
-            bottom: 62,
-            width: 18,
-            height: 12,
-            child: IgnorePointer(child: _SignupCompleteIcon()),
+          AuthBottomAction(
+            label: _isLoading ? '가입 중...' : '가입 완료',
+            leadingIconAsset: AppAssets.signupComplete,
+            onPressed: _isLoading ? null : _continue,
           ),
         ],
       ),
     );
-  }
-}
-
-class _SignupCompleteIcon extends StatelessWidget {
-  const _SignupCompleteIcon();
-
-  @override
-  Widget build(BuildContext context) {
-    return SvgPicture.asset(AppAssets.signupComplete);
   }
 }

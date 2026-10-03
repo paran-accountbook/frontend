@@ -17,11 +17,11 @@ class AppBottomNavigation extends StatelessWidget {
   final ValueChanged<int>? onSelected;
 
   static const _assets = [
-    AppAssets.navHome,
-    AppAssets.navLedger,
-    AppAssets.navRegister,
-    AppAssets.navAnalysis,
-    AppAssets.navProfile,
+    (off: AppAssets.navHome, on: AppAssets.navHomeSelected),
+    (off: AppAssets.navLedger, on: AppAssets.navLedgerSelected),
+    (off: AppAssets.navRegister, on: AppAssets.navRegister),
+    (off: AppAssets.navAnalysis, on: AppAssets.navAnalysisSelected),
+    (off: AppAssets.navProfile, on: AppAssets.navProfileSelected),
   ];
 
   @override
@@ -41,16 +41,29 @@ class AppBottomNavigation extends StatelessWidget {
                 stops: [0, 0.8],
               ),
             ),
-            child: Align(
-              alignment: const Alignment(0, -0.15),
-              child: SizedBox(
-                width: 318,
-                height: 42,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: List.generate(5, _buildItem),
+            child: Stack(
+              children: [
+                Positioned(
+                  left: 42,
+                  bottom: 46,
+                  width: 318,
+                  height: 36,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildItem(0),
+                      const SizedBox(width: 28),
+                      _buildItem(1),
+                      const SizedBox(width: 28),
+                      _buildItem(2),
+                      const SizedBox(width: 28),
+                      _buildItem(3),
+                      const SizedBox(width: 28),
+                      _buildItem(4),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ),
@@ -69,8 +82,9 @@ class AppBottomNavigation extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: () => onSelected?.call(index),
         child: SizedBox(
+          key: ValueKey('bottom-navigation-item-$index'),
           width: isRegister ? 48 : 30,
-          height: 42,
+          height: isRegister ? 36 : 30,
           child: Stack(
             alignment: Alignment.center,
             clipBehavior: Clip.none,
@@ -82,29 +96,25 @@ class AppBottomNavigation extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: AppColors.main,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.outline, width: 0.5),
+                    border: Border.all(
+                      color: const Color(0x40FFFFFF),
+                      width: 0.474,
+                    ),
                   ),
                 ),
-              SvgPicture.asset(
-                _assets[index],
-                width: isRegister ? 36 : 30,
-                height: 30,
-                colorFilter: ColorFilter.mode(
-                  isRegister || selected ? Colors.white : Colors.white38,
-                  BlendMode.srcIn,
+              Positioned(
+                top: 0,
+                child: SvgPicture.asset(
+                  selected ? _assets[index].on : _assets[index].off,
+                  key: ValueKey(
+                    isRegister
+                        ? 'bottom-navigation-register-icon'
+                        : 'bottom-navigation-icon-$index-${selected ? 'on' : 'off'}',
+                  ),
+                  width: isRegister ? 36 : 30,
+                  height: isRegister ? 36 : (selected ? 35 : 30),
                 ),
               ),
-              if (selected && !isRegister)
-                const Positioned(
-                  bottom: -1,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: SizedBox.square(dimension: 4),
-                  ),
-                ),
             ],
           ),
         ),

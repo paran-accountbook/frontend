@@ -144,7 +144,7 @@ class _PasswordChangeScreenState extends State<PasswordChangeScreen> {
           ),
           AuthBottomAction(
             label: _isLoading ? '변경 중...' : '비밀번호 변경',
-            onPressed: _isLoading ? () {} : _submit,
+            onPressed: _isLoading ? null : _submit,
           ),
         ],
       ),

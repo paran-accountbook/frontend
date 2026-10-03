@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:sobilog/core/theme/app_theme.dart';
 import 'package:sobilog/features/auth/presentation/email_login_screen.dart';
 import 'package:sobilog/features/auth/presentation/email_signup_screen.dart';
@@ -12,9 +15,11 @@ import 'package:sobilog/features/auth/presentation/pending_deletion_screen.dart'
 import 'package:sobilog/features/auth/presentation/signup_name_screen.dart';
 import 'package:sobilog/features/auth/presentation/signup_password_screen.dart';
 import 'package:sobilog/features/auth/presentation/terms_screen.dart';
+import 'package:sobilog/features/auth/presentation/terms_detail_screen.dart';
 import 'package:sobilog/features/auth/presentation/verification_screen.dart';
 import 'package:sobilog/features/home/presentation/home_screen.dart';
 import 'package:sobilog/features/analysis/presentation/analysis_overview_screen.dart';
+import 'package:sobilog/features/finance/data/finance_service.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_detail_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_edit_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_screen.dart';
@@ -144,6 +149,19 @@ void main() {
     );
   });
 
+  testWidgets('terms detail matches its visual baseline', (tester) async {
+    await configureViewport(tester);
+    await pumpScreen(
+      tester,
+      const TermsDetailScreen(document: serviceTermsDocument),
+    );
+
+    await expectLater(
+      find.byType(Scaffold),
+      matchesGoldenFile('goldens/terms_detail.png'),
+    );
+  });
+
   testWidgets('reset password matches its visual baseline', (tester) async {
     await configureViewport(tester);
     await pumpScreen(
@@ -199,6 +217,57 @@ void main() {
     );
   });
 
+  testWidgets('ledger day period matches its visual baseline', (tester) async {
+    await configureViewport(tester);
+    await pumpScreen(tester, const LedgerScreen());
+    await tester.tap(find.byKey(const Key('ledger-period-2')));
+    await tester.pump();
+
+    await expectLater(
+      find.byType(Scaffold),
+      matchesGoldenFile('goldens/ledger_day.png'),
+    );
+  });
+
+  testWidgets('ledger filter matches its visual baseline', (tester) async {
+    await configureViewport(tester);
+    await pumpScreen(
+      tester,
+      LedgerScreen(financeService: _LedgerVisualService()),
+    );
+    await tester.tap(find.text('필터'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('ledger-filter-식비')));
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(Dialog),
+      matchesGoldenFile('goldens/ledger_filter.png'),
+    );
+  });
+
+  testWidgets('ledger applied filters match the latest visual baseline', (
+    tester,
+  ) async {
+    await configureViewport(tester);
+    await pumpScreen(
+      tester,
+      LedgerScreen(financeService: _LedgerVisualService()),
+    );
+    await tester.tap(find.text('필터'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('ledger-filter-식비')));
+    await tester.tap(find.byKey(const Key('ledger-filter-카드')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('apply-ledger-filter')));
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(Scaffold),
+      matchesGoldenFile('goldens/ledger_filters_applied.png'),
+    );
+  });
+
   testWidgets('register type matches its visual baseline', (tester) async {
     await configureViewport(tester);
     await pumpScreen(tester, const RegisterTypeScreen());
@@ -215,6 +284,28 @@ void main() {
     await expectLater(
       find.byType(Scaffold),
       matchesGoldenFile('goldens/register_method.png'),
+    );
+  });
+
+  testWidgets('receipt image confirmation matches the latest visual baseline', (
+    tester,
+  ) async {
+    await configureViewport(tester);
+    await pumpScreen(
+      tester,
+      ReceiptImageConfirmationScreen(
+        image: XFile('test/fixtures/receipt_confirmation_sample.png'),
+        source: ImageSource.camera,
+        previewImage: MemoryImage(
+          File(
+            'test/fixtures/receipt_confirmation_sample.png',
+          ).readAsBytesSync(),
+        ),
+      ),
+    );
+    await expectLater(
+      find.byType(Scaffold),
+      matchesGoldenFile('goldens/receipt_image_confirmation.png'),
     );
   });
 
@@ -256,7 +347,12 @@ void main() {
 
   testWidgets('income register matches its visual baseline', (tester) async {
     await configureViewport(tester);
-    await pumpScreen(tester, const RegisterIncomeScreen());
+    await pumpScreen(
+      tester,
+      const RegisterIncomeScreen(
+        initialData: <String, dynamic>{'income_date': '2026-09-24'},
+      ),
+    );
     await expectLater(
       find.byType(Scaffold),
       matchesGoldenFile('goldens/register_income.png'),
@@ -282,6 +378,23 @@ void main() {
     );
   });
 
+  testWidgets('ledger edit lower section matches its visual baseline', (
+    tester,
+  ) async {
+    await configureViewport(tester);
+    await pumpScreen(tester, const LedgerEditScreen());
+    await tester.drag(
+      find.byKey(const Key('ledger-edit-receipt-scroll')),
+      const Offset(0, -400),
+    );
+    await tester.pump();
+
+    await expectLater(
+      find.byType(Scaffold),
+      matchesGoldenFile('goldens/ledger_edit_bottom.png'),
+    );
+  });
+
   testWidgets('analysis matches its visual baseline', (tester) async {
     await configureViewport(tester);
     await pumpScreen(tester, const AnalysisOverviewScreen());
@@ -294,7 +407,12 @@ void main() {
   testWidgets('AI analysis matches its visual baseline', (tester) async {
     await configureViewport(tester);
     await pumpScreen(tester, const AnalysisOverviewScreen());
-    await tester.tap(find.text('AI분석'));
+    await tester.scrollUntilVisible(
+      find.text('AI'),
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('AI'));
     await tester.pump();
 
     await expectLater(
@@ -309,7 +427,7 @@ void main() {
     await configureViewport(tester);
     await pumpScreen(tester, const AnalysisOverviewScreen());
     await tester.drag(
-      find.byType(SingleChildScrollView),
+      find.byType(SingleChildScrollView).first,
       const Offset(0, -900),
     );
     await tester.pump();
@@ -394,4 +512,25 @@ void main() {
       matchesGoldenFile('goldens/pending_deletion.png'),
     );
   });
+}
+
+class _LedgerVisualService implements FinanceService {
+  @override
+  Future<Map<String, dynamic>> ledger({
+    required String period,
+    required DateTime anchor,
+    String type = 'all',
+    List<String> categories = const [],
+    List<String> paymentMethods = const [],
+  }) async => {
+    'total_expense_amount': 150000,
+    'total_income_amount': 0,
+    'expense_count': 23,
+    'income_count': 0,
+    'balance': -150000,
+    'days': <Map<String, dynamic>>[],
+  };
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

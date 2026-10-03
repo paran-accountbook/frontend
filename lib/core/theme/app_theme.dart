@@ -9,7 +9,7 @@ abstract final class AppTheme {
       scaffoldBackgroundColor: AppColors.background,
       colorScheme: const ColorScheme.dark(
         primary: AppColors.main,
-        surface: AppColors.background,
+        surface: AppColors.surface,
       ),
       fontFamily: 'Pretendard',
       splashFactory: NoSplash.splashFactory,

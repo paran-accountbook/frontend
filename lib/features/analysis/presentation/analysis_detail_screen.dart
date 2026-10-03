@@ -19,22 +19,58 @@ class AnalysisDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: ScrollableDesignCanvas(
-        height: 2151,
-        child: AnalysisDetailCanvas(
-          onNavigationSelected: onNavigationSelected,
-          onGoalSelected: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const AnalysisGoalScreen(
-                  background: AnalysisDetailCanvas(showNavigation: false),
-                ),
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: ScrollableDesignCanvas(
+              height: 2151,
+              child: AnalysisDetailCanvas(
+                showNavigation: false,
+                onNavigationSelected: onNavigationSelected,
+                onGoalSelected: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const AnalysisGoalScreen(),
+                    ),
+                  );
+                },
               ),
-            );
-          },
-        ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Center(
+              child: AppBottomNavigation(
+                selectedIndex: 3,
+                onSelected: (index) => _handleNavigation(context, index),
+              ),
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  void _handleNavigation(BuildContext context, int index) {
+    if (onNavigationSelected case final callback?) {
+      callback(index);
+      return;
+    }
+
+    final Widget? destination = switch (index) {
+      0 => const HomeScreen(),
+      1 => const LedgerScreen(),
+      2 => const RegisterTypeScreen(),
+      4 => const ProfileScreen(),
+      _ => null,
+    };
+    if (destination == null) return;
+
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute<void>(builder: (_) => destination));
   }
 }
 

@@ -9,9 +9,18 @@ abstract final class AppAssets {
       '$_iconRoot/splash_logo_wordmark.svg';
   static const String kakao = '$_iconRoot/kakao.svg';
   static const String mail = '$_iconRoot/mail.svg';
+  static const String receiptOriginal = '$_iconRoot/receipt_original.svg';
+  static const String expensePhoto = '$_iconRoot/expense_photo.svg';
+  static const String expensePhotoRemove =
+      '$_iconRoot/expense_photo_remove.svg';
+  static const String trashRed = '$_iconRoot/trash_red.svg';
+  static const String toastSuccess = '$_iconRoot/toast_success.svg';
+  static const String shareKakaoBubble = '$_iconRoot/share_kakao_bubble.svg';
+  static const String shareMessage = '$_iconRoot/share_message.svg';
   static const String arrowDown = '$_iconRoot/arrow_down.svg';
   static const String arrowSmall = '$_iconRoot/arrow_small.svg';
   static const String arrowBackLight = '$_iconRoot/arrow_back_light.svg';
+  static const String profileBack = '$_iconRoot/profile_back.svg';
   static const String closeDark = '$_iconRoot/close_dark.svg';
   static const String addLight = '$_iconRoot/add_light.svg';
   static const String deleteRed = '$_iconRoot/delete_red.svg';
@@ -25,8 +34,18 @@ abstract final class AppAssets {
   static const String deleteDot = '$_iconRoot/delete_dot.svg';
   static const String pendingDeletion = '$_iconRoot/pending_deletion.svg';
   static const String termsArrowRight = '$_iconRoot/terms_arrow_right.svg';
+  static const String arrowRightLight = termsArrowRight;
+  static const String filterLight = '$_iconRoot/filter_light.svg';
+  static const String ledgerFilterSelected =
+      '$_iconRoot/ledger_filter_selected.svg';
+  static const String ledgerFilterRemove =
+      '$_iconRoot/ledger_filter_remove.svg';
+  static const String ledgerEmptyFilter = '$_iconRoot/ledger_empty_filter.svg';
+  static const String ledgerFilterClose = '$_iconRoot/ledger_filter_close.svg';
   static const String avatarSelf = '$_iconRoot/avatar_self.svg';
   static const String editLight = '$_iconRoot/edit_light.svg';
+  static const String dutchShare = '$_iconRoot/dutch_share.svg';
+  static const String profileEdit = '$_iconRoot/profile_edit.svg';
   static const String monthArrowActive = '$_iconRoot/month_arrow_active.svg';
   static const String monthArrowDim = '$_iconRoot/month_arrow_dim.svg';
   static const String spendUp = '$_iconRoot/spend_up.svg';
@@ -47,9 +66,11 @@ abstract final class AppAssets {
   static const String profileAvatar = '$_iconRoot/profile_avatar.svg';
   static const String profileAttendance = '$_iconRoot/profile_attendance.svg';
   static const String profileRewards = '$_iconRoot/profile_rewards.svg';
+  static const String rewardPattern = '$_iconRoot/reward_pattern.svg';
   static const String profileNotifications =
       '$_iconRoot/profile_notifications.svg';
   static const String profileAccount = '$_iconRoot/profile_account.svg';
+  static const String profileSupport = '$_iconRoot/profile_support.svg';
   static const String profileArrow = '$_iconRoot/profile_arrow.svg';
   static const String divider = '$_iconRoot/divider.svg';
   static const String asteriskDividerDark =
@@ -72,32 +93,44 @@ abstract final class AppAssets {
   static const String receiptAddItem = '$_iconRoot/receipt_add_item.svg';
   static const String receiptRemoveItem = '$_iconRoot/receipt_remove_item.svg';
   static const String receiptDeleteItem = '$_iconRoot/receipt_delete_item.svg';
+  static const String ledgerItemAdd = '$_iconRoot/ledger_item_add.svg';
+  static const String ledgerItemRemove = '$_iconRoot/ledger_item_remove.svg';
+  static const String ledgerItemDelete = '$_iconRoot/ledger_item_delete.svg';
+  static const String ledgerItemDivider = '$_iconRoot/ledger_item_divider.svg';
+
+  static String categoryIconFor(String? category) => switch (category) {
+    '쇼핑' => categoryShopping,
+    '카페' || '카페/간식' => categoryCafe,
+    '교통' || '교통/차량' => categoryTransport,
+    '의료' || '건강' || '의료/건강' => categoryMedical,
+    '문화' || '문화/여가' => categoryCulture,
+    '교육' => categoryEducation,
+    '기타' => categoryOther,
+    _ => categoryFood,
+  };
 
   static const String navHome = '$_iconRoot/navigation/home.svg';
+  static const String navHomeSelected = '$_iconRoot/navigation/home_on.svg';
   static const String navLedger = '$_iconRoot/navigation/bookmark.svg';
+  static const String navLedgerSelected =
+      '$_iconRoot/navigation/bookmark_on.svg';
   static const String navRegister = '$_iconRoot/navigation/receipt_add.svg';
   static const String navAnalysis = '$_iconRoot/navigation/search.svg';
+  static const String navAnalysisSelected =
+      '$_iconRoot/navigation/search_on.svg';
   static const String navProfile = '$_iconRoot/navigation/user.svg';
+  static const String navProfileSelected = '$_iconRoot/navigation/user_on.svg';
 
   static const String homeReceipt = '$_imageRoot/home/summary_receipt.svg';
   static const String homeReceiptCompact =
       '$_imageRoot/home/summary_receipt_402.svg';
-  static const String homeBackground =
-      '$_imageRoot/background/home_background.png';
+  static const String expenseReceiptBackground =
+      '$_imageRoot/home/expense_receipt_background.svg';
+  static const String expenseReceiptBackgroundBottom =
+      '$_imageRoot/home/expense_receipt_background_bottom.svg';
   static const String homeBarcode = '$_imageRoot/home/barcode.svg';
   static const String verificationReceipt =
       '$_imageRoot/auth/verification_receipt.svg';
   static const String verificationCodeReceipt =
       '$_imageRoot/auth/verification_code_receipt.svg';
-  static const String authBackground =
-      '$_imageRoot/background/auth_background.png';
-  static const String splashBlobTopLeft =
-      '$_imageRoot/splash/blob_top_left.png';
-  static const String splashBlobTopRight =
-      '$_imageRoot/splash/blob_top_right.png';
-  static const String splashStarCenter = '$_imageRoot/splash/star_center.png';
-  static const String splashStarBottomLeft =
-      '$_imageRoot/splash/star_bottom_left.png';
-  static const String splashStarBottomRight =
-      '$_imageRoot/splash/star_bottom_right.png';
 }

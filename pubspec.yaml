@@ -1,7 +1,7 @@
 name: sobilog
 description: "Sobilog personal account book app."
 publish_to: 'none'
-version: 1.0.0+4
+version: 1.0.0+6
 
 environment:
   sdk: ^3.12.0
@@ -22,6 +22,7 @@ dependencies:
   url_launcher: ^6.3.2
   kakao_flutter_sdk_share: ^2.0.1
   kakao_flutter_sdk_user: ^2.0.1
+  sign_in_with_apple: ^8.2.0
 
 dev_dependencies:
   flutter_test:

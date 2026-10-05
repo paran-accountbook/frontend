@@ -24,7 +24,7 @@ void main() {
       MaterialApp(theme: AppTheme.dark, home: const LoginScreen()),
     );
 
-    expect(find.text('Ver 1.0.0'), findsOneWidget);
+    expect(find.text('Ver 1.0'), findsOneWidget);
   });
 
   for (final screen in <({String name, Widget widget})>[

@@ -8,6 +8,8 @@ abstract final class AppAssets {
   static const String splashLogoWordmark =
       '$_iconRoot/splash_logo_wordmark.svg';
   static const String kakao = '$_iconRoot/kakao.svg';
+  static const String appleLogo = '$_iconRoot/apple_logo.svg';
+  static const String loginError = '$_iconRoot/login_error.svg';
   static const String mail = '$_iconRoot/mail.svg';
   static const String receiptOriginal = '$_iconRoot/receipt_original.svg';
   static const String expensePhoto = '$_iconRoot/expense_photo.svg';

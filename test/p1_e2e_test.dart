@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sobilog/core/network/api_exception.dart';
 import 'package:sobilog/core/theme/app_theme.dart';
 import 'package:sobilog/features/auth/data/auth_service.dart';
+import 'package:sobilog/features/auth/data/apple_login_client.dart';
 import 'package:sobilog/features/auth/data/kakao_login_client.dart';
 import 'package:sobilog/features/auth/presentation/kakao_signup_name_screen.dart';
 import 'package:sobilog/features/auth/presentation/login_screen.dart';
@@ -66,6 +67,47 @@ void main() {
 
     expect(auth.agreedNickname, '소비로그');
     expect(auth.marketingAgreed, isFalse);
+  });
+
+  testWidgets('Apple 로그인은 identity token과 authorization code를 매번 전송한다', (
+    tester,
+  ) async {
+    final auth = _AppleAuthService();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: LoginScreen(
+          authService: auth,
+          appleLoginClient: const _FakeAppleLoginClient(),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Apple로 시작하기'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(auth.identityToken, 'identity-token');
+    expect(auth.authorizationCode, 'authorization-code');
+  });
+
+  testWidgets('Apple 이메일이 기존 이메일 계정과 겹치면 안내 모달을 표시한다', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: LoginScreen(
+          authService: _AppleConflictAuthService(),
+          appleLoginClient: const _FakeAppleLoginClient(),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Apple로 시작하기'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('이미 가입된 이메일이에요'), findsOneWidget);
+    expect(find.text('user@example.com'), findsOneWidget);
+    expect(find.text('이메일로 로그인'), findsWidgets);
   });
 
   testWidgets('P1 수입 목록에서 상세를 열고 PATCH 수정한다', (tester) async {
@@ -175,6 +217,33 @@ void main() {
     expect(find.text('전원 해제'), findsNothing);
     expect(find.text('3,334'), findsOneWidget);
     expect(find.text('3,333'), findsNWidgets(2));
+  });
+
+  testWidgets('P1 품목별 전원선택은 모든 참여자를 선택하고 다시 해제한다', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: const DutchAssignmentScreen(
+          items: [
+            {'id': 'item-1', 'item_name': '커피', 'amount': 9000, 'quantity': 3},
+          ],
+          participants: [
+            {'id': 'self', 'name': '나', 'is_self': true},
+            {'id': 'p2', 'name': '철수', 'is_self': false},
+            {'id': 'p3', 'name': '영희', 'is_self': false},
+          ],
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('dutch-select-all-item-1')));
+    await tester.pump();
+    expect(find.text('3명 선택 · 1인당'), findsOneWidget);
+    expect(find.text('3,000원'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('dutch-select-all-item-1')));
+    await tester.pump();
+    expect(find.text('0명 선택 · 1인당'), findsOneWidget);
   });
 
   testWidgets('P1 정산 결과는 서버의 잔돈 포함 상태와 이전 버튼을 표시한다', (tester) async {
@@ -327,6 +396,52 @@ class _CanceledKakaoLoginClient implements KakaoLoginClient {
     code: 'KAKAO_LOGIN_CANCELED',
     message: '카카오 로그인이 취소되었습니다',
   );
+}
+
+class _FakeAppleLoginClient implements AppleLoginClient {
+  const _FakeAppleLoginClient();
+
+  @override
+  Future<AppleLoginCredential> login() async => const AppleLoginCredential(
+    identityToken: 'identity-token',
+    authorizationCode: 'authorization-code',
+    email: 'user@example.com',
+  );
+}
+
+class _AppleAuthService implements AuthService {
+  String? identityToken;
+  String? authorizationCode;
+
+  @override
+  Future<Map<String, dynamic>> loginWithApple({
+    required String identityToken,
+    required String authorizationCode,
+  }) async {
+    this.identityToken = identityToken;
+    this.authorizationCode = authorizationCode;
+    return {'is_new_user': false, 'pending_deletion_at': null};
+  }
+
+  @override
+  Future<Map<String, dynamic>> termsStatus() async => {
+    'initial_agreement_required': false,
+    'reconsent_required': false,
+  };
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _AppleConflictAuthService implements AuthService {
+  @override
+  Future<Map<String, dynamic>> loginWithApple({
+    required String identityToken,
+    required String authorizationCode,
+  }) => throw const ApiException(code: 'E221', message: '이미 가입된 이메일입니다');
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _KakaoAuthService implements AuthService {

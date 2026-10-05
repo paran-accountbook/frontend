@@ -85,6 +85,24 @@ class _DutchAssignmentScreenState extends State<DutchAssignmentScreen> {
     });
   }
 
+  void _toggleAll(String itemId) {
+    setState(() {
+      final selected = _assignments.putIfAbsent(itemId, () => <String>{});
+      final participantIds = _participants
+          .map((participant) => participant['id'])
+          .whereType<String>()
+          .toSet();
+      if (participantIds.isNotEmpty && selected.containsAll(participantIds)) {
+        selected.clear();
+      } else {
+        selected
+          ..clear()
+          ..addAll(participantIds);
+      }
+      _error = null;
+    });
+  }
+
   int get _assignedCount =>
       _assignments.values.where((value) => value.isNotEmpty).length;
 
@@ -183,6 +201,8 @@ class _DutchAssignmentScreenState extends State<DutchAssignmentScreen> {
                           _assignments[_items[index]['id']] ?? const <String>{},
                       onToggle: (participantId) =>
                           _toggle(_items[index]['id'] as String, participantId),
+                      onToggleAll: () =>
+                          _toggleAll(_items[index]['id'] as String),
                     ),
                   ],
                   if (_error case final message?) ...[
@@ -216,11 +236,13 @@ class _AssignmentCard extends StatelessWidget {
     required this.participants,
     required this.selected,
     required this.onToggle,
+    required this.onToggleAll,
   });
   final Map<String, dynamic> item;
   final List<Map<String, dynamic>> participants;
   final Set<String> selected;
   final ValueChanged<String> onToggle;
+  final VoidCallback onToggleAll;
 
   @override
   Widget build(BuildContext context) {
@@ -266,8 +288,20 @@ class _AssignmentCard extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
+        _ParticipantRow(
+          key: ValueKey('dutch-select-all-${item['id']}'),
+          name: '전원선택',
+          checked:
+              participants.isNotEmpty && selected.length == participants.length,
+          amount: null,
+          onTap: onToggleAll,
+        ),
+        const Divider(height: 1, color: AppColors.text10),
         for (final participant in participants)
           _ParticipantRow(
+            key: ValueKey(
+              'dutch-participant-${item['id']}-${participant['id']}',
+            ),
             name: participant['name'] as String? ?? '',
             checked: selected.contains(participant['id']),
             amount: selected.contains(participant['id'])
@@ -302,6 +336,7 @@ class _AssignmentCard extends StatelessWidget {
 
 class _ParticipantRow extends StatelessWidget {
   const _ParticipantRow({
+    super.key,
     required this.name,
     required this.checked,
     required this.amount,

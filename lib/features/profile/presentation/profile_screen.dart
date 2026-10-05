@@ -134,6 +134,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         _profile?['provider'] as String? ??
                                         'email',
                                     authService: AppServices.auth,
+                                    financeService: widget.financeService,
                                   ),
                                 ),
                               ),

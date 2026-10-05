@@ -15,6 +15,10 @@ abstract interface class AuthService {
     required String password,
   });
   Future<Map<String, dynamic>> loginWithKakao(String kakaoAccessToken);
+  Future<Map<String, dynamic>> loginWithApple({
+    required String identityToken,
+    required String authorizationCode,
+  });
   Future<Map<String, dynamic>> termsDocument();
   Future<Map<String, dynamic>> termsStatus();
   Future<Map<String, dynamic>> myAgreement();
@@ -116,6 +120,25 @@ class AuthApiService implements AuthService {
         await _client.post(
               '/auth/kakao',
               body: {'kakao_access_token': kakaoAccessToken},
+              authenticated: false,
+            )
+            as Map<String, dynamic>;
+    await _saveTokens(data);
+    return data;
+  }
+
+  @override
+  Future<Map<String, dynamic>> loginWithApple({
+    required String identityToken,
+    required String authorizationCode,
+  }) async {
+    final data =
+        await _client.post(
+              '/auth/apple',
+              body: {
+                'identity_token': identityToken,
+                'authorization_code': authorizationCode,
+              },
               authenticated: false,
             )
             as Map<String, dynamic>;

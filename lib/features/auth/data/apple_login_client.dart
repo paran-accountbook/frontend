@@ -7,11 +7,15 @@ class AppleLoginCredential {
     required this.identityToken,
     required this.authorizationCode,
     this.email,
+    this.givenName,
+    this.familyName,
   });
 
   final String identityToken;
   final String authorizationCode;
   final String? email;
+  final String? givenName;
+  final String? familyName;
 }
 
 abstract interface class AppleLoginClient {
@@ -49,6 +53,8 @@ class AppleSdkLoginClient implements AppleLoginClient {
         identityToken: identityToken,
         authorizationCode: authorizationCode,
         email: credential.email ?? _emailFromIdentityToken(identityToken),
+        givenName: credential.givenName,
+        familyName: credential.familyName,
       );
     } on SignInWithAppleAuthorizationException catch (error) {
       if (error.code == AuthorizationErrorCode.canceled) {

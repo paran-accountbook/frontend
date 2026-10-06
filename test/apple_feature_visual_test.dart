@@ -150,6 +150,8 @@ class _SuccessfulAppleLoginClient implements AppleLoginClient {
     identityToken: 'identity-token',
     authorizationCode: 'authorization-code',
     email: 'user@example.com',
+    givenName: '길동',
+    familyName: '홍',
   );
 }
 
@@ -168,6 +170,9 @@ class _AppleConflictAuthService implements AuthService {
   Future<Map<String, dynamic>> loginWithApple({
     required String identityToken,
     required String authorizationCode,
+    String? email,
+    String? givenName,
+    String? familyName,
   }) => throw const ApiException(code: 'E221', message: '이미 가입된 이메일입니다');
 
   @override

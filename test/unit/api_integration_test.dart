@@ -100,12 +100,16 @@ void main() {
       await service.loginWithApple(
         identityToken: 'apple-identity-token',
         authorizationCode: 'apple-authorization-code',
+        email: 'user@privaterelay.appleid.com',
+        givenName: '길동',
+        familyName: '홍',
       );
       await service.termsDocument();
       await service.termsStatus();
       await service.myAgreement();
       await service.agreeToLatestTerms();
       await service.initialAgree(nickname: '소비로그', marketingAgreed: true);
+      await service.initialAgree(marketingAgreed: false);
 
       expect(
         requests.map((request) => '${request.method} ${request.url.path}'),
@@ -117,6 +121,7 @@ void main() {
           'GET /auth/terms/my-agreement',
           'POST /auth/terms/agree',
           'POST /auth/terms/initial-agree',
+          'POST /auth/terms/initial-agree',
         ],
       );
       expect(jsonDecode(requests.first.body), {
@@ -125,12 +130,20 @@ void main() {
       expect(jsonDecode(requests[1].body), {
         'identity_token': 'apple-identity-token',
         'authorization_code': 'apple-authorization-code',
+        'email': 'user@privaterelay.appleid.com',
+        'given_name': '길동',
+        'family_name': '홍',
       });
-      expect(jsonDecode(requests.last.body), {
+      expect(jsonDecode(requests[6].body), {
         'nickname': '소비로그',
         'terms_agreed': true,
         'privacy_agreed': true,
         'marketing_agreed': true,
+      });
+      expect(jsonDecode(requests.last.body), {
+        'terms_agreed': true,
+        'privacy_agreed': true,
+        'marketing_agreed': false,
       });
       expect(store.accessToken, 'access');
       expect(store.refreshToken, 'refresh');

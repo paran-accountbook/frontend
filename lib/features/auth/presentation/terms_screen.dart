@@ -21,7 +21,8 @@ class TermsScreen extends StatefulWidget {
     this.onAgreed,
     this.onConsentCompleted,
     this.authService,
-    this.kakaoSignup = false,
+    this.socialSignup = false,
+    this.requiresNickname = false,
     this.reconsent = false,
     this.documentLauncher,
   });
@@ -30,7 +31,8 @@ class TermsScreen extends StatefulWidget {
   final VoidCallback? onAgreed;
   final ValueChanged<bool>? onConsentCompleted;
   final AuthService? authService;
-  final bool kakaoSignup;
+  final bool socialSignup;
+  final bool requiresNickname;
   final bool reconsent;
   final Future<bool> Function(Uri uri)? documentLauncher;
 
@@ -113,16 +115,33 @@ class _TermsScreenState extends State<TermsScreen> {
         if (mounted) setState(() => _isLoading = false);
       }
       if (!mounted) return;
-    } else if (widget.kakaoSignup) {
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => KakaoSignupNameScreen(
-            authService: widget.authService ?? AppServices.auth,
-            marketingAgreed: false,
+    } else if (widget.socialSignup) {
+      if (widget.requiresNickname) {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => KakaoSignupNameScreen(
+              authService: widget.authService ?? AppServices.auth,
+              marketingAgreed: false,
+            ),
           ),
-        ),
-      );
-      return;
+        );
+        return;
+      }
+      setState(() {
+        _isLoading = true;
+        _apiError = null;
+      });
+      try {
+        await (widget.authService ?? AppServices.auth).initialAgree(
+          marketingAgreed: false,
+        );
+      } on ApiException catch (error) {
+        if (mounted) setState(() => _apiError = error.message);
+        return;
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+      if (!mounted) return;
     } else if (widget.reconsent) {
       setState(() {
         _isLoading = true;
@@ -143,6 +162,7 @@ class _TermsScreenState extends State<TermsScreen> {
         builder: (_) =>
             widget.authService == null &&
                 widget.signupDraft == null &&
+                !widget.socialSignup &&
                 !widget.reconsent
             ? const HomeScreen()
             : HomeScreen(financeService: AppServices.finance),

@@ -102,6 +102,9 @@ class _LoginScreenState extends State<LoginScreen> {
       final login = await auth.loginWithApple(
         identityToken: credential.identityToken,
         authorizationCode: credential.authorizationCode,
+        email: credential.email,
+        givenName: credential.givenName,
+        familyName: credential.familyName,
       );
       if (!mounted) return;
       await _finishSocialLogin(login, auth);
@@ -137,10 +140,29 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    final termsAgreed = login['terms_agreed'] as bool?;
+    final profileComplete = login['profile_complete'] as bool? ?? false;
+    if (termsAgreed == false) {
+      _replaceAll(
+        TermsScreen(
+          authService: auth,
+          socialSignup: true,
+          requiresNickname: !profileComplete,
+        ),
+      );
+      return;
+    }
+
     final status = await auth.termsStatus();
     if (!mounted) return;
     if (status['initial_agreement_required'] == true) {
-      _replaceAll(TermsScreen(authService: auth, kakaoSignup: true));
+      _replaceAll(
+        TermsScreen(
+          authService: auth,
+          socialSignup: true,
+          requiresNickname: !profileComplete,
+        ),
+      );
     } else if (status['reconsent_required'] == true) {
       _replaceAll(TermsScreen(authService: auth, reconsent: true));
     } else {

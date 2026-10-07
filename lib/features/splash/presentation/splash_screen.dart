@@ -57,7 +57,16 @@ class _SplashScreenState extends State<SplashScreen> {
       final status = await AppServices.auth.termsStatus();
       if (!mounted) return;
       if (status['initial_agreement_required'] == true) {
-        _replace(TermsScreen(authService: AppServices.auth, kakaoSignup: true));
+        final profile = await AppServices.finance.profile();
+        if (!mounted) return;
+        final nickname = profile['nickname'] as String? ?? '';
+        _replace(
+          TermsScreen(
+            authService: AppServices.auth,
+            socialSignup: true,
+            requiresNickname: nickname.trim().isEmpty,
+          ),
+        );
       } else if (status['reconsent_required'] == true) {
         _replace(TermsScreen(authService: AppServices.auth, reconsent: true));
       } else {

@@ -72,53 +72,83 @@ void main() {
     );
   });
 
-  test('kakao and all terms endpoints follow backend contracts', () async {
-    final requests = <http.Request>[];
-    final store = _MemorySessionStore();
-    final client = ApiClient(
-      baseUrl: 'https://api.sobilog.kr',
-      sessionStore: store,
-      httpClient: MockClient((request) async {
-        requests.add(request);
-        final data = request.url.path == '/auth/kakao'
-            ? {
-                'access_token': 'access',
-                'refresh_token': 'refresh',
-                'is_new_user': true,
-              }
-            : <String, dynamic>{};
-        return http.Response(jsonEncode({'data': data}), 200);
-      }),
-    );
-    final service = AuthApiService(client);
+  test(
+    'social login and all terms endpoints follow backend contracts',
+    () async {
+      final requests = <http.Request>[];
+      final store = _MemorySessionStore();
+      final client = ApiClient(
+        baseUrl: 'https://api.sobilog.kr',
+        sessionStore: store,
+        httpClient: MockClient((request) async {
+          requests.add(request);
+          final data =
+              request.url.path == '/auth/kakao' ||
+                  request.url.path == '/auth/apple'
+              ? {
+                  'access_token': 'access',
+                  'refresh_token': 'refresh',
+                  'is_new_user': true,
+                }
+              : <String, dynamic>{};
+          return http.Response(jsonEncode({'data': data}), 200);
+        }),
+      );
+      final service = AuthApiService(client);
 
-    await service.loginWithKakao('kakao-token');
-    await service.termsDocument();
-    await service.termsStatus();
-    await service.myAgreement();
-    await service.agreeToLatestTerms();
-    await service.initialAgree(nickname: '소비로그', marketingAgreed: true);
+      await service.loginWithKakao('kakao-token');
+      await service.loginWithApple(
+        identityToken: 'apple-identity-token',
+        authorizationCode: 'apple-authorization-code',
+        email: 'user@privaterelay.appleid.com',
+        givenName: '길동',
+        familyName: '홍',
+      );
+      await service.termsDocument();
+      await service.termsStatus();
+      await service.myAgreement();
+      await service.agreeToLatestTerms();
+      await service.initialAgree(nickname: '소비로그', marketingAgreed: true);
+      await service.initialAgree(marketingAgreed: false);
 
-    expect(requests.map((request) => '${request.method} ${request.url.path}'), [
-      'POST /auth/kakao',
-      'GET /auth/terms/document',
-      'GET /auth/terms/status',
-      'GET /auth/terms/my-agreement',
-      'POST /auth/terms/agree',
-      'POST /auth/terms/initial-agree',
-    ]);
-    expect(jsonDecode(requests.first.body), {
-      'kakao_access_token': 'kakao-token',
-    });
-    expect(jsonDecode(requests.last.body), {
-      'nickname': '소비로그',
-      'terms_agreed': true,
-      'privacy_agreed': true,
-      'marketing_agreed': true,
-    });
-    expect(store.accessToken, 'access');
-    expect(store.refreshToken, 'refresh');
-  });
+      expect(
+        requests.map((request) => '${request.method} ${request.url.path}'),
+        [
+          'POST /auth/kakao',
+          'POST /auth/apple',
+          'GET /auth/terms/document',
+          'GET /auth/terms/status',
+          'GET /auth/terms/my-agreement',
+          'POST /auth/terms/agree',
+          'POST /auth/terms/initial-agree',
+          'POST /auth/terms/initial-agree',
+        ],
+      );
+      expect(jsonDecode(requests.first.body), {
+        'kakao_access_token': 'kakao-token',
+      });
+      expect(jsonDecode(requests[1].body), {
+        'identity_token': 'apple-identity-token',
+        'authorization_code': 'apple-authorization-code',
+        'email': 'user@privaterelay.appleid.com',
+        'given_name': '길동',
+        'family_name': '홍',
+      });
+      expect(jsonDecode(requests[6].body), {
+        'nickname': '소비로그',
+        'terms_agreed': true,
+        'privacy_agreed': true,
+        'marketing_agreed': true,
+      });
+      expect(jsonDecode(requests.last.body), {
+        'terms_agreed': true,
+        'privacy_agreed': true,
+        'marketing_agreed': false,
+      });
+      expect(store.accessToken, 'access');
+      expect(store.refreshToken, 'refresh');
+    },
+  );
 
   test('login persists access and refresh tokens', () async {
     final store = _MemorySessionStore();

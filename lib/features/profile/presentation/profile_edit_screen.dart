@@ -163,6 +163,23 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     return '${local.year}년 ${local.month}월 ${local.day}일 $period $hour:${local.minute.toString().padLeft(2, '0')}';
   }
 
+  String get _provider => widget.initialData?['provider'] as String? ?? 'email';
+
+  String get _emailDisplay {
+    final email = widget.initialData?['email'] as String?;
+    return switch (_provider) {
+      'apple'
+          when email != null &&
+              email.isNotEmpty &&
+              !email.endsWith('@apple.sobilog.internal') =>
+        'Apple 로그인 · $email',
+      'apple' => 'Apple 로그인',
+      'kakao' => '카카오 로그인',
+      _ =>
+        email ?? (widget.financeService == null ? 'welcome@sobilog.com' : '-'),
+    };
+  }
+
   void _navigate(int index) {
     final Widget? destination = switch (index) {
       0 => HomeScreen(financeService: widget.financeService),
@@ -222,26 +239,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                   onTap: _editNickname,
                 ),
                 const SizedBox(height: 20),
-                _ProfileRow(
-                  label: '가입 이메일',
-                  value:
-                      widget.initialData?['email'] as String? ??
-                      (widget.financeService == null
-                          ? 'welcome@sobilog.com'
-                          : '-'),
-                  helper: '수정할 수 없어요',
-                ),
+                _ProfileRow(label: '가입 이메일', value: _emailDisplay),
                 const SizedBox(height: 20),
                 _ProfileRow(label: '가입일', value: _createdAt),
-                const SizedBox(height: 20),
-                _ProfileRow(
-                  label: '가입 수단',
-                  value: switch (widget.initialData?['provider']) {
-                    'kakao' => '카카오',
-                    'email' => '이메일',
-                    _ => '-',
-                  },
-                ),
                 const SizedBox(height: 20),
                 const _ProfileAsterisks(),
                 const SizedBox(height: 20),
@@ -252,6 +252,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     style: TextStyle(
                       color: AppColors.text50,
                       fontSize: 14,
+                      fontWeight: FontWeight.w500,
                       height: 17 / 14,
                     ),
                   ),
@@ -282,13 +283,11 @@ class _ProfileRow extends StatelessWidget {
     required this.value,
     this.arrow = false,
     this.onTap,
-    this.helper,
   });
   final String label;
   final String value;
   final bool arrow;
   final VoidCallback? onTap;
-  final String? helper;
   @override
   Widget build(BuildContext context) => GestureDetector(
     onTap: onTap,
@@ -303,6 +302,7 @@ class _ProfileRow extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.text50,
               fontSize: 14,
+              fontWeight: FontWeight.w500,
               height: 17 / 14,
             ),
           ),
@@ -311,28 +311,15 @@ class _ProfileRow extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Flexible(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        value,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.text,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          height: 17 / 14,
-                        ),
-                      ),
-                      if (helper case final message?)
-                        Text(
-                          message,
-                          style: const TextStyle(
-                            color: AppColors.text50,
-                            fontSize: 11,
-                          ),
-                        ),
-                    ],
+                  child: Text(
+                    value,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.text,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      height: 17 / 14,
+                    ),
                   ),
                 ),
                 if (arrow) ...[
@@ -374,7 +361,7 @@ class _AccountCard extends StatelessWidget {
     onTap: onTap,
     child: Container(
       width: 354,
-      height: 80,
+      height: 88,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.main,
@@ -391,6 +378,7 @@ class _AccountCard extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.text,
                     fontSize: 14,
+                    fontWeight: FontWeight.w500,
                     height: 17 / 14,
                   ),
                 ),
@@ -402,7 +390,7 @@ class _AccountCard extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.text80,
                     fontSize: 12,
-                    height: 14 / 12,
+                    height: 21 / 12,
                   ),
                 ),
               ],

@@ -15,12 +15,19 @@ abstract interface class AuthService {
     required String password,
   });
   Future<Map<String, dynamic>> loginWithKakao(String kakaoAccessToken);
+  Future<Map<String, dynamic>> loginWithApple({
+    required String identityToken,
+    required String authorizationCode,
+    String? email,
+    String? givenName,
+    String? familyName,
+  });
   Future<Map<String, dynamic>> termsDocument();
   Future<Map<String, dynamic>> termsStatus();
   Future<Map<String, dynamic>> myAgreement();
   Future<Map<String, dynamic>> agreeToLatestTerms();
   Future<Map<String, dynamic>> initialAgree({
-    required String nickname,
+    String? nickname,
     required bool marketingAgreed,
   });
   Future<void> sendPasswordResetCode(String email);
@@ -124,6 +131,28 @@ class AuthApiService implements AuthService {
   }
 
   @override
+  Future<Map<String, dynamic>> loginWithApple({
+    required String identityToken,
+    required String authorizationCode,
+    String? email,
+    String? givenName,
+    String? familyName,
+  }) async {
+    final body = <String, Object?>{
+      'identity_token': identityToken,
+      'authorization_code': authorizationCode,
+    };
+    if (email != null) body['email'] = email;
+    if (givenName != null) body['given_name'] = givenName;
+    if (familyName != null) body['family_name'] = familyName;
+    final data =
+        await _client.post('/auth/apple', body: body, authenticated: false)
+            as Map<String, dynamic>;
+    await _saveTokens(data);
+    return data;
+  }
+
+  @override
   Future<Map<String, dynamic>> termsDocument() async =>
       await _client.get('/auth/terms/document', authenticated: false)
           as Map<String, dynamic>;
@@ -142,19 +171,18 @@ class AuthApiService implements AuthService {
 
   @override
   Future<Map<String, dynamic>> initialAgree({
-    required String nickname,
+    String? nickname,
     required bool marketingAgreed,
-  }) async =>
-      await _client.post(
-            '/auth/terms/initial-agree',
-            body: {
-              'nickname': nickname,
-              'terms_agreed': true,
-              'privacy_agreed': true,
-              'marketing_agreed': marketingAgreed,
-            },
-          )
-          as Map<String, dynamic>;
+  }) async {
+    final body = <String, Object?>{
+      'terms_agreed': true,
+      'privacy_agreed': true,
+      'marketing_agreed': marketingAgreed,
+    };
+    if (nickname != null) body['nickname'] = nickname;
+    return await _client.post('/auth/terms/initial-agree', body: body)
+        as Map<String, dynamic>;
+  }
 
   Future<void> _saveTokens(Map<String, dynamic> data) async {
     final access = data['access_token'] as String?;

@@ -7,8 +7,14 @@ import '../../../core/network/app_services.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../../shared/widgets/app_chevron.dart';
+import '../../../shared/widgets/app_bottom_navigation.dart';
+import '../../analysis/presentation/analysis_overview_screen.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../../auth/data/auth_service.dart';
+import '../../finance/data/finance_service.dart';
+import '../../home/presentation/home_screen.dart';
+import '../../ledger/presentation/ledger_screen.dart';
+import '../../register/presentation/register_type_screen.dart';
 import 'account_delete_screen.dart';
 import 'password_change_screen.dart';
 
@@ -17,9 +23,11 @@ class AccountSettingsScreen extends StatelessWidget {
     super.key,
     this.provider = 'email',
     this.authService,
+    this.financeService,
   });
   final String provider;
   final AuthService? authService;
+  final FinanceService? financeService;
   @override
   Widget build(BuildContext context) {
     final service = authService ?? AppServices.auth;
@@ -67,6 +75,15 @@ class AccountSettingsScreen extends StatelessWidget {
                         ),
                       ),
                     ),
+                  if (provider != 'email')
+                    _SettingRow(
+                      label: '로그인 수단',
+                      value: switch (provider) {
+                        'apple' => 'Apple',
+                        'kakao' => '카카오',
+                        _ => '-',
+                      },
+                    ),
                   _SettingRow(
                     label: '서비스 이용약관',
                     value: '보기',
@@ -97,6 +114,14 @@ class AccountSettingsScreen extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ),
+            Positioned(
+              left: 0,
+              bottom: 0,
+              child: AppBottomNavigation(
+                selectedIndex: 4,
+                onSelected: (index) => _handleNavigation(context, index),
               ),
             ),
           ],
@@ -154,6 +179,23 @@ class AccountSettingsScreen extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('약관을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요')),
     );
+  }
+
+  void _handleNavigation(BuildContext context, int index) {
+    if (index == 4) {
+      Navigator.of(context).maybePop();
+      return;
+    }
+    final Widget destination = switch (index) {
+      0 => HomeScreen(financeService: financeService),
+      1 => LedgerScreen(financeService: financeService),
+      2 => RegisterTypeScreen(financeService: financeService),
+      3 => AnalysisOverviewScreen(financeService: financeService),
+      _ => HomeScreen(financeService: financeService),
+    };
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute<void>(builder: (_) => destination));
   }
 }
 

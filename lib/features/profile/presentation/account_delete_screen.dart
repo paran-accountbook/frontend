@@ -104,7 +104,7 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
             left: 24,
             top: 177,
             child: Text(
-              '탈퇴하면 아래 데이터가 모두 삭제돼요',
+              '탈퇴하면 아래 데이터가 모두 삭제됩니다',
               style: TextStyle(
                 color: AppColors.text80,
                 fontSize: 15,
@@ -195,7 +195,11 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
         Text(
           '• 14일 안에 다시 로그인하시면 탈퇴를 취소할 수 있습니다\n'
           '• 삭제된 데이터는 복구할 수 없습니다',
-          style: TextStyle(color: AppColors.text80, fontSize: 12, height: 1.35),
+          style: TextStyle(
+            color: AppColors.text80,
+            fontSize: 12,
+            height: 21 / 12,
+          ),
         ),
       ],
     ),
@@ -275,7 +279,7 @@ class _SocialDeleteConfirmationDialog extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 18),
-        const Divider(height: 1, thickness: 1, color: AppColors.text20),
+        const Divider(height: 0.5, thickness: 0.5, color: AppColors.text20),
         const SizedBox(height: 18),
         const Text(
           '14일이 지나면 모든 데이터가 삭제돼요',
@@ -283,7 +287,7 @@ class _SocialDeleteConfirmationDialog extends StatelessWidget {
           style: TextStyle(
             color: Color(0xFFFF7373),
             fontSize: 14,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w400,
             height: 17 / 14,
           ),
         ),
@@ -301,6 +305,7 @@ class _SocialDeleteConfirmationDialog extends StatelessWidget {
                   label: '탈퇴하기',
                   color: const Color(0xFFCF376A),
                   textColor: Colors.white,
+                  fontWeight: FontWeight.w700,
                   onPressed: onConfirm,
                 ),
               ),
@@ -318,12 +323,14 @@ class _DialogActionButton extends StatelessWidget {
     required this.onPressed,
     this.color = AppColors.selected,
     this.textColor = AppColors.text,
+    this.fontWeight = FontWeight.w600,
   });
 
   final String label;
   final VoidCallback onPressed;
   final Color color;
   final Color textColor;
+  final FontWeight fontWeight;
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -342,7 +349,7 @@ class _DialogActionButton extends StatelessWidget {
         style: TextStyle(
           color: textColor,
           fontSize: 15,
-          fontWeight: FontWeight.w600,
+          fontWeight: fontWeight,
           height: 18 / 15,
         ),
       ),

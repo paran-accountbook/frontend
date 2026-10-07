@@ -252,6 +252,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     style: TextStyle(
                       color: AppColors.text50,
                       fontSize: 14,
+                      fontWeight: FontWeight.w500,
                       height: 17 / 14,
                     ),
                   ),
@@ -301,6 +302,7 @@ class _ProfileRow extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.text50,
               fontSize: 14,
+              fontWeight: FontWeight.w500,
               height: 17 / 14,
             ),
           ),
@@ -359,7 +361,7 @@ class _AccountCard extends StatelessWidget {
     onTap: onTap,
     child: Container(
       width: 354,
-      height: 80,
+      height: 88,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.main,
@@ -376,6 +378,7 @@ class _AccountCard extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.text,
                     fontSize: 14,
+                    fontWeight: FontWeight.w500,
                     height: 17 / 14,
                   ),
                 ),
@@ -387,7 +390,7 @@ class _AccountCard extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.text80,
                     fontSize: 12,
-                    height: 14 / 12,
+                    height: 21 / 12,
                   ),
                 ),
               ],

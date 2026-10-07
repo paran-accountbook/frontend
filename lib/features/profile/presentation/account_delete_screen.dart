@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -24,7 +26,7 @@ class AccountDeleteScreen extends StatefulWidget {
 
 class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
   final _password = TextEditingController();
-  bool _confirmationStep = false;
+  bool _emailConfirmationStep = false;
   bool _isLoading = false;
   String? _error;
   @override
@@ -43,7 +45,13 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
         password: widget.provider == 'email' ? _password.text : null,
       );
     } on ApiException catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      if (!mounted) return;
+      setState(() => _error = error.message);
+      if (!_isEmailProvider) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
       return;
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -71,8 +79,8 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
             child: IconButton(
               padding: EdgeInsets.zero,
               onPressed: () {
-                if (_confirmationStep) {
-                  setState(() => _confirmationStep = false);
+                if (_emailConfirmationStep) {
+                  setState(() => _emailConfirmationStep = false);
                 } else {
                   Navigator.of(context).maybePop();
                 }
@@ -104,21 +112,70 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
               ),
             ),
           ),
-          if (_confirmationStep) _buildConfirmation() else _buildSummary(),
+          if (_emailConfirmationStep)
+            _buildEmailConfirmation()
+          else
+            _buildSummary(),
           AuthBottomAction(
-            label: _confirmationStep ? (_isLoading ? '처리 중...' : '확인') : '다음',
-            onPressed: _confirmationStep
+            label: _emailConfirmationStep
+                ? (_isLoading ? '처리 중...' : '확인')
+                : '다음',
+            onPressed: _emailConfirmationStep
                 ? (_canSubmit && !_isLoading ? _submit : null)
-                : () => setState(() => _confirmationStep = true),
+                : _isLoading
+                ? null
+                : _onNext,
           ),
         ],
       ),
     ),
   );
 
-  bool get _canSubmit => widget.provider == 'email'
-      ? _password.text.isNotEmpty
-      : _password.text.trim() == '탈퇴';
+  bool get _isEmailProvider => widget.provider == 'email';
+
+  bool get _canSubmit => _password.text.isNotEmpty;
+
+  void _onNext() {
+    if (_isEmailProvider) {
+      setState(() => _emailConfirmationStep = true);
+      return;
+    }
+    _showSocialDeleteConfirmation();
+  }
+
+  Future<void> _showSocialDeleteConfirmation() => showGeneralDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    barrierColor: Colors.transparent,
+    barrierLabel: '회원 탈퇴 재확인',
+    transitionDuration: const Duration(milliseconds: 150),
+    transitionBuilder: (context, animation, secondaryAnimation, child) =>
+        FadeTransition(opacity: animation, child: child),
+    pageBuilder: (dialogContext, animation, secondaryAnimation) => Material(
+      color: Colors.transparent,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                child: const ColoredBox(color: Color(0x80121215)),
+              ),
+            ),
+          ),
+          Center(
+            child: _SocialDeleteConfirmationDialog(
+              onCancel: () => Navigator.of(dialogContext).pop(),
+              onConfirm: () {
+                Navigator.of(dialogContext).pop();
+                _submit();
+              },
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 
   Widget _buildSummary() => const Positioned(
     left: 24,
@@ -144,15 +201,15 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
     ),
   );
 
-  Widget _buildConfirmation() => Positioned(
+  Widget _buildEmailConfirmation() => Positioned(
     left: 24,
     right: 24,
     top: 376,
     child: Column(
       children: [
-        Text(
-          widget.provider == 'email' ? '비밀번호를 입력하세요' : '탈퇴를 입력하세요',
-          style: const TextStyle(
+        const Text(
+          '비밀번호를 입력하세요',
+          style: TextStyle(
             color: AppColors.text,
             fontSize: 14,
             fontWeight: FontWeight.w500,
@@ -161,8 +218,8 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
         const SizedBox(height: 20),
         AuthTextField(
           controller: _password,
-          hintText: widget.provider == 'email' ? '비밀번호' : '탈퇴 입력',
-          obscureText: widget.provider == 'email',
+          hintText: '비밀번호',
+          obscureText: true,
           onChanged: (_) => setState(() {}),
         ),
         if (_error case final message?) ...[
@@ -173,6 +230,122 @@ class _AccountDeleteScreenState extends State<AccountDeleteScreen> {
           ),
         ],
       ],
+    ),
+  );
+}
+
+class _SocialDeleteConfirmationDialog extends StatelessWidget {
+  const _SocialDeleteConfirmationDialog({
+    required this.onCancel,
+    required this.onConfirm,
+  });
+
+  final VoidCallback onCancel;
+  final VoidCallback onConfirm;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 354,
+    padding: const EdgeInsets.symmetric(vertical: 33),
+    decoration: BoxDecoration(
+      color: AppColors.secondary,
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text(
+          '정말 탈퇴할까요?',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColors.text,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            height: 17 / 14,
+          ),
+        ),
+        const SizedBox(height: 18),
+        const Text(
+          '14일 안에 다시 로그인하면 탈퇴를 취소할 수 있어요',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColors.text80,
+            fontSize: 12,
+            height: 14 / 12,
+          ),
+        ),
+        const SizedBox(height: 18),
+        const Divider(height: 1, thickness: 1, color: AppColors.text20),
+        const SizedBox(height: 18),
+        const Text(
+          '14일이 지나면 모든 데이터가 삭제돼요',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Color(0xFFFF7373),
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            height: 17 / 14,
+          ),
+        ),
+        const SizedBox(height: 18),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            children: [
+              Expanded(
+                child: _DialogActionButton(label: '취소', onPressed: onCancel),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: _DialogActionButton(
+                  label: '탈퇴하기',
+                  color: const Color(0xFFCF376A),
+                  textColor: Colors.white,
+                  onPressed: onConfirm,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _DialogActionButton extends StatelessWidget {
+  const _DialogActionButton({
+    required this.label,
+    required this.onPressed,
+    this.color = AppColors.selected,
+    this.textColor = AppColors.text,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+  final Color color;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 56,
+    child: OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        padding: EdgeInsets.zero,
+        backgroundColor: color,
+        foregroundColor: textColor,
+        side: const BorderSide(color: AppColors.text20),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          height: 18 / 15,
+        ),
+      ),
     ),
   );
 }

@@ -165,13 +165,20 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
   String get _provider => widget.initialData?['provider'] as String? ?? 'email';
 
-  String get _emailDisplay => switch (_provider) {
-    'apple' => 'Apple 로그인 · 이메일 가림',
-    'kakao' => '카카오 로그인 · 이메일 가림',
-    _ =>
-      widget.initialData?['email'] as String? ??
-          (widget.financeService == null ? 'welcome@sobilog.com' : '-'),
-  };
+  String get _emailDisplay {
+    final email = widget.initialData?['email'] as String?;
+    return switch (_provider) {
+      'apple'
+          when email != null &&
+              email.isNotEmpty &&
+              !email.endsWith('@apple.sobilog.internal') =>
+        'Apple 로그인 · $email',
+      'apple' => 'Apple 로그인',
+      'kakao' => '카카오 로그인',
+      _ =>
+        email ?? (widget.financeService == null ? 'welcome@sobilog.com' : '-'),
+    };
+  }
 
   void _navigate(int index) {
     final Widget? destination = switch (index) {
@@ -232,11 +239,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                   onTap: _editNickname,
                 ),
                 const SizedBox(height: 20),
-                _ProfileRow(
-                  label: '가입 이메일',
-                  value: _emailDisplay,
-                  arrow: _provider == 'email',
-                ),
+                _ProfileRow(label: '가입 이메일', value: _emailDisplay),
                 const SizedBox(height: 20),
                 _ProfileRow(label: '가입일', value: _createdAt),
                 const SizedBox(height: 20),

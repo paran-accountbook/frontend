@@ -281,7 +281,8 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
         }
         return;
       case _ShareTarget.message:
-        final uri = Uri(scheme: 'sms', queryParameters: {'body': message});
+        // Some SMS apps display form-encoded spaces (+) literally.
+        final uri = Uri.parse('sms:?body=${Uri.encodeComponent(message)}');
         if (await canLaunchUrl(uri)) {
           await launchUrl(uri, mode: LaunchMode.externalApplication);
         } else {

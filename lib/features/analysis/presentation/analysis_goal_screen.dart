@@ -252,8 +252,8 @@ class _GoalForm extends StatelessWidget {
                 onTap: onEdit,
                 child: SvgPicture.asset(
                   AppAssets.editLight,
-                  width: 17,
-                  height: 16,
+                  width: 34,
+                  height: 34,
                 ),
               ),
             ],

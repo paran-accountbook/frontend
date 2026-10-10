@@ -293,7 +293,9 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
                                 child: TextFormField(
                                   key: Key('receipt-item-price-input-$index'),
                                   initialValue: unitPrice.toString(),
-                                  keyboardType: TextInputType.number,
+                                  // The numeric keypad has no Done key on iOS.
+                                  // Keep digits-only input while exposing Return.
+                                  keyboardType: TextInputType.text,
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
                                     LengthLimitingTextInputFormatter(9),

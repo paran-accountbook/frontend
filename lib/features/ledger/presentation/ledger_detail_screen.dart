@@ -457,6 +457,7 @@ class _ReceiptDetailState extends State<_ReceiptDetail> {
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
+    final memo = (data?['memo'] as String?)?.trim();
     final receiptImageUrl = data?['receipt_image_url'] as String?;
     final photos =
         (data?['photos'] as List?)
@@ -622,8 +623,10 @@ class _ReceiptDetailState extends State<_ReceiptDetail> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  data?['memo'] as String? ?? '과제하다가 친구랑 마심',
-                  style: _darkLabel,
+                  memo == null || memo.isEmpty ? '메모를 입력해 주세요' : memo,
+                  style: memo == null || memo.isEmpty
+                      ? _darkFieldMuted
+                      : _darkLabel,
                 ),
               ),
               const SizedBox(height: 120),

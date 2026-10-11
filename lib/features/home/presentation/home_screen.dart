@@ -587,7 +587,7 @@ class _RecentRow extends StatelessWidget {
               ),
             ),
             _LightPrice(
-              amount: '${isIncome ? '+' : ''}${_formatAmount(amount)}',
+              amount: '${isIncome ? '+' : '-'}${_formatAmount(amount.abs())}',
               color: isIncome ? const Color(0xFF6E9CFF) : AppColors.text,
             ),
           ],

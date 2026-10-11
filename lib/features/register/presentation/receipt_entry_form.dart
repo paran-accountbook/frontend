@@ -44,7 +44,7 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
                   <String, dynamic>{
                     'item_name': '',
                     'quantity': 1,
-                    'unit_price': 0,
+                    'unit_price': null,
                   },
                 ]
               : List.generate(
@@ -292,7 +292,8 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
                                 width: 62,
                                 child: TextFormField(
                                   key: Key('receipt-item-price-input-$index'),
-                                  initialValue: unitPrice.toString(),
+                                  initialValue:
+                                      item['unit_price']?.toString() ?? '',
                                   // The numeric keypad has no Done key on iOS.
                                   // Keep digits-only input while exposing Return.
                                   keyboardType: TextInputType.text,
@@ -312,8 +313,9 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
                                     border: InputBorder.none,
                                   ),
                                   onChanged: (value) => setState(
-                                    () => item['unit_price'] =
-                                        int.tryParse(value) ?? 0,
+                                    () => item['unit_price'] = int.tryParse(
+                                      value,
+                                    ),
                                   ),
                                   onFieldSubmitted: (_) => _finishItemEditing(
                                     index,
@@ -522,7 +524,7 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
 
   void _addItem() {
     setState(() {
-      _items.add({'item_name': '', 'quantity': 1, 'unit_price': 0});
+      _items.add({'item_name': '', 'quantity': 1, 'unit_price': null});
       _quantities.add(1);
     });
   }
@@ -624,8 +626,8 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
     final items = <Map<String, Object?>>[];
     for (var index = 0; index < _items.length; index++) {
       final name = _items[index]['item_name'] as String? ?? '';
-      final price = _items[index]['unit_price'] as int? ?? 0;
-      if (name.trim().isEmpty || price == 0) return null;
+      final price = _items[index]['unit_price'] as int?;
+      if (name.trim().isEmpty || price == null) return null;
       items.add({
         'item_name': name.trim(),
         'quantity': _quantities[index],

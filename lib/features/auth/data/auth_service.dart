@@ -8,6 +8,7 @@ abstract interface class AuthService {
     required String email,
     required String password,
     required String nickname,
+    required bool ageConfirmed,
     required bool marketingAgreed,
   });
   Future<Map<String, dynamic>> login({
@@ -28,6 +29,7 @@ abstract interface class AuthService {
   Future<Map<String, dynamic>> agreeToLatestTerms();
   Future<Map<String, dynamic>> initialAgree({
     String? nickname,
+    required bool ageConfirmed,
     required bool marketingAgreed,
   });
   Future<void> sendPasswordResetCode(String email);
@@ -81,6 +83,7 @@ class AuthApiService implements AuthService {
     required String email,
     required String password,
     required String nickname,
+    required bool ageConfirmed,
     required bool marketingAgreed,
   }) async {
     final data =
@@ -93,6 +96,7 @@ class AuthApiService implements AuthService {
                 'nickname': nickname,
                 'terms_agreed': true,
                 'privacy_agreed': true,
+                'age_confirmed': ageConfirmed,
                 'marketing_agreed': marketingAgreed,
               },
               authenticated: false,
@@ -172,11 +176,13 @@ class AuthApiService implements AuthService {
   @override
   Future<Map<String, dynamic>> initialAgree({
     String? nickname,
+    required bool ageConfirmed,
     required bool marketingAgreed,
   }) async {
     final body = <String, Object?>{
       'terms_agreed': true,
       'privacy_agreed': true,
+      'age_confirmed': ageConfirmed,
       'marketing_agreed': marketingAgreed,
     };
     if (nickname != null) body['nickname'] = nickname;

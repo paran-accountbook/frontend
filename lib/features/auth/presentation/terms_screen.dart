@@ -19,7 +19,7 @@ class TermsScreen extends StatefulWidget {
     super.key,
     this.signupDraft,
     this.onAgreed,
-    this.onConsentCompleted,
+    this.onAgeConfirmed,
     this.authService,
     this.socialSignup = false,
     this.requiresNickname = false,
@@ -29,7 +29,7 @@ class TermsScreen extends StatefulWidget {
 
   final SignupDraft? signupDraft;
   final VoidCallback? onAgreed;
-  final ValueChanged<bool>? onConsentCompleted;
+  final ValueChanged<bool>? onAgeConfirmed;
   final AuthService? authService;
   final bool socialSignup;
   final bool requiresNickname;
@@ -88,8 +88,9 @@ class _TermsScreenState extends State<TermsScreen> {
       setState(() => _showRequiredError = true);
       return;
     }
-    if (widget.onConsentCompleted case final callback?) {
-      callback(false);
+    final ageConfirmed = _selected[0];
+    if (widget.onAgeConfirmed case final callback?) {
+      callback(ageConfirmed);
       return;
     }
     if (widget.onAgreed case final callback?) {
@@ -106,6 +107,7 @@ class _TermsScreenState extends State<TermsScreen> {
           email: draft.email,
           password: draft.password,
           nickname: draft.name,
+          ageConfirmed: ageConfirmed,
           marketingAgreed: false,
         );
       } on ApiException catch (error) {
@@ -121,6 +123,7 @@ class _TermsScreenState extends State<TermsScreen> {
           MaterialPageRoute<void>(
             builder: (_) => KakaoSignupNameScreen(
               authService: widget.authService ?? AppServices.auth,
+              ageConfirmed: ageConfirmed,
               marketingAgreed: false,
             ),
           ),
@@ -133,6 +136,7 @@ class _TermsScreenState extends State<TermsScreen> {
       });
       try {
         await (widget.authService ?? AppServices.auth).initialAgree(
+          ageConfirmed: ageConfirmed,
           marketingAgreed: false,
         );
       } on ApiException catch (error) {
@@ -397,13 +401,18 @@ class _TermsCheckbox extends StatelessWidget {
         duration: const Duration(milliseconds: 120),
         width: 30,
         height: 30,
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: selected ? AppColors.main : AppColors.selected,
           borderRadius: BorderRadius.circular(11),
           border: Border.all(color: AppColors.text.withValues(alpha: 0.2)),
         ),
         child: selected
-            ? const Icon(Icons.check, color: Colors.white, size: 20)
+            ? SizedBox(
+                width: 20,
+                height: 14,
+                child: SvgPicture.asset(AppAssets.termsCheckboxCheck),
+              )
             : null,
       ),
     );

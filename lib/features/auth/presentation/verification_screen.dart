@@ -146,12 +146,12 @@ class _VerificationScreenState extends State<VerificationScreen> {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => TermsScreen(
-          onConsentCompleted: (marketingAgreed) {
+          onAgeConfirmed: (ageConfirmed) {
             Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => SignupPasswordScreen(
                   email: email,
-                  marketingAgreed: marketingAgreed,
+                  ageConfirmed: ageConfirmed,
                   authService: service,
                 ),
               ),

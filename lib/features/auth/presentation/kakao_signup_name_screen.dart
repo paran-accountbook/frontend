@@ -10,12 +10,14 @@ import '../data/auth_service.dart';
 
 class KakaoSignupNameScreen extends StatefulWidget {
   const KakaoSignupNameScreen({
+    required this.ageConfirmed,
     super.key,
     this.authService,
     this.marketingAgreed = false,
   });
 
   final AuthService? authService;
+  final bool ageConfirmed;
   final bool marketingAgreed;
 
   @override
@@ -48,6 +50,7 @@ class _KakaoSignupNameScreenState extends State<KakaoSignupNameScreen> {
     try {
       await (widget.authService ?? AppServices.auth).initialAgree(
         nickname: nickname,
+        ageConfirmed: widget.ageConfirmed,
         marketingAgreed: widget.marketingAgreed,
       );
     } on ApiException catch (error) {

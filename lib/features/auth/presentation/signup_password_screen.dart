@@ -8,12 +8,14 @@ import 'signup_name_screen.dart';
 class SignupPasswordScreen extends StatefulWidget {
   const SignupPasswordScreen({
     required this.email,
+    required this.ageConfirmed,
     super.key,
     this.marketingAgreed = false,
     this.authService,
   });
 
   final String email;
+  final bool ageConfirmed;
   final bool marketingAgreed;
   final AuthService? authService;
 
@@ -57,6 +59,7 @@ class _SignupPasswordScreenState extends State<SignupPasswordScreen> {
         builder: (_) => SignupNameScreen(
           email: widget.email,
           password: password,
+          ageConfirmed: widget.ageConfirmed,
           marketingAgreed: widget.marketingAgreed,
           authService: widget.authService,
         ),

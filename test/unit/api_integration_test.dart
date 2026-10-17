@@ -214,6 +214,51 @@ void main() {
     );
   });
 
+  test('age rejection keeps E223 for both signup endpoints', () async {
+    final requests = <http.Request>[];
+    final client = ApiClient(
+      baseUrl: 'https://api.sobilog.kr',
+      sessionStore: _MemorySessionStore(accessToken: 'access'),
+      httpClient: MockClient((request) async {
+        requests.add(request);
+        return http.Response(
+          jsonEncode({'result': 'E223', 'message': '만 18세 이상만 가입할 수 있습니다'}),
+          400,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }),
+    );
+    final service = AuthApiService(client);
+
+    await expectLater(
+      service.signup(
+        email: 'user@example.com',
+        password: 'Password1!',
+        nickname: '소비로그',
+        ageConfirmed: false,
+        marketingAgreed: false,
+      ),
+      throwsA(
+        isA<ApiException>().having((error) => error.code, 'code', 'E223'),
+      ),
+    );
+    await expectLater(
+      service.initialAgree(ageConfirmed: false, marketingAgreed: false),
+      throwsA(
+        isA<ApiException>().having((error) => error.code, 'code', 'E223'),
+      ),
+    );
+
+    expect(requests.map((request) => request.url.path), [
+      '/auth/signup',
+      '/auth/terms/initial-agree',
+    ]);
+    expect(
+      requests.map((request) => jsonDecode(request.body)['age_confirmed']),
+      [false, false],
+    );
+  });
+
   test('login persists access and refresh tokens', () async {
     final store = _MemorySessionStore();
     final client = ApiClient(

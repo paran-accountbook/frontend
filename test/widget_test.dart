@@ -308,6 +308,24 @@ void main() {
     expect(ageConfirmed, isTrue);
   });
 
+  testWidgets('전체 동의 후 연령 확인을 해제하면 가입을 막는다', (tester) async {
+    var continuationCount = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: TermsScreen(onAgeConfirmed: (_) => continuationCount++),
+      ),
+    );
+
+    await tester.tap(find.text('전체 동의하기'));
+    await tester.tap(find.text('[필수] 만 18세 이상입니다'));
+    await tester.tap(find.text('동의합니다'));
+    await tester.pump();
+
+    expect(continuationCount, 0);
+    expect(find.text('필수 약관에 동의해 주세요'), findsOneWidget);
+  });
+
   testWidgets('terms details open the configured privacy policy URL', (
     tester,
   ) async {

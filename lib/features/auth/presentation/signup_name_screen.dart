@@ -12,6 +12,7 @@ class SignupNameScreen extends StatefulWidget {
   const SignupNameScreen({
     required this.email,
     required this.password,
+    required this.ageConfirmed,
     super.key,
     this.marketingAgreed = false,
     this.authService,
@@ -19,6 +20,7 @@ class SignupNameScreen extends StatefulWidget {
 
   final String email;
   final String password;
+  final bool ageConfirmed;
   final bool marketingAgreed;
   final AuthService? authService;
 
@@ -54,6 +56,7 @@ class _SignupNameScreenState extends State<SignupNameScreen> {
         email: widget.email,
         password: widget.password,
         nickname: name,
+        ageConfirmed: widget.ageConfirmed,
         marketingAgreed: widget.marketingAgreed,
       );
     } on ApiException catch (error) {

@@ -67,6 +67,37 @@ void main() {
 
     expect(auth.agreedNickname, '소비로그');
     expect(auth.marketingAgreed, isFalse);
+    expect(auth.ageConfirmed, isTrue);
+  });
+
+  testWidgets('카카오 최초 동의의 E310은 닉네임 화면에 표시된다', (tester) async {
+    final auth = _KakaoAuthService()
+      ..initialAgreeError = const ApiException(
+        code: 'E310',
+        message: '닉네임이 필요합니다',
+      );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: LoginScreen(
+          authService: auth,
+          kakaoLoginClient: _FakeKakaoLoginClient(),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('카카오로 시작하기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('전체 동의하기'));
+    await tester.tap(find.text('동의합니다'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '소비로그');
+    await tester.tap(find.text('가입 완료'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(KakaoSignupNameScreen), findsOneWidget);
+    expect(find.text('닉네임이 필요합니다'), findsOneWidget);
+    expect(auth.ageConfirmed, isTrue);
   });
 
   testWidgets('Apple 신규 사용자는 Apple 정보로 로그인하고 약관 뒤 이름 입력을 생략한다', (tester) async {
@@ -98,6 +129,7 @@ void main() {
 
     expect(find.byType(KakaoSignupNameScreen), findsNothing);
     expect(auth.initialAgreeCalled, isTrue);
+    expect(auth.ageConfirmed, isTrue);
     expect(auth.agreedNickname, isNull);
   });
 
@@ -429,6 +461,7 @@ class _AppleAuthService implements AuthService {
   String? familyName;
   bool initialAgreeCalled = false;
   String? agreedNickname;
+  bool? ageConfirmed;
 
   @override
   Future<Map<String, dynamic>> loginWithApple({
@@ -454,10 +487,12 @@ class _AppleAuthService implements AuthService {
   @override
   Future<Map<String, dynamic>> initialAgree({
     String? nickname,
+    required bool ageConfirmed,
     required bool marketingAgreed,
   }) async {
     initialAgreeCalled = true;
     agreedNickname = nickname;
+    this.ageConfirmed = ageConfirmed;
     return {'nickname': '홍길동'};
   }
 
@@ -482,6 +517,8 @@ class _AppleConflictAuthService implements AuthService {
 class _KakaoAuthService implements AuthService {
   String? agreedNickname;
   bool? marketingAgreed;
+  bool? ageConfirmed;
+  ApiException? initialAgreeError;
 
   @override
   Future<Map<String, dynamic>> loginWithKakao(String kakaoAccessToken) async =>
@@ -496,10 +533,13 @@ class _KakaoAuthService implements AuthService {
   @override
   Future<Map<String, dynamic>> initialAgree({
     String? nickname,
+    required bool ageConfirmed,
     required bool marketingAgreed,
   }) async {
     agreedNickname = nickname;
     this.marketingAgreed = marketingAgreed;
+    this.ageConfirmed = ageConfirmed;
+    if (initialAgreeError case final error?) throw error;
     return {'nickname': nickname};
   }
 

@@ -56,6 +56,7 @@ void main() {
         home: SignupNameScreen(
           email: 'user@test.com',
           password: 'Password1!',
+          ageConfirmed: true,
           authService: authService,
         ),
       ),
@@ -77,6 +78,7 @@ void main() {
 
     expect(authService.signupEmail, 'user@test.com');
     expect(authService.signupNickname, '테스트');
+    expect(authService.ageConfirmed, isTrue);
   });
 
   testWidgets('signup follows verification, terms, password, and name order', (
@@ -123,6 +125,7 @@ void main() {
     expect(authService.signupEmail, 'user@test.com');
     expect(authService.signupNickname, '소비로그');
     expect(authService.marketingAgreed, isFalse);
+    expect(authService.ageConfirmed, isTrue);
   });
 
   testWidgets('bottom navigation matches the Figma item geometry', (
@@ -282,6 +285,27 @@ void main() {
 
     expect(find.byType(HomeScreen), findsOneWidget);
     expect(find.text('최근 등록 내역'), findsOneWidget);
+  });
+
+  testWidgets('연령 확인을 선택해야 가입 단계로 진행하고 그 값을 전달한다', (tester) async {
+    bool? ageConfirmed;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: TermsScreen(onAgeConfirmed: (value) => ageConfirmed = value),
+      ),
+    );
+
+    await tester.tap(find.text('[필수] 서비스 이용약관 동의'));
+    await tester.tap(find.text('[필수] 개인정보 수집 · 이용 동의'));
+    await tester.tap(find.text('동의합니다'));
+    await tester.pump();
+    expect(ageConfirmed, isNull);
+
+    await tester.tap(find.text('[필수] 만 18세 이상입니다'));
+    await tester.tap(find.text('동의합니다'));
+    await tester.pump();
+    expect(ageConfirmed, isTrue);
   });
 
   testWidgets('terms details open the configured privacy policy URL', (
@@ -1338,6 +1362,7 @@ class _RecordingAuthService implements AuthService {
   String? signupEmail;
   String? signupNickname;
   bool? marketingAgreed;
+  bool? ageConfirmed;
 
   @override
   Future<void> verifyCode({required String email, required String code}) async {
@@ -1349,11 +1374,13 @@ class _RecordingAuthService implements AuthService {
     required String email,
     required String password,
     required String nickname,
+    required bool ageConfirmed,
     required bool marketingAgreed,
   }) async {
     signupEmail = email;
     signupNickname = nickname;
     this.marketingAgreed = marketingAgreed;
+    this.ageConfirmed = ageConfirmed;
   }
 
   @override

@@ -117,7 +117,7 @@ void main() {
     await configureViewport(tester);
     await pumpScreen(
       tester,
-      const SignupPasswordScreen(email: 'user@test.com'),
+      const SignupPasswordScreen(email: 'user@test.com', ageConfirmed: true),
     );
 
     await expectLater(
@@ -130,7 +130,11 @@ void main() {
     await configureViewport(tester);
     await pumpScreen(
       tester,
-      const SignupNameScreen(email: 'user@test.com', password: 'Password1!'),
+      const SignupNameScreen(
+        email: 'user@test.com',
+        password: 'Password1!',
+        ageConfirmed: true,
+      ),
     );
 
     await expectLater(

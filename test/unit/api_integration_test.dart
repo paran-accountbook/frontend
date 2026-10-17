@@ -4,11 +4,44 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:sobilog/core/network/api_client.dart';
+import 'package:sobilog/core/network/api_exception.dart';
 import 'package:sobilog/core/network/session_store.dart';
 import 'package:sobilog/features/auth/data/auth_service.dart';
 import 'package:sobilog/features/finance/data/finance_service.dart';
 
 void main() {
+  test('email signup sends the confirmed age checkbox value', () async {
+    http.Request? signupRequest;
+    final client = ApiClient(
+      baseUrl: 'https://api.sobilog.kr',
+      sessionStore: _MemorySessionStore(),
+      httpClient: MockClient((request) async {
+        signupRequest = request;
+        return http.Response(jsonEncode({'data': <String, dynamic>{}}), 200);
+      }),
+    );
+
+    await AuthApiService(client).signup(
+      email: 'user@example.com',
+      password: 'Password1!',
+      nickname: '소비로그',
+      ageConfirmed: true,
+      marketingAgreed: false,
+    );
+
+    expect(signupRequest?.url.path, '/auth/signup');
+    expect(jsonDecode(signupRequest!.body), {
+      'email': 'user@example.com',
+      'password': 'Password1!',
+      'password_confirm': 'Password1!',
+      'nickname': '소비로그',
+      'terms_agreed': true,
+      'privacy_agreed': true,
+      'age_confirmed': true,
+      'marketing_agreed': false,
+    });
+  });
+
   test('finance service uses backend route and query contracts', () async {
     final requests = <http.Request>[];
     final client = ApiClient(
@@ -108,8 +141,12 @@ void main() {
       await service.termsStatus();
       await service.myAgreement();
       await service.agreeToLatestTerms();
-      await service.initialAgree(nickname: '소비로그', marketingAgreed: true);
-      await service.initialAgree(marketingAgreed: false);
+      await service.initialAgree(
+        nickname: '소비로그',
+        ageConfirmed: true,
+        marketingAgreed: true,
+      );
+      await service.initialAgree(ageConfirmed: true, marketingAgreed: false);
 
       expect(
         requests.map((request) => '${request.method} ${request.url.path}'),
@@ -138,17 +175,44 @@ void main() {
         'nickname': '소비로그',
         'terms_agreed': true,
         'privacy_agreed': true,
+        'age_confirmed': true,
         'marketing_agreed': true,
       });
       expect(jsonDecode(requests.last.body), {
         'terms_agreed': true,
         'privacy_agreed': true,
+        'age_confirmed': true,
         'marketing_agreed': false,
       });
       expect(store.accessToken, 'access');
       expect(store.refreshToken, 'refresh');
     },
   );
+
+  test('initial agreement preserves the E310 nickname error', () async {
+    final client = ApiClient(
+      baseUrl: 'https://api.sobilog.kr',
+      sessionStore: _MemorySessionStore(accessToken: 'access'),
+      httpClient: MockClient(
+        (request) async => http.Response(
+          jsonEncode({'result': 'E310', 'message': '닉네임이 필요합니다'}),
+          400,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        ),
+      ),
+    );
+
+    await expectLater(
+      AuthApiService(
+        client,
+      ).initialAgree(ageConfirmed: true, marketingAgreed: false),
+      throwsA(
+        isA<ApiException>()
+            .having((error) => error.code, 'code', 'E310')
+            .having((error) => error.message, 'message', '닉네임이 필요합니다'),
+      ),
+    );
+  });
 
   test('login persists access and refresh tokens', () async {
     final store = _MemorySessionStore();

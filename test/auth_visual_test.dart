@@ -153,6 +153,18 @@ void main() {
     );
   });
 
+  testWidgets('selected terms matches its visual baseline', (tester) async {
+    await configureViewport(tester);
+    await pumpScreen(tester, const TermsScreen());
+    await tester.tap(find.text('전체 동의하기'));
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(Scaffold),
+      matchesGoldenFile('goldens/latest/terms_age_confirmed.png'),
+    );
+  });
+
   testWidgets('terms detail matches its visual baseline', (tester) async {
     await configureViewport(tester);
     await pumpScreen(

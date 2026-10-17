@@ -401,13 +401,18 @@ class _TermsCheckbox extends StatelessWidget {
         duration: const Duration(milliseconds: 120),
         width: 30,
         height: 30,
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: selected ? AppColors.main : AppColors.selected,
           borderRadius: BorderRadius.circular(11),
           border: Border.all(color: AppColors.text.withValues(alpha: 0.2)),
         ),
         child: selected
-            ? const Icon(Icons.check, color: Colors.white, size: 20)
+            ? SizedBox(
+                width: 20,
+                height: 14,
+                child: SvgPicture.asset(AppAssets.termsCheckboxCheck),
+              )
             : null,
       ),
     );

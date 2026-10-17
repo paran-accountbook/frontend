@@ -31,6 +31,8 @@ abstract final class AppAssets {
   static const String closeLight = '$_iconRoot/close_light.svg';
   static const String addPurple = '$_iconRoot/add_purple.svg';
   static const String checkLight = '$_iconRoot/check_light.svg';
+  static const String termsCheckboxCheck =
+      '$_iconRoot/terms_checkbox_check.svg';
   static const String signupComplete = '$_iconRoot/signup_complete.svg';
   static const String passwordChanged = '$_iconRoot/password_changed.svg';
   static const String deleteDot = '$_iconRoot/delete_dot.svg';

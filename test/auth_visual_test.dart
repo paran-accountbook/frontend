@@ -251,7 +251,10 @@ void main() {
     await configureViewport(tester);
     await pumpScreen(
       tester,
-      LedgerScreen(financeService: _LedgerVisualService()),
+      LedgerScreen(
+        financeService: _LedgerVisualService(),
+        currentDate: DateTime(2026, 9, 3),
+      ),
     );
     await tester.tap(find.text('필터'));
     await tester.pumpAndSettle();
@@ -270,7 +273,10 @@ void main() {
     await configureViewport(tester);
     await pumpScreen(
       tester,
-      LedgerScreen(financeService: _LedgerVisualService()),
+      LedgerScreen(
+        financeService: _LedgerVisualService(),
+        currentDate: DateTime(2026, 9, 3),
+      ),
     );
     await tester.tap(find.text('필터'));
     await tester.pumpAndSettle();

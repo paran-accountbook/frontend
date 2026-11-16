@@ -1,4 +1,7 @@
 import '../../../core/network/api_client.dart';
+import '../../analysis/data/insight_service.dart';
+import '../../category/data/category_models.dart';
+import '../../category/data/category_service.dart';
 
 abstract interface class FinanceService {
   Future<Map<String, dynamic>> home();
@@ -65,6 +68,28 @@ abstract interface class ProgressiveHomeFinanceService {
   Future<Map<String, dynamic>> homeRecent();
 }
 
+/// 가계_001·002: 지출·수입 필터를 모두 지원하는 내역 조회.
+/// 지출 조건(category·payment_method)과 수입 조건(income_category)은 같이 보내지 않는다.
+abstract interface class LedgerFilterService {
+  Future<Map<String, dynamic>> ledgerFiltered({
+    required String period,
+    required DateTime anchor,
+    String type = 'all',
+    List<String> categories = const [],
+    List<String> paymentMethods = const [],
+    List<String> incomeCategories = const [],
+  });
+
+  Future<Map<String, dynamic>> ledgerSummary({
+    required String period,
+    required DateTime anchor,
+    String type = 'all',
+    List<String> categories = const [],
+    List<String> paymentMethods = const [],
+    List<String> incomeCategories = const [],
+  });
+}
+
 abstract interface class ExpensePhotoService {
   Future<Map<String, dynamic>> uploadExpensePhoto(
     String expenseId,
@@ -81,7 +106,10 @@ class FinanceApiService
     implements
         FinanceService,
         ExpensePhotoService,
-        ProgressiveHomeFinanceService {
+        ProgressiveHomeFinanceService,
+        LedgerFilterService,
+        CategoryService,
+        InsightService {
   const FinanceApiService(this._client);
   final ApiClient _client;
 
@@ -240,4 +268,179 @@ class FinanceApiService
             body: {'year': year, 'month': month, 'amount': amount},
           )
           as Map<String, dynamic>;
+
+  Map<String, Object?> _ledgerQuery({
+    required String period,
+    required DateTime anchor,
+    required String type,
+    required List<String> categories,
+    required List<String> paymentMethods,
+    required List<String> incomeCategories,
+  }) => {
+    'period': period,
+    'date': anchor.toIso8601String().substring(0, 10),
+    'type': type,
+    if (categories.isNotEmpty) 'category': categories,
+    if (paymentMethods.isNotEmpty) 'payment_method': paymentMethods,
+    if (incomeCategories.isNotEmpty) 'income_category': incomeCategories,
+  };
+
+  @override
+  Future<Map<String, dynamic>> ledgerFiltered({
+    required String period,
+    required DateTime anchor,
+    String type = 'all',
+    List<String> categories = const [],
+    List<String> paymentMethods = const [],
+    List<String> incomeCategories = const [],
+  }) async =>
+      await _client.get(
+            '/expenses',
+            query: _ledgerQuery(
+              period: period,
+              anchor: anchor,
+              type: type,
+              categories: categories,
+              paymentMethods: paymentMethods,
+              incomeCategories: incomeCategories,
+            ),
+          )
+          as Map<String, dynamic>;
+
+  @override
+  Future<Map<String, dynamic>> ledgerSummary({
+    required String period,
+    required DateTime anchor,
+    String type = 'all',
+    List<String> categories = const [],
+    List<String> paymentMethods = const [],
+    List<String> incomeCategories = const [],
+  }) async =>
+      await _client.get(
+            '/expenses/summary',
+            query: _ledgerQuery(
+              period: period,
+              anchor: anchor,
+              type: type,
+              categories: categories,
+              paymentMethods: paymentMethods,
+              incomeCategories: incomeCategories,
+            ),
+          )
+          as Map<String, dynamic>;
+
+  @override
+  Future<List<CategoryItem>> categories(CategoryKind kind) async {
+    final data =
+        await _client.get('/categories', query: {'type': kind.apiValue})
+            as Map<String, dynamic>;
+    return (data['categories'] as List? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(CategoryItem.fromJson)
+        .toList();
+  }
+
+  @override
+  Future<CategoryItem> createCategory({
+    required String name,
+    required String icon,
+    required CategoryKind kind,
+  }) async {
+    final data =
+        await _client.post(
+              '/categories',
+              body: {'name': name, 'icon': icon, 'type': kind.apiValue},
+            )
+            as Map<String, dynamic>;
+    return CategoryItem.fromJson({...data, 'is_default': false});
+  }
+
+  @override
+  Future<CategoryItem> updateCategory(
+    CategoryItem category, {
+    required String name,
+    required String icon,
+  }) async {
+    final data =
+        await _client.patch(
+              '/categories/${category.id}',
+              body: {'name': name, 'icon': icon},
+            )
+            as Map<String, dynamic>;
+    return CategoryItem.fromJson({
+      ...data,
+      'is_default': false,
+      'record_count': category.recordCount,
+    });
+  }
+
+  @override
+  Future<Map<String, dynamic>> deleteCategory(
+    CategoryItem category, {
+    String? moveTo,
+  }) async {
+    final query = moveTo == null
+        ? ''
+        : '?move_to=${Uri.encodeQueryComponent(moveTo)}';
+    return await _client.delete('/categories/${category.id}$query')
+            as Map<String, dynamic>? ??
+        const {};
+  }
+
+  @override
+  Future<Map<String, dynamic>> rewards() async =>
+      await _client.get('/mypage/rewards') as Map<String, dynamic>;
+
+  @override
+  Future<void> markRewardsSeen() async {
+    await _client.post('/mypage/rewards/seen');
+  }
+
+  @override
+  Future<Map<String, dynamic>> aiOpinionStatus() async =>
+      await _client.get('/analysis/ai-opinion') as Map<String, dynamic>;
+
+  @override
+  Future<Map<String, dynamic>> generateAiOpinion() async =>
+      await _client.post('/analysis/ai-opinion', body: const {})
+          as Map<String, dynamic>;
+
+  @override
+  Future<Map<String, dynamic>> savingHintStatus() async =>
+      await _client.get('/analysis/saving-hint') as Map<String, dynamic>;
+
+  @override
+  Future<Map<String, dynamic>> generateSavingHint() async =>
+      await _client.post('/analysis/saving-hint', body: const {})
+          as Map<String, dynamic>;
+
+  @override
+  Future<Map<String, dynamic>> agreeSavingHintConsent() async =>
+      await _client.post('/analysis/saving-hint/consent')
+          as Map<String, dynamic>;
+
+  @override
+  Future<Map<String, dynamic>> withdrawSavingHintConsent() async =>
+      await _client.delete('/analysis/saving-hint/consent')
+          as Map<String, dynamic>;
+
+  @override
+  Future<Map<String, dynamic>> pattern() async =>
+      await _client.get('/analysis/pattern') as Map<String, dynamic>;
+
+  @override
+  Future<Map<String, dynamic>> repurchase() async =>
+      await _client.get('/analysis/repurchase') as Map<String, dynamic>;
+
+  @override
+  Future<Map<String, dynamic>> recurringExpenses() async =>
+      await _client.get('/analysis/recurring-expenses') as Map<String, dynamic>;
+
+  @override
+  Future<void> dismissRecurringExpense(String storeName) async {
+    await _client.post(
+      '/analysis/recurring-expenses/dismiss',
+      body: {'store_name': storeName},
+    );
+  }
 }

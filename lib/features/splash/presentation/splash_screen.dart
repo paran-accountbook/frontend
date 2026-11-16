@@ -11,6 +11,7 @@ import '../../../shared/widgets/design_canvas.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../../auth/presentation/terms_screen.dart';
 import '../../home/presentation/home_screen.dart';
+import '../../onboarding/presentation/onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({
@@ -48,6 +49,18 @@ class _SplashScreenState extends State<SplashScreen> {
     final token = widget.restoreSession
         ? await AppServices.client.sessionStore.readAccessToken()
         : null;
+    if (!mounted) return;
+    // 진입_002: 기기에 '온보딩 완료' 기록이 없으면 온보딩부터.
+    // 업데이트 후 이미 로그인된 기존 사용자에게는 보여주지 않고 완료로 저장한다.
+    final preferences = AppServices.preferences;
+    if (!await preferences.onboardingCompleted()) {
+      if (token != null) {
+        await preferences.setOnboardingCompleted();
+      } else {
+        if (mounted) _replace(const OnboardingScreen());
+        return;
+      }
+    }
     if (!mounted) return;
     if (token == null) {
       _replace(const LoginScreen());

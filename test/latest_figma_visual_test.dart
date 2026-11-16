@@ -118,9 +118,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.pump(const Duration(milliseconds: 100));
-    tester
-        .widget<GestureDetector>(find.byKey(const ValueKey('bank-토스')))
-        .onTap!();
+    await tester.tap(find.byKey(const ValueKey('bank-토스')));
     await tester.pumpAndSettle();
     expect(find.text('계좌번호 입력'), findsOneWidget);
     await capture(tester, 'dutch_account_input');
@@ -256,7 +254,8 @@ void main() {
     );
     await capture(tester, 'income_category_picker');
 
-    await tester.tap(find.byKey(const ValueKey('income-category-option-3')));
+    await tester.tap(find.byKey(const ValueKey('income-category-option-2')));
+    await tester.tap(find.byKey(const Key('complete-income-category-picker')));
     await tester.pumpAndSettle();
     expect(find.text('부수입'), findsOneWidget);
   });

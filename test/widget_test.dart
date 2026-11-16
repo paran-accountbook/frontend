@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:sobilog/core/network/app_services.dart';
+import 'package:sobilog/core/storage/app_preferences.dart';
 import 'package:sobilog/core/config/app_config.dart';
 import 'package:sobilog/core/network/api_exception.dart';
 import 'package:sobilog/core/theme/app_colors.dart';
@@ -220,6 +222,8 @@ void main() {
   });
 
   testWidgets('advances from splash to login', (tester) async {
+    AppServices.preferences = MemoryAppPreferences(onboarding: true);
+    addTearDown(() => AppServices.preferences = const SharedAppPreferences());
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.dark,
@@ -235,12 +239,16 @@ void main() {
   });
 
   testWidgets('opens login from onboarding', (tester) async {
+    final prefs = MemoryAppPreferences();
+    AppServices.preferences = prefs;
+    addTearDown(() => AppServices.preferences = const SharedAppPreferences());
     await tester.pumpWidget(
       MaterialApp(theme: AppTheme.dark, home: const OnboardingScreen()),
     );
 
-    await tester.tap(find.text('다음'));
+    await tester.tap(find.text('건너뛰기'));
     await tester.pumpAndSettle();
+    expect(prefs.onboarding, isTrue);
 
     expect(find.byType(LoginScreen), findsOneWidget);
     expect(find.text('카카오로 시작하기'), findsOneWidget);
@@ -297,7 +305,7 @@ void main() {
     );
 
     await tester.tap(find.text('[필수] 서비스 이용약관 동의'));
-    await tester.tap(find.text('[필수] 개인정보 수집 · 이용 동의'));
+    expect(find.text('[필수] 개인정보 수집 · 이용 동의'), findsNothing);
     await tester.tap(find.text('동의합니다'));
     await tester.pump();
     expect(ageConfirmed, isNull);
@@ -348,12 +356,10 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('terms-view-1')));
     await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('terms-view-2')));
-    await tester.pump();
-    await tester.tap(find.text('개인정보 처리방침 보기'));
+    await tester.tap(find.byKey(const Key('terms-privacy-notice')));
     await tester.pump();
 
-    expect(openedUris, hasLength(3));
+    expect(openedUris, hasLength(2));
     expect(
       openedUris.every((uri) => uri.toString() == AppConfig.privacyPolicyUrl),
       isTrue,
@@ -790,6 +796,7 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('저장'));
     await tester.tap(find.text('저장'));
     await tester.pumpAndSettle();
 
@@ -916,8 +923,15 @@ void main() {
       ),
     );
 
-    expect(find.byKey(const Key('receipt-items-total')), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const Key('receipt-items-total')))
+          .semanticsLabel,
+      '9,000원',
+    );
     expect(find.text('9,000원'), findsOneWidget);
+    expect(find.text('단가'), findsWidgets);
+    expect(find.text('4,500원'), findsWidgets);
     expect(find.byKey(const Key('receipt-date-오늘')), findsOneWidget);
     expect(find.byKey(const Key('receipt-date-어제')), findsOneWidget);
 
@@ -1076,24 +1090,20 @@ void main() {
           ],
         },
       ),
-      LedgerEditScreen(
-        expenseId: 'expense-1',
-        financeService: service,
-        initialData: const {
-          'store_name': '테스트 카페',
-          'items': [
-            {'item_name': '아메리카노', 'quantity': 1, 'unit_price': 4500},
-          ],
-        },
-      ),
     ];
 
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(402, 874);
+    addTearDown(tester.view.reset);
     for (final screen in screens) {
       await tester.pumpWidget(MaterialApp(theme: AppTheme.dark, home: screen));
-      expect(
-        tester.widget<Scaffold>(find.byType(Scaffold)).resizeToAvoidBottomInset,
-        isFalse,
-      );
+      final item = find.byKey(const Key('receipt-item-0'));
+      final width = tester.getSize(item).width;
+      tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+      await tester.pumpAndSettle();
+      expect(tester.getSize(item).width, closeTo(width, .01));
+      expect(find.text('저장'), findsNothing);
+      tester.view.resetViewInsets();
       await tester.pumpWidget(const SizedBox.shrink());
     }
   });
@@ -1297,9 +1307,9 @@ void main() {
 
     expect(find.text('마이페이지'), findsOneWidget);
     expect(find.text('소비로그 님'), findsOneWidget);
-    expect(find.text('출석 현황'), findsNothing);
+    expect(find.text('출석 현황'), findsOneWidget);
     expect(find.text('리워드 관리'), findsNothing);
-    expect(find.text('알림 설정'), findsNothing);
+    expect(find.text('알림 설정'), findsOneWidget);
     expect(find.text('계정 설정'), findsOneWidget);
     expect(find.text('고객 센터'), findsOneWidget);
 

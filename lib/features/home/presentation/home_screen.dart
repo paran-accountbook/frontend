@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../core/notifications/notification_router.dart';
+import '../../category/data/category_service.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
@@ -13,6 +15,7 @@ import '../../finance/data/finance_service.dart';
 import '../../ledger/presentation/income_detail_screen.dart';
 import '../../ledger/presentation/ledger_screen.dart';
 import '../../ledger/presentation/ledger_detail_screen.dart';
+import '../../ledger/presentation/ledger_edit_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../register/presentation/register_type_screen.dart';
 
@@ -36,6 +39,11 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _isLoading = widget.financeService != null;
     _load();
+    NotificationSync.run(widget.financeService);
+    consumePendingNotificationTarget();
+    preloadCategories(widget.financeService).then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   Future<void> _load() async {
@@ -235,7 +243,15 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       );
-      if (changed == true) await _load();
+      if (changed == LedgerEditResult.updated && mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(
+            builder: (_) => LedgerScreen(financeService: widget.financeService),
+          ),
+        );
+      } else if (changed == true) {
+        await _load();
+      }
       return;
     }
     if (entry['type'] == 'income' && entry['id'] is String) {
@@ -557,7 +573,12 @@ class _RecentRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            const AppCategoryIcon(),
+            AppCategoryIcon(
+              category:
+                  entry['category'] as String? ??
+                  (isIncome ? entry['label'] as String? : null),
+              isIncome: isIncome,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(

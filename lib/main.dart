@@ -6,6 +6,9 @@ import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
 import 'core/config/app_config.dart';
 import 'core/logging/app_logger.dart';
+import 'core/network/app_services.dart';
+import 'core/notifications/local_notifications.dart';
+import 'core/notifications/notification_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/login_screen.dart';
 import 'features/auth/presentation/terms_screen.dart';
@@ -36,6 +39,18 @@ Future<void> main() async {
     KakaoSdk.init(nativeAppKey: AppConfig.kakaoNativeAppKey);
   }
 
+  try {
+    await AppServices.notifications.initialize();
+  } catch (error) {
+    AppLogger.info('Local notifications unavailable: $error');
+  }
+  PluginLocalNotificationService.tapped.addListener(() {
+    final target = PluginLocalNotificationService.tapped.value;
+    if (target == null) return;
+    PluginLocalNotificationService.tapped.value = null;
+    openNotificationTarget(target);
+  });
+
   AppLogger.info(
     'Sobilog started | env=${AppConfig.environment} | api=${AppConfig.apiBaseUrl}',
   );
@@ -51,6 +66,7 @@ class SobilogApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       title: 'Sobilog',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,

@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/bank_account_picker.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/app_chevron.dart';
 import '../../../shared/widgets/design_canvas.dart';
@@ -80,56 +81,22 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   }
 
   Future<void> _editAccount() async {
-    final bank = await _selectBank();
-    if (bank == null) return;
-    final account = await _ask('계좌번호', _accountNumber ?? '');
-    if (account == null) return;
+    final result = await showBankAccountPicker(
+      context,
+      bank: _bankName,
+      number: _accountNumber,
+    );
+    if (result == null || !mounted) return;
+    final (bank: bank, number: account) = result;
     if (!await _update({'bank_name': bank, 'bank_account_number': account})) {
       return;
     }
+    if (!mounted) return;
     setState(() {
       _bankName = bank;
       _accountNumber = account;
     });
   }
-
-  Future<String?> _selectBank() => showModalBottomSheet<String>(
-    context: context,
-    backgroundColor: AppColors.background,
-    builder: (context) => SafeArea(
-      child: ListView(
-        shrinkWrap: true,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(24, 8, 24, 12),
-            child: Text(
-              '은행 선택',
-              style: TextStyle(
-                color: AppColors.text,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          for (final bank in const [
-            '국민은행',
-            '신한은행',
-            '우리은행',
-            '하나은행',
-            '농협은행',
-            '기업은행',
-            '카카오뱅크',
-            '토스뱅크',
-          ])
-            ListTile(
-              title: Text(bank, style: const TextStyle(color: AppColors.text)),
-              onTap: () => Navigator.pop(context, bank),
-            ),
-        ],
-      ),
-    ),
-  );
 
   Future<bool> _update(Map<String, Object?> body) async {
     final service = widget.financeService;
@@ -259,6 +226,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 ),
                 const SizedBox(height: 20),
                 _AccountCard(
+                  key: const Key('edit-profile-account'),
                   bankName: _bankName,
                   accountNumber: _accountNumber,
                   onTap: _editAccount,
@@ -349,6 +317,7 @@ class _ProfileAsterisks extends StatelessWidget {
 
 class _AccountCard extends StatelessWidget {
   const _AccountCard({
+    super.key,
     required this.bankName,
     required this.accountNumber,
     required this.onTap,
@@ -358,6 +327,7 @@ class _AccountCard extends StatelessWidget {
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => GestureDetector(
+    behavior: HitTestBehavior.opaque,
     onTap: onTap,
     child: Container(
       width: 354,

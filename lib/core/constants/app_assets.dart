@@ -61,6 +61,12 @@ abstract final class AppAssets {
   static const String categoryCulture = '$_iconRoot/category_culture.svg';
   static const String categoryEducation = '$_iconRoot/category_education.svg';
   static const String categoryOther = '$_iconRoot/category_other.svg';
+  static const String incomeSalary = '$_iconRoot/income_salary.svg';
+  static const String incomeAllowance = '$_iconRoot/income_allowance.svg';
+  static const String incomeRefund = '$_iconRoot/income_refund.svg';
+  static const String incomeOther = '$_iconRoot/income_other.svg';
+  static const String incomeSideIncome = '$_iconRoot/income_side_income.svg';
+  static const String incomePartTime = '$_iconRoot/income_part_time.svg';
   static const String analysisLocked = '$_iconRoot/analysis_locked.svg';
   static const String analysisPattern = '$_iconRoot/analysis_pattern.svg';
   static const String analysisAi = '$_iconRoot/analysis_ai.svg';
@@ -111,6 +117,15 @@ abstract final class AppAssets {
     '교육' => categoryEducation,
     '기타' => categoryOther,
     _ => categoryFood,
+  };
+
+  static String incomeIconFor(String? category) => switch (category) {
+    '급여' => incomeSalary,
+    '용돈' => incomeAllowance,
+    '부수입' => incomeSideIncome,
+    '환급·환불' => incomeRefund,
+    '알바' => incomePartTime,
+    _ => incomeOther,
   };
 
   static const String navHome = '$_iconRoot/navigation/home.svg';

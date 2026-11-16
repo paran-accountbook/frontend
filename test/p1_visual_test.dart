@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sobilog/core/notifications/local_notifications.dart';
+import 'package:sobilog/core/storage/app_preferences.dart';
 import 'package:sobilog/core/theme/app_theme.dart';
 import 'package:sobilog/features/analysis/presentation/analysis_goal_screen.dart';
 import 'package:sobilog/features/auth/presentation/login_screen.dart';
@@ -104,7 +106,11 @@ void main() {
   });
 
   testWidgets('P1 goal visual', (tester) async {
-    await expectP1Golden(tester, const AnalysisGoalScreen(), 'goal');
+    await expectP1Golden(
+      tester,
+      const AnalysisGoalScreen(year: 2026, month: 8),
+      'goal',
+    );
   });
 
   testWidgets('P1 attendance visual', (tester) async {
@@ -201,9 +207,13 @@ void main() {
   testWidgets('P1 notification visual', (tester) async {
     await expectP1Golden(
       tester,
-      const NotificationSettingsScreen(),
+      NotificationSettingsScreen(
+        notifications: FakeLocalNotificationService(),
+        preferences: MemoryAppPreferences(),
+      ),
       'notification',
     );
+    expect(find.text('이달의 AI 분석 알림'), findsOneWidget);
   });
 
   testWidgets('P1 reward visual', (tester) async {

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:image_picker/image_picker.dart';
+import '../../category/data/category_service.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../../../shared/widgets/form_save_button.dart';
 import '../../../shared/widgets/app_chevron.dart';
 import '../../../shared/widgets/app_skeleton.dart';
 import '../../../shared/widgets/p1_design_components.dart';
@@ -12,6 +15,7 @@ import '../../dutch/data/dutch_pay_service.dart';
 import '../../dutch/presentation/dutch_people_screen.dart';
 import '../../dutch/presentation/dutch_result_screen.dart';
 import '../../finance/data/finance_service.dart';
+import '../../register/presentation/receipt_entry_form.dart';
 import 'ledger_edit_screen.dart';
 
 class LedgerDetailScreen extends StatefulWidget {
@@ -30,7 +34,10 @@ class LedgerDetailScreen extends StatefulWidget {
 }
 
 class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
+  final _formKey = GlobalKey<ReceiptEntryFormState>();
   Map<String, dynamic>? _data;
+  bool _isSaving = false;
+  bool _isUploading = false;
   late bool _isLoading;
   String? _error;
   bool _isStartingDutchPay = false;
@@ -39,6 +46,9 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
   void initState() {
     super.initState();
     _isLoading = widget.expenseId != null && widget.financeService != null;
+    preloadCategories(widget.financeService).then((_) {
+      if (mounted) setState(() {});
+    });
     _load();
   }
 
@@ -58,6 +68,8 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final data = _data;
+    if (data != null) return _buildEditableDetail(data);
     return Scaffold(
       body: DesignCanvas(
         child: Stack(
@@ -103,7 +115,7 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
                             _isStartingDutchPay
                                 ? '불러오는 중...'
                                 : _data?['dutch_pay_status'] == 'completed'
-                                ? '정산 결과'
+                                ? '정산결과'
                                 : '더치페이',
                             style: const TextStyle(
                               color: Colors.white,
@@ -120,12 +132,7 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
                           top: 112,
                           width: 354,
                           height: 923,
-                          child: _ReceiptDetail(
-                            data: _data,
-                            onEdit: _data == null ? null : _openEdit,
-                            onDeletePhoto: _deletePhoto,
-                            onItemsChanged: _updateItems,
-                          ),
+                          child: _ReceiptDetail(data: _data),
                         ),
                       if (_isLoading)
                         const Positioned(
@@ -177,16 +184,215 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
                             ),
                           ),
                         ),
+                      if (!_isLoading && _error == null)
+                        Positioned(
+                          left: 24,
+                          right: 24,
+                          bottom: 40,
+                          child: FormSaveButton(
+                            key: const Key('save-ledger-entry'),
+                            label: '저장',
+                            keyboardVisible:
+                                MediaQuery.viewInsetsOf(context).bottom > 0,
+                            onPressed: _save,
+                          ),
+                        ),
                     ],
                   ),
                 ),
               ),
             ),
-            P1BottomAction(
-              key: const Key('save-ledger-entry'),
-              label: '저장',
-              blurBackground: false,
-              onTap: _isLoading || _error != null ? null : _save,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEditableDetail(Map<String, dynamic> data) {
+    final photos = (data['photos'] as List? ?? const [])
+        .whereType<Map<String, dynamic>>();
+    final receiptUrl = data['receipt_image_url'] as String?;
+    final supportsPhotos = widget.financeService is ExpensePhotoService;
+    return Scaffold(
+      body: DesignCanvas(
+        fitWidthWithKeyboard: MediaQuery.viewInsetsOf(context).bottom > 0,
+        child: Stack(
+          children: [
+            Positioned(
+              left: 24,
+              top: 50,
+              width: 34,
+              height: 34,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                tooltip: '뒤로',
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: SvgPicture.asset(AppAssets.arrowBackLight),
+              ),
+            ),
+            Positioned(
+              right: 24,
+              top: 50,
+              height: 36,
+              child: FilledButton(
+                onPressed: _isStartingDutchPay || _isSaving || _isUploading
+                    ? null
+                    : _startDutchPay,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.main,
+                  foregroundColor: Colors.white,
+                  textStyle: const TextStyle(
+                    fontFamily: 'Pretendard',
+                    fontSize: 14,
+                    height: 22 / 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                ),
+                child: Text(
+                  data['dutch_pay_status'] == 'completed' ? '정산결과' : '더치페이',
+                ),
+              ),
+            ),
+            Positioned(
+              top: 112,
+              left: 24,
+              right: 24,
+              bottom: 0,
+              child: AbsorbPointer(
+                absorbing: _isSaving || _isUploading,
+                child: SingleChildScrollView(
+                  key: const Key('ledger-detail-scroll'),
+                  padding: const EdgeInsets.only(bottom: 40),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Stack(
+                        children: [
+                          const Positioned.fill(child: _ReceiptBackground()),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(17, 24, 17, 26),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const _DarkAsterisks(),
+                                const SizedBox(height: 12),
+                                ReceiptEntryForm(
+                                  key: _formKey,
+                                  initialData: data,
+                                  showMemo: true,
+                                  editable: true,
+                                  lightReceipt: true,
+                                  originalReceipt:
+                                      receiptUrl?.isNotEmpty == true
+                                      ? _OriginalReceiptRow(
+                                          onTap: () =>
+                                              _ReceiptDetailState._showImage(
+                                                context,
+                                                receiptUrl!,
+                                              ),
+                                        )
+                                      : null,
+                                  photos: supportsPhotos || photos.isNotEmpty
+                                      ? Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const _DarkAsterisks(),
+                                            const SizedBox(height: 12),
+                                            const Text(
+                                              '소비 사진',
+                                              style: _darkFieldMuted,
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Wrap(
+                                              spacing: 8,
+                                              runSpacing: 8,
+                                              children: [
+                                                for (final photo in photos)
+                                                  if (photo['id']
+                                                      case final String id)
+                                                    _ExpensePhoto(
+                                                      url:
+                                                          photo['url']
+                                                              as String?,
+                                                      deleteKey: Key(
+                                                        'delete-expense-photo-$id',
+                                                      ),
+                                                      onOpen:
+                                                          (photo['url']
+                                                                      as String?)
+                                                                  ?.isNotEmpty ==
+                                                              true
+                                                          ? () =>
+                                                                _ReceiptDetailState._showImage(
+                                                                  context,
+                                                                  photo['url']
+                                                                      as String,
+                                                                )
+                                                          : null,
+                                                      onDelete: supportsPhotos
+                                                          ? () =>
+                                                                _deletePhoto(id)
+                                                          : null,
+                                                    ),
+                                                if (supportsPhotos)
+                                                  OutlinedButton.icon(
+                                                    style:
+                                                        OutlinedButton.styleFrom(
+                                                          side:
+                                                              const BorderSide(
+                                                                color: Color(
+                                                                  0x33121215,
+                                                                ),
+                                                              ),
+                                                        ),
+                                                    key: const Key(
+                                                      'add-expense-photo',
+                                                    ),
+                                                    onPressed: _addPhoto,
+                                                    icon: const Icon(
+                                                      Icons
+                                                          .add_photo_alternate_outlined,
+                                                    ),
+                                                    label: Text(
+                                                      _isUploading
+                                                          ? '첨부 중...'
+                                                          : '소비 사진 첨부',
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ],
+                                        )
+                                      : null,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextButton(
+                        key: const Key('delete-ledger-entry'),
+                        onPressed: _deleteEntry,
+                        child: const Text(
+                          '내역 삭제',
+                          style: TextStyle(color: Color(0xFFCF376A)),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      FormSaveButton(
+                        key: const Key('save-ledger-entry'),
+                        label: _isSaving ? '저장 중...' : '저장',
+                        keyboardVisible:
+                            MediaQuery.viewInsetsOf(context).bottom > 0,
+                        onPressed: _isSaving || _isUploading ? null : _save,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -195,18 +401,59 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
   }
 
   Future<void> _save() async {
-    if (_data != null) await _openEdit();
+    final id = widget.expenseId;
+    final service = widget.financeService;
+    if (id == null || service == null || _isSaving || _isUploading) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    final payload = _formKey.currentState?.buildUpdatePayload();
+    if (payload == null) {
+      _showMessage('가맹점명과 품목 정보를 확인해 주세요');
+      return;
+    }
+    setState(() => _isSaving = true);
+    try {
+      await service.updateExpense(id, payload);
+      if (mounted) Navigator.of(context).pop(LedgerEditResult.updated);
+    } on ApiException catch (error) {
+      if (mounted) _showMessage(error.message);
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
-  void _updateItems(List<Map<String, dynamic>> items) {
-    if (_data == null) return;
-    final total = items.fold<int>(
-      0,
-      (sum, item) =>
-          sum +
-          (item['unit_price'] as int? ?? 0) * (item['quantity'] as int? ?? 1),
-    );
-    setState(() => _data = {...?_data, 'items': items, 'total_amount': total});
+  Future<void> _addPhoto() async {
+    final id = widget.expenseId;
+    final service = widget.financeService;
+    if (id == null || service is! ExpensePhotoService || _isUploading) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _isUploading = true);
+    try {
+      final image = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        requestFullMetadata: false,
+      );
+      if (image == null || !mounted) return;
+      final response = await (service as ExpensePhotoService)
+          .uploadExpensePhoto(id, image.path);
+      if (!mounted) return;
+      final uploaded = response['photos'] as List? ?? const [];
+      setState(() {
+        _data = {
+          ...?_data,
+          'photos': [...(_data?['photos'] as List? ?? const []), ...uploaded],
+        };
+      });
+    } on ApiException catch (error) {
+      if (mounted) _showMessage(error.message);
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _deleteEntry() async {
@@ -244,6 +491,21 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
     final id = widget.expenseId;
     if (id == null) return;
     final service = widget.dutchPayService ?? AppServices.dutchPay;
+    // 가계_003-01 [정산완료]: [정산결과] → 더치_004-01_정산 결과 (GET /dutch-pay/{session_id}/result)
+    final completedSession = _data?['dutch_pay_status'] == 'completed'
+        ? (_data?['dutch_pay_session_id'] as String?)
+        : null;
+    if (completedSession != null) {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => DutchResultScreen(
+            sessionId: completedSession,
+            dutchPayService: service,
+          ),
+        ),
+      );
+      return;
+    }
     setState(() => _isStartingDutchPay = true);
     try {
       final entry = await service.entry(id);
@@ -299,28 +561,6 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
     }
   }
 
-  Future<void> _openEdit() async {
-    final id = widget.expenseId;
-    final service = widget.financeService;
-    final data = _data;
-    if (id == null || service == null || data == null) return;
-    final result = await Navigator.of(context).push<LedgerEditResult>(
-      MaterialPageRoute<LedgerEditResult>(
-        builder: (_) => LedgerEditScreen(
-          expenseId: id,
-          financeService: service,
-          initialData: data,
-        ),
-      ),
-    );
-    if (!mounted) return;
-    if (result == LedgerEditResult.deleted) {
-      Navigator.of(context).pop(true);
-      return;
-    }
-    if (result == LedgerEditResult.updated) await _load();
-  }
-
   Future<void> _deletePhoto(String photoId) async {
     final id = widget.expenseId;
     final service = widget.financeService;
@@ -367,16 +607,9 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
 }
 
 class _ReceiptDetail extends StatefulWidget {
-  const _ReceiptDetail({
-    this.data,
-    this.onEdit,
-    this.onDeletePhoto,
-    this.onItemsChanged,
-  });
+  const _ReceiptDetail({this.data});
+
   final Map<String, dynamic>? data;
-  final VoidCallback? onEdit;
-  final ValueChanged<String>? onDeletePhoto;
-  final ValueChanged<List<Map<String, dynamic>>>? onItemsChanged;
 
   @override
   State<_ReceiptDetail> createState() => _ReceiptDetailState();
@@ -418,7 +651,6 @@ class _ReceiptDetailState extends State<_ReceiptDetail> {
     final quantity = _items[index]['quantity'] as int? ?? 1;
     if (quantity + delta < 1) return;
     setState(() => _items[index]['quantity'] = quantity + delta);
-    _notifyItemsChanged();
   }
 
   void _deleteItem(int index) {
@@ -426,7 +658,6 @@ class _ReceiptDetailState extends State<_ReceiptDetail> {
       _items.removeAt(index);
       _editingItemIndex = null;
     });
-    _notifyItemsChanged();
   }
 
   void _addItem() {
@@ -434,24 +665,16 @@ class _ReceiptDetailState extends State<_ReceiptDetail> {
       _items.add({'item_name': '', 'quantity': 1, 'unit_price': 0});
       _editingItemIndex = _items.length - 1;
     });
-    _notifyItemsChanged();
   }
 
   void _updateItem(int index, {String? name, int? unitPrice}) {
     if (name != null) _items[index]['item_name'] = name;
     if (unitPrice != null) _items[index]['unit_price'] = unitPrice;
-    _notifyItemsChanged();
   }
 
   void _finishEditing() {
     FocusScope.of(context).unfocus();
     setState(() => _editingItemIndex = null);
-  }
-
-  void _notifyItemsChanged() {
-    widget.onItemsChanged?.call(
-      _items.map((item) => Map<String, dynamic>.from(item)).toList(),
-    );
   }
 
   @override
@@ -509,22 +732,18 @@ class _ReceiptDetailState extends State<_ReceiptDetail> {
               _DetailRow(
                 label: '가맹점 명',
                 value: data?['store_name'] as String? ?? '아주대학교 카페',
-                onTap: widget.onEdit,
               ),
               _DetailRow(
                 label: '결제일시',
                 value: _dateLabel(data?['paid_at'] as String?),
-                onTap: widget.onEdit,
               ),
               _DetailRow(
                 label: '카테고리',
                 value: data?['category'] as String? ?? '식비',
-                onTap: widget.onEdit,
               ),
               _DetailRow(
                 label: '결제수단',
                 value: data?['payment_method'] as String? ?? '현금',
-                onTap: widget.onEdit,
               ),
               const SizedBox(height: 10),
               const _DarkAsterisks(),
@@ -535,7 +754,7 @@ class _ReceiptDetailState extends State<_ReceiptDetail> {
                   Text('품목   ${_items.length}', style: _darkFieldMuted),
                   GestureDetector(
                     key: const Key('edit-ledger-entry'),
-                    onTap: widget.onEdit ?? _addItem,
+                    onTap: _addItem,
                     behavior: HitTestBehavior.opaque,
                     child: const Text(
                       '품목 추가 +',
@@ -592,11 +811,6 @@ class _ReceiptDetailState extends State<_ReceiptDetail> {
                         onOpen: (photo['url'] as String?)?.isNotEmpty == true
                             ? () => _showImage(context, photo['url'] as String)
                             : null,
-                        onDelete: widget.onDeletePhoto == null
-                            ? null
-                            : () => widget.onDeletePhoto?.call(
-                                photo['id'] as String,
-                              ),
                       );
                     },
                   ),
@@ -765,13 +979,11 @@ class _ReceiptBackground extends StatelessWidget {
 }
 
 class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value, this.onTap});
+  const _DetailRow({required this.label, required this.value});
   final String label;
   final String value;
-  final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
     child: SizedBox(
       height: 42,
       child: Row(

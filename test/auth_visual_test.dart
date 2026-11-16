@@ -22,6 +22,7 @@ import 'package:sobilog/features/analysis/presentation/analysis_overview_screen.
 import 'package:sobilog/features/finance/data/finance_service.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_detail_screen.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_edit_screen.dart';
+import 'package:sobilog/features/ledger/presentation/ledger_filter_sheet.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_screen.dart';
 import 'package:sobilog/features/profile/presentation/account_delete_screen.dart';
 import 'package:sobilog/features/profile/presentation/account_settings_screen.dart';
@@ -37,6 +38,7 @@ import 'package:sobilog/features/register/presentation/receipt_result_screen.dar
 import 'package:sobilog/features/splash/presentation/splash_screen.dart';
 
 void main() {
+  setUp(resetLedgerFilterMemory);
   setUpAll(() async {
     final pretendard = FontLoader('Pretendard')
       ..addFont(rootBundle.load('assets/fonts/Pretendard-Regular.otf'))
@@ -249,15 +251,18 @@ void main() {
     await configureViewport(tester);
     await pumpScreen(
       tester,
-      LedgerScreen(financeService: _LedgerVisualService()),
+      LedgerScreen(
+        financeService: _LedgerVisualService(),
+        currentDate: DateTime(2026, 9, 3),
+      ),
     );
     await tester.tap(find.text('필터'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('ledger-filter-식비')));
+    await tester.tap(find.byKey(const Key('category-chip-expense-식비')));
     await tester.pumpAndSettle();
 
     await expectLater(
-      find.byType(Dialog),
+      find.byType(LedgerFilterSheet),
       matchesGoldenFile('goldens/ledger_filter.png'),
     );
   });
@@ -268,12 +273,15 @@ void main() {
     await configureViewport(tester);
     await pumpScreen(
       tester,
-      LedgerScreen(financeService: _LedgerVisualService()),
+      LedgerScreen(
+        financeService: _LedgerVisualService(),
+        currentDate: DateTime(2026, 9, 3),
+      ),
     );
     await tester.tap(find.text('필터'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('ledger-filter-식비')));
-    await tester.tap(find.byKey(const Key('ledger-filter-카드')));
+    await tester.tap(find.byKey(const Key('category-chip-expense-식비')));
+    await tester.tap(find.byKey(const Key('ledger-payment-체크카드')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('apply-ledger-filter')));
     await tester.pumpAndSettle();

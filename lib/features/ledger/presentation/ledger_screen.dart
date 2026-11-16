@@ -1,8 +1,7 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../category/data/category_service.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
@@ -11,8 +10,11 @@ import '../../../shared/widgets/app_chevron.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../../shared/widgets/app_skeleton.dart';
 import '../../../shared/widgets/app_toast.dart';
+import '../../category/data/category_models.dart';
+import 'ledger_filter_sheet.dart';
 import '../../analysis/presentation/analysis_overview_screen.dart';
 import '../../finance/data/finance_service.dart';
+import '../../finance/data/payment_methods.dart';
 import '../../home/presentation/home_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../register/presentation/register_type_screen.dart';
@@ -43,14 +45,24 @@ class LedgerScreen extends StatefulWidget {
   State<LedgerScreen> createState() => _LedgerScreenState();
 }
 
+/// 테스트에서 앱 재시작 상태(필터 해제)를 만들 때 사용.
+@visibleForTesting
+void resetLedgerFilterMemory() {
+  _LedgerScreenState._rememberedFilters = LedgerFilterSelection.empty;
+  _LedgerScreenState._rememberedType = 0;
+}
+
 class _LedgerScreenState extends State<LedgerScreen> {
   late int _period;
   int _type = 0;
   late DateTime _anchor;
   Map<String, dynamic>? _data;
-  Map<String, dynamic>? _unfilteredData;
-  Set<String> _categories = {};
-  Set<String> _paymentMethods = {};
+
+  /// 가계_001: 필터는 앱 실행 중에는 유지(하단 메뉴에 다녀와도), [전체·지출·수입]을 바꾸면 해제.
+  static LedgerFilterSelection _rememberedFilters = LedgerFilterSelection.empty;
+  static int _rememberedType = 0;
+  LedgerFilterSelection _filters = LedgerFilterSelection.empty;
+  int _requestGeneration = 0;
   late bool _isLoading;
   String? _error;
 
@@ -58,49 +70,61 @@ class _LedgerScreenState extends State<LedgerScreen> {
   void initState() {
     super.initState();
     _period = widget.initialPeriod.clamp(0, 2);
+    preloadCategories(widget.financeService).then((_) {
+      if (mounted) setState(() {});
+    });
     _anchor =
         widget.initialAnchor ??
         (widget.financeService == null
             ? DateTime(2026, 8, 19)
             : (widget.currentDate ?? DateTime.now()));
     _data = widget.initialData;
+    if (widget.financeService != null) {
+      _filters = _rememberedFilters;
+      _type = _rememberedType;
+    }
     _isLoading = widget.financeService != null;
     _load();
+  }
+
+  void _setFilters(LedgerFilterSelection filters) {
+    _filters = filters;
+    if (widget.financeService != null) _rememberedFilters = filters;
   }
 
   Future<void> _load() async {
     final service = widget.financeService;
     if (service == null) return;
-    setState(() => _isLoading = true);
+    final generation = ++_requestGeneration;
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
     try {
-      setState(() => _error = null);
-      final data = await service.ledger(
+      final data = await loadFilteredLedger(
+        service,
         period: const ['month', 'week', 'day'][_period],
         anchor: _anchor,
-        type: const ['all', 'expense', 'income'][_type],
-        categories: _categories.toList(),
-        paymentMethods: _paymentMethods.toList(),
+        tabType: const ['all', 'expense', 'income'][_type],
+        selection: _filters,
       );
-      if (mounted) {
-        setState(() {
-          _data = data;
-          if (_categories.isEmpty && _paymentMethods.isEmpty) {
-            _unfilteredData = data;
-          }
-        });
+      if (mounted && generation == _requestGeneration) {
+        setState(() => _data = data);
       }
     } catch (_) {
-      if (mounted && _data == null) {
+      if (mounted && generation == _requestGeneration && _data == null) {
         setState(() => _error = '가계부 내역을 불러오지 못했습니다.');
       }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted && generation == _requestGeneration) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final hasFilters = _categories.isNotEmpty || _paymentMethods.isNotEmpty;
+    final hasFilters = _filters.isNotEmpty;
     final showIncomePrompt =
         !hasFilters &&
         _type == 0 &&
@@ -212,12 +236,19 @@ class _LedgerScreenState extends State<LedgerScreen> {
               child: _isLoading
                   ? const _LedgerTotalsSkeleton()
                   : hasFilters
-                  ? _FilteredSummary(
-                      data: _data,
-                      unfilteredData: _unfilteredData,
-                      categories: _categories,
-                      paymentMethods: _paymentMethods,
-                    )
+                  ? _filters.isMixed
+                        ? _Totals(
+                            data: _data,
+                            type: 0,
+                            period: _period,
+                            anchor: _anchor,
+                          )
+                        : _FilteredSummary(
+                            data: _data,
+                            filters: _filters,
+                            period: _period,
+                            anchor: _anchor,
+                          )
                   : _Totals(
                       data: _data,
                       type: _type,
@@ -228,7 +259,7 @@ class _LedgerScreenState extends State<LedgerScreen> {
             ),
             Positioned(
               left: 24,
-              top: hasFilters
+              top: hasFilters && !_filters.isMixed
                   ? 421
                   : showIncomePrompt
                   ? 501
@@ -251,22 +282,27 @@ class _LedgerScreenState extends State<LedgerScreen> {
                 top: 449,
                 width: 354,
                 child: _AppliedFilters(
-                  categories: _categories,
-                  paymentMethods: _paymentMethods,
-                  onRemove: (value) {
+                  filters: _filters,
+                  onRemove: (value, group) {
                     setState(() {
-                      _categories.remove(value);
-                      _paymentMethods.remove(value);
+                      _setFilters(switch (group) {
+                        _FilterGroup.expense => _filters.copyWith(
+                          expenseCategories: {..._filters.expenseCategories}
+                            ..remove(value),
+                        ),
+                        _FilterGroup.payment => _filters.copyWith(
+                          paymentMethods: {..._filters.paymentMethods}
+                            ..remove(value),
+                        ),
+                        _FilterGroup.income => _filters.copyWith(
+                          incomeCategories: {..._filters.incomeCategories}
+                            ..remove(value),
+                        ),
+                      });
                     });
                     _load();
                   },
-                  onClear: () {
-                    setState(() {
-                      _categories.clear();
-                      _paymentMethods.clear();
-                    });
-                    _load();
-                  },
+                  onClear: _clearFilters,
                 ),
               ),
             Positioned(
@@ -284,23 +320,31 @@ class _LedgerScreenState extends State<LedgerScreen> {
                     return Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: _Chip(
+                        key: Key('ledger-entry-type-$index'),
                         label: const ['전체', '지출', '수입'][index],
                         selected: _type == index,
                         onTap: () {
-                          setState(() => _type = index);
+                          if (_type == index) return;
+                          setState(() {
+                            _type = index;
+                            if (widget.financeService != null) {
+                              _rememberedType = index;
+                            }
+                            _setFilters(LedgerFilterSelection.empty);
+                          });
                           _load();
                         },
                       ),
                     );
                   }),
                   _Chip(
+                    key: const Key('ledger-filter-button'),
                     label: '필터',
                     leadingAsset: AppAssets.filterLight,
                     selectedLeadingAsset: AppAssets.ledgerFilterSelected,
                     fixedWidth: 99,
-                    selected:
-                        _categories.isNotEmpty || _paymentMethods.isNotEmpty,
-                    badgeCount: _categories.length + _paymentMethods.length,
+                    selected: _filters.isNotEmpty,
+                    badgeCount: _filters.count,
                     onTap: _showFilters,
                   ),
                 ],
@@ -329,16 +373,8 @@ class _LedgerScreenState extends State<LedgerScreen> {
                         type: _type,
                         data: _data,
                         preview: widget.financeService == null,
-                        filtered:
-                            _categories.isNotEmpty ||
-                            _paymentMethods.isNotEmpty,
-                        onClearFilters: () {
-                          setState(() {
-                            _categories.clear();
-                            _paymentMethods.clear();
-                          });
-                          _load();
-                        },
+                        filtered: _filters.isNotEmpty,
+                        onClearFilters: _clearFilters,
                         onRegisterIncome: openIncomeRegistration,
                       ),
               ),
@@ -374,27 +410,23 @@ class _LedgerScreenState extends State<LedgerScreen> {
     currentDate: widget.currentDate ?? DateTime.now(),
   );
 
+  void _clearFilters() {
+    setState(() => _setFilters(LedgerFilterSelection.empty));
+    _load();
+  }
+
   Future<void> _showFilters() async {
-    final result = await showDialog<_LedgerFilters>(
-      context: context,
-      barrierColor: const Color(0xD9111216),
-      builder: (context) => _FilterDialog(
-        initialCategories: _categories,
-        initialPaymentMethods: _paymentMethods,
-        initialData: _data,
-        financeService: widget.financeService,
-        period: const ['month', 'week', 'day'][_period],
-        anchor: _anchor,
-        type: const ['all', 'expense', 'income'][_type],
-      ),
+    final result = await showLedgerFilterSheet(
+      context,
+      tabType: _type,
+      initial: _filters,
+      financeService: widget.financeService,
+      period: const ['month', 'week', 'day'][_period],
+      anchor: _anchor,
     );
     if (result == null || !mounted) return;
-    setState(() {
-      _categories = result.categories;
-      _paymentMethods = result.paymentMethods;
-      if (result.previewData != null) _data = result.previewData;
-    });
-    if (result.previewData == null) await _load();
+    setState(() => _setFilters(result));
+    await _load();
   }
 
   void _navigate(BuildContext context, int index) {
@@ -443,318 +475,6 @@ class _SkeletonTotalRow extends StatelessWidget {
       AppSkeletonBox(width: 96, height: 20),
     ],
   );
-}
-
-class _LedgerFilters {
-  const _LedgerFilters({
-    required this.categories,
-    required this.paymentMethods,
-    this.previewData,
-  });
-
-  final Set<String> categories;
-  final Set<String> paymentMethods;
-  final Map<String, dynamic>? previewData;
-}
-
-class _FilterDialog extends StatefulWidget {
-  const _FilterDialog({
-    required this.initialCategories,
-    required this.initialPaymentMethods,
-    required this.initialData,
-    required this.financeService,
-    required this.period,
-    required this.anchor,
-    required this.type,
-  });
-
-  final Set<String> initialCategories;
-  final Set<String> initialPaymentMethods;
-  final Map<String, dynamic>? initialData;
-  final FinanceService? financeService;
-  final String period;
-  final DateTime anchor;
-  final String type;
-
-  @override
-  State<_FilterDialog> createState() => _FilterDialogState();
-}
-
-class _FilterDialogState extends State<_FilterDialog> {
-  static const _categoryValues = [
-    '식비',
-    '카페',
-    '쇼핑',
-    '의료',
-    '문화',
-    '교통',
-    '교육',
-    '기타',
-  ];
-  static const _paymentValues = ['현금', '카드', '미지정'];
-
-  late final Set<String> _categories = {...widget.initialCategories};
-  late final Set<String> _paymentMethods = {...widget.initialPaymentMethods};
-  late Map<String, dynamic>? _previewData = widget.initialData;
-  bool _isLoading = false;
-  int _requestGeneration = 0;
-
-  int get _expenseTotal => _previewData?['total_expense_amount'] as int? ?? 0;
-
-  int get _entryCount =>
-      (_previewData?['expense_count'] as int? ?? 0) +
-      (_previewData?['income_count'] as int? ?? 0);
-
-  @override
-  Widget build(BuildContext context) => Dialog.fullscreen(
-    backgroundColor: Colors.transparent,
-    child: DesignCanvas(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-        child: ColoredBox(
-          color: const Color(0x99121215),
-          child: Stack(
-            children: [
-              Positioned(
-                left: 184,
-                top: 238,
-                width: 34,
-                height: 34,
-                child: IconButton(
-                  key: const Key('close-ledger-filter'),
-                  padding: EdgeInsets.zero,
-                  onPressed: () => Navigator.pop(context),
-                  icon: SvgPicture.asset(
-                    AppAssets.ledgerFilterClose,
-                    width: 34,
-                    height: 34,
-                  ),
-                ),
-              ),
-              const Positioned(
-                top: 289,
-                left: 0,
-                right: 0,
-                child: Text(
-                  '필터',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppColors.text,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const Positioned(
-                top: 323,
-                left: 0,
-                right: 0,
-                child: Text(
-                  '중복 선택 가능',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.text50, fontSize: 12),
-                ),
-              ),
-              Positioned(
-                left: 24,
-                top: 389,
-                width: 354,
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 8,
-                  runSpacing: 10,
-                  children: _categoryValues
-                      .map(
-                        (value) => _FilterChoice(
-                          value: value,
-                          category: value,
-                          selected: _categories.contains(value),
-                          onTap: () => _toggle(_categories, value),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ),
-              const Positioned(
-                top: 598,
-                left: 0,
-                right: 0,
-                child: Text(
-                  '지출에만 적용',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.text50, fontSize: 12),
-                ),
-              ),
-              Positioned(
-                left: 24,
-                top: 636,
-                width: 354,
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 8,
-                  children: _paymentValues
-                      .map(
-                        (value) => _FilterChoice(
-                          value: value,
-                          selected: _paymentMethods.contains(value),
-                          onTap: () => _toggle(_paymentMethods, value),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ),
-              Positioned(
-                left: 24,
-                right: 24,
-                top: 741,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      '선택한 조건의 지출 합계',
-                      style: TextStyle(color: AppColors.text50, fontSize: 12),
-                    ),
-                    _Price(
-                      key: const Key('ledger-filter-expense-total'),
-                      amount: _formatAmount(_expenseTotal),
-                    ),
-                  ],
-                ),
-              ),
-              Positioned(
-                left: 24,
-                right: 24,
-                bottom: 40,
-                height: 56,
-                child: FilledButton(
-                  key: const Key('apply-ledger-filter'),
-                  onPressed: () => Navigator.pop(
-                    context,
-                    _LedgerFilters(
-                      categories: {..._categories},
-                      paymentMethods: {..._paymentMethods},
-                      previewData: _isLoading ? null : _previewData,
-                    ),
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF5C52FF),
-                    disabledBackgroundColor: const Color(0xFF5C52FF),
-                    foregroundColor: Colors.white,
-                    textStyle: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                  child: Text(
-                    _isLoading ? '조회 중...' : '$_entryCount건 보기',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'Pretendard',
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-
-  Future<void> _toggle(Set<String> values, String value) async {
-    setState(() {
-      values.contains(value) ? values.remove(value) : values.add(value);
-    });
-    await _loadPreview();
-  }
-
-  Future<void> _loadPreview() async {
-    final service = widget.financeService;
-    if (service == null) return;
-    final generation = ++_requestGeneration;
-    setState(() => _isLoading = true);
-    try {
-      final data = await service.ledger(
-        period: widget.period,
-        anchor: widget.anchor,
-        type: widget.type,
-        categories: _categories.toList(),
-        paymentMethods: _paymentMethods.toList(),
-      );
-      if (mounted && generation == _requestGeneration) {
-        setState(() => _previewData = data);
-      }
-    } catch (_) {
-      // Keep the previous preview when the request cannot complete.
-    } finally {
-      if (mounted && generation == _requestGeneration) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-}
-
-class _FilterChoice extends StatelessWidget {
-  const _FilterChoice({
-    required this.value,
-    required this.selected,
-    required this.onTap,
-    this.category,
-  });
-
-  final String value;
-  final bool selected;
-  final VoidCallback onTap;
-  final String? category;
-
-  @override
-  Widget build(BuildContext context) {
-    final categoryIcon = AppCategoryIcon(category: category, slotSize: 26);
-    return GestureDetector(
-      key: Key('ledger-filter-$value'),
-      onTap: onTap,
-      child: Container(
-        height: category == null ? 48 : 54,
-        padding: EdgeInsets.symmetric(horizontal: category == null ? 26 : 24),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFFA8A3FF) : AppColors.selected,
-          border: Border.all(color: AppColors.outline, width: 0.5),
-          borderRadius: BorderRadius.circular(30),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (category != null) ...[
-              if (selected)
-                ColorFiltered(
-                  colorFilter: const ColorFilter.mode(
-                    Color(0xFF1B1B1B),
-                    BlendMode.srcIn,
-                  ),
-                  child: categoryIcon,
-                )
-              else
-                categoryIcon,
-              const SizedBox(width: 6),
-            ],
-            Text(
-              value,
-              style: TextStyle(
-                color: selected ? const Color(0xFF1B1B1B) : AppColors.text50,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _Chip extends StatelessWidget {
@@ -869,11 +589,16 @@ class _PeriodSelector extends StatelessWidget {
             ),
           ),
         ),
-        Text.rich(
-          key: const Key('ledger-period-title'),
-          TextSpan(children: _titleSpans()),
-          semanticsLabel: _plainTitle(),
-          style: const TextStyle(color: AppColors.text),
+        Flexible(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text.rich(
+              key: const Key('ledger-period-title'),
+              TextSpan(children: _titleSpans()),
+              semanticsLabel: _plainTitle(),
+              style: const TextStyle(color: AppColors.text),
+            ),
+          ),
         ),
         GestureDetector(
           key: const Key('ledger-period-next'),
@@ -1151,22 +876,40 @@ class _IncomePromptCard extends StatelessWidget {
 class _FilteredSummary extends StatelessWidget {
   const _FilteredSummary({
     required this.data,
-    required this.unfilteredData,
-    required this.categories,
-    required this.paymentMethods,
+    required this.filters,
+    required this.period,
+    required this.anchor,
   });
 
   final Map<String, dynamic>? data;
-  final Map<String, dynamic>? unfilteredData;
-  final Set<String> categories;
-  final Set<String> paymentMethods;
+  final LedgerFilterSelection filters;
+  final int period;
+  final DateTime anchor;
+
+  String get _periodLabel => switch (period) {
+    0 => '${anchor.month}월',
+    1 => _weekRangeLabel(anchor),
+    _ => '${anchor.month}월 ${anchor.day}일',
+  };
 
   @override
   Widget build(BuildContext context) {
-    final filtered = data?['total_expense_amount'] as int? ?? 0;
-    final total = unfilteredData?['total_expense_amount'] as int? ?? 0;
+    final income = filters.hasIncome;
+    final filtered =
+        data?[income ? 'total_income_amount' : 'total_expense_amount']
+            as int? ??
+        0;
+    final total =
+        data?[income
+                ? 'unfiltered_total_income_amount'
+                : 'unfiltered_total_expense_amount']
+            as int? ??
+        0;
     final rate = total <= 0 ? 0 : (filtered * 100 / total).round();
-    final labels = [...categories, ...paymentMethods];
+    final labels = income
+        ? [...filters.incomeCategories]
+        : [...filters.expenseCategories, ...filters.paymentMethods];
+    final kind = income ? '수입' : '지출';
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -1175,7 +918,8 @@ class _FilteredSummary extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${labels.join(' ')} 지출',
+                '${labels.join(' ')} $kind',
+                key: const Key('ledger-filtered-summary-title'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -1186,30 +930,36 @@ class _FilteredSummary extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                '전체 지출 ${_formatAmount(total)}원의 $rate%',
+                '$_periodLabel 총 $kind ${_formatAmount(total)}원의 $rate%',
+                key: const Key('ledger-filtered-summary-rate'),
                 style: const TextStyle(color: AppColors.text80, fontSize: 12),
               ),
             ],
           ),
         ),
         const SizedBox(width: 12),
-        _Price(amount: filtered == 0 ? '0' : '-${_formatAmount(filtered)}'),
+        _Price(
+          amount: filtered == 0
+              ? '0'
+              : '${income ? '+' : '-'}${_formatAmount(filtered)}',
+          color: AppColors.text,
+        ),
       ],
     );
   }
 }
 
+enum _FilterGroup { expense, payment, income }
+
 class _AppliedFilters extends StatelessWidget {
   const _AppliedFilters({
-    required this.categories,
-    required this.paymentMethods,
+    required this.filters,
     required this.onRemove,
     required this.onClear,
   });
 
-  final Set<String> categories;
-  final Set<String> paymentMethods;
-  final ValueChanged<String> onRemove;
+  final LedgerFilterSelection filters;
+  final void Function(String, _FilterGroup) onRemove;
   final VoidCallback onClear;
 
   @override
@@ -1217,50 +967,107 @@ class _AppliedFilters extends StatelessWidget {
     scrollDirection: Axis.horizontal,
     child: Row(
       children: [
-        for (final value in [...categories, ...paymentMethods]) ...[
-          GestureDetector(
-            key: Key('ledger-applied-filter-$value'),
-            onTap: () => onRemove(value),
-            child: Container(
-              height: 38,
-              padding: const EdgeInsets.only(left: 15, right: 9),
-              decoration: BoxDecoration(
-                color: const Color(0xFFA8A3FF),
-                borderRadius: BorderRadius.circular(30),
-                border: Border.all(color: AppColors.text20, width: .5),
-              ),
-              child: Row(
-                children: [
-                  Text(
-                    value,
-                    style: const TextStyle(
-                      color: Color(0xFF1B1B1B),
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  SvgPicture.asset(
-                    AppAssets.ledgerFilterRemove,
-                    width: 24,
-                    height: 24,
-                  ),
-                ],
-              ),
+        for (final (value, group) in [
+          for (final value in filters.expenseCategories)
+            (value, _FilterGroup.expense),
+          for (final value in filters.paymentMethods)
+            (value, _FilterGroup.payment),
+          for (final value in filters.incomeCategories)
+            (value, _FilterGroup.income),
+        ]) ...[
+          _AppliedChip(
+            key: Key(
+              group == _FilterGroup.payment && value == '기타'
+                  ? 'ledger-applied-payment-기타'
+                  : 'ledger-applied-filter-$value',
             ),
+            label: value,
+            outlineColor: group == _FilterGroup.expense
+                ? CategoryIconSet.colorFor(
+                    name: value,
+                    icon: null,
+                    kind: CategoryKind.expense,
+                  )
+                : null,
+            onTap: () => onRemove(value, group),
           ),
           const SizedBox(width: 8),
         ],
-        TextButton(
+        GestureDetector(
           key: const Key('ledger-clear-all-filters'),
-          onPressed: onClear,
-          child: const Text(
-            '전체 해제',
-            style: TextStyle(color: AppColors.text50, fontSize: 12),
+          behavior: HitTestBehavior.opaque,
+          onTap: onClear,
+          child: const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              '전체 해제',
+              style: TextStyle(
+                color: AppColors.text50,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                height: 21 / 12,
+              ),
+            ),
           ),
         ),
       ],
     ),
   );
+}
+
+class _AppliedChip extends StatelessWidget {
+  const _AppliedChip({
+    required this.label,
+    required this.onTap,
+    super.key,
+    this.outlineColor,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+
+  /// 지출 카테고리는 아이콘 색 테두리(어두운 배경), 나머지는 보라 배경.
+  final Color? outlineColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final outlined = outlineColor != null;
+    final color = outlined ? outlineColor! : const Color(0xFF1B1B1B);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 39,
+        padding: const EdgeInsets.only(left: 15.5, right: 9.5),
+        decoration: BoxDecoration(
+          color: outlined ? AppColors.selected : const Color(0xFFA8A3FF),
+          borderRadius: BorderRadius.circular(30.154),
+          border: Border.all(
+            color: outlined ? outlineColor! : AppColors.text20,
+            width: outlined ? 1 : .5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: outlined ? AppColors.text : const Color(0xFF1B1B1B),
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                height: 18 / 15,
+              ),
+            ),
+            SvgPicture.asset(
+              AppAssets.ledgerFilterRemove,
+              width: 24,
+              height: 24,
+              colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _TotalRow extends StatelessWidget {
@@ -1401,7 +1208,14 @@ class _Entries extends StatelessWidget {
                 onTap(_LedgerEntryTarget.expense(item['id'] as String?)),
             title: item['store_name'] as String?,
             category: item['category'] as String?,
-            subtitle: _expenseSubtitle(item),
+            subtitle:
+                item['representative_item_name'] as String? ??
+                item['category'] as String?,
+            extraItemCount: (item['item_count'] as int? ?? 1) - 1,
+            paymentMethod: normalizePaymentMethod(
+              item['payment_method'] as String?,
+            ),
+            timeLabel: _ledgerEntryTimeLabel(item),
           ),
         for (final item
             in (day['incomes'] as List? ?? const [])
@@ -1412,6 +1226,8 @@ class _Entries extends StatelessWidget {
               _LedgerEntryTarget.income({...item, 'income_date': day['date']}),
             ),
             title: item['category'] as String?,
+            category: item['category'] as String?,
+            isIncome: true,
             subtitle: item['memo'] as String? ?? '수입',
           ),
       ];
@@ -1485,23 +1301,6 @@ class _FilteredEmptyState extends StatelessWidget {
   );
 }
 
-String _expenseSubtitle(Map<String, dynamic> item) {
-  final count = item['item_count'] as int? ?? 0;
-  final representative =
-      item['representative_item_name'] as String? ??
-      item['category'] as String? ??
-      '';
-  final itemLabel = count > 1
-      ? '$representative 외 ${count - 1}건'
-      : representative;
-  final parts = <String>[
-    itemLabel,
-    if (item['payment_method'] case final String paymentMethod) paymentMethod,
-    ?_ledgerEntryTimeLabel(item),
-  ];
-  return parts.where((part) => part.isNotEmpty).join('  ·  ');
-}
-
 String? _ledgerEntryTimeLabel(Map<String, dynamic> item) {
   final raw =
       item['paid_at'] ??
@@ -1561,6 +1360,10 @@ class _Entry extends StatelessWidget {
     this.title,
     this.subtitle,
     this.category,
+    this.isIncome = false,
+    this.extraItemCount = 0,
+    this.paymentMethod,
+    this.timeLabel,
   });
 
   final String amount;
@@ -1568,47 +1371,78 @@ class _Entry extends StatelessWidget {
   final String? title;
   final String? subtitle;
   final String? category;
+  final bool isIncome;
+  final int extraItemCount;
+  final String? paymentMethod;
+  final String? timeLabel;
 
   @override
   Widget build(BuildContext context) {
+    const secondary = TextStyle(color: AppColors.text50, fontSize: 12);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: SizedBox(
-        height: 47,
-        child: Row(
-          children: [
-            AppCategoryIcon(
-              key: Key('ledger-category-${category ?? '식비'}'),
-              category: category,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title ?? '아주대학교 카페',
-                    style: TextStyle(
-                      color: AppColors.text,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      height: 17 / 14,
+      child: Row(
+        children: [
+          AppCategoryIcon(
+            key: Key('ledger-category-${category ?? '식비'}'),
+            category: category,
+            isIncome: isIncome,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title ?? '아주대학교 카페',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.text,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 9),
-                  _LedgerEntrySubtitle(
-                    value: subtitle ?? '카페  ·  카드  ·  오전 10:30',
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 8),
+                    _Price(amount: amount),
+                    const SizedBox(width: 6),
+                    const AppChevron(),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        subtitle ?? '카페',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: secondary.copyWith(color: AppColors.text80),
+                      ),
+                    ),
+                    if (extraItemCount > 0) ...[
+                      const SizedBox(width: 4),
+                      Text('외 $extraItemCount건', style: secondary),
+                    ],
+                    if (paymentMethod != null) ...[
+                      const SizedBox(width: 8),
+                      Text(paymentMethod!, style: secondary),
+                    ],
+                    if (timeLabel != null) ...[
+                      const SizedBox(width: 8),
+                      Text(timeLabel!, style: secondary),
+                    ],
+                  ],
+                ),
+              ],
             ),
-            _Price(amount: amount),
-            const SizedBox(width: 6),
-            const AppChevron(),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1625,44 +1459,6 @@ class _LedgerEntryDivider extends StatelessWidget {
   );
 }
 
-class _LedgerEntrySubtitle extends StatelessWidget {
-  const _LedgerEntrySubtitle({required this.value});
-
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final parts = value.split('  ·  ');
-    return Row(
-      children: [
-        Text(
-          parts.first,
-          style: const TextStyle(
-            color: AppColors.text80,
-            fontSize: 12,
-            height: 1.75,
-          ),
-        ),
-        if (parts.length > 1) ...[
-          const SizedBox(width: 12),
-          Flexible(
-            child: Text(
-              parts.skip(1).join('  ·  '),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.text50,
-                fontSize: 12,
-                height: 1.75,
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
 String _formatAmount(int amount) {
   final negative = amount < 0;
   final digits = amount.abs().toString();
@@ -1675,15 +1471,18 @@ String _formatAmount(int amount) {
 }
 
 class _Price extends StatelessWidget {
-  const _Price({required this.amount, super.key, this.accent = false});
+  const _Price({required this.amount, this.accent = false, this.color});
 
   final String amount;
   final bool accent;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final isIncome = amount.trimLeft().startsWith('+');
-    final color = accent || isIncome ? const Color(0xFFA8A3FF) : AppColors.text;
+    final color =
+        this.color ??
+        (accent || isIncome ? const Color(0xFFA8A3FF) : AppColors.text);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

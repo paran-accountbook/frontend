@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../category/data/category_service.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../shared/widgets/auth_widgets.dart';
+import '../../../shared/widgets/form_save_button.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../../../shared/widgets/p2_widgets.dart';
 import '../../finance/data/finance_service.dart';
 import 'receipt_entry_form.dart';
 import 'expense_registration_complete_screen.dart';
@@ -32,6 +34,15 @@ class _ReceiptResultScreenState extends State<ReceiptResultScreen> {
   final _formKey = GlobalKey<ReceiptEntryFormState>();
   bool _isLoading = false;
   String? _error;
+  final List<String> _photoPaths = [];
+
+  Future<void> _addPhoto() async {
+    final image = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      requestFullMetadata: false,
+    );
+    if (image != null && mounted) setState(() => _photoPaths.add(image.path));
+  }
 
   Future<void> _save() async {
     final service = widget.financeService;
@@ -54,6 +65,15 @@ class _ReceiptResultScreenState extends State<ReceiptResultScreen> {
       final expenseId = created['id'] as String?;
       if (expenseId == null) {
         throw const ApiException(message: '등록 결과를 확인하지 못했습니다.');
+      }
+      if (service is ExpensePhotoService) {
+        for (final path in List<String>.from(_photoPaths)) {
+          await (service as ExpensePhotoService).uploadExpensePhoto(
+            expenseId,
+            path,
+          );
+          _photoPaths.remove(path);
+        }
       }
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
@@ -100,10 +120,16 @@ class _ReceiptResultScreenState extends State<ReceiptResultScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    preloadCategories(widget.financeService);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: false,
       body: DesignCanvas(
+        fitWidthWithKeyboard: MediaQuery.viewInsetsOf(context).bottom > 0,
         child: Stack(
           children: [
             const ColoredBox(color: AppColors.background),
@@ -133,51 +159,63 @@ class _ReceiptResultScreenState extends State<ReceiptResultScreen> {
             Positioned(
               left: 24,
               top: 166,
-              width: 354,
-              bottom: 110,
+              right: 0,
+              bottom: 0,
               child: SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: 24),
+                padding: const EdgeInsets.only(bottom: 40),
                 child: Column(
                   children: [
                     ReceiptEntryForm(
                       key: _formKey,
                       showMemo: true,
+                      trailingInset: 24,
                       initialData: widget.initialData,
                       editable: widget.financeService != null,
-                    ),
-                    if (widget.imageSource != null) ...[
-                      const SizedBox(height: 16),
-                      OutlinedButton(
-                        key: const Key('receipt-result-retry'),
-                        onPressed: _pickAgain,
-                        child: Text(
-                          widget.imageSource == ImageSource.camera
-                              ? '다시 촬영'
-                              : '다시 선택',
-                        ),
+                      photos: P2PhotoAttachButton(
+                        count: _photoPaths.length,
+                        onTap: widget.financeService != null ? _addPhoto : null,
                       ),
-                    ],
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 24),
+                      child: Column(
+                        children: [
+                          if (widget.imageSource != null) ...[
+                            const SizedBox(height: 16),
+                            OutlinedButton(
+                              key: const Key('receipt-result-retry'),
+                              onPressed: _pickAgain,
+                              child: Text(
+                                widget.imageSource == ImageSource.camera
+                                    ? '다시 촬영'
+                                    : '다시 선택',
+                              ),
+                            ),
+                          ],
+                          if (_error case final message?) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              message,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Color(0xFFFF6B7A),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+                          FormSaveButton(
+                            keyboardVisible:
+                                MediaQuery.viewInsetsOf(context).bottom > 0,
+                            label: _isLoading ? '저장 중...' : '저장',
+                            onPressed: _isLoading ? null : _save,
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ),
-            if (_error case final message?)
-              Positioned(
-                left: 24,
-                right: 24,
-                bottom: 118,
-                child: Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Color(0xFFFF6B7A),
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            AuthBottomAction(
-              label: _isLoading ? '저장 중...' : '저장',
-              onPressed: _isLoading ? null : _save,
             ),
           ],
         ),

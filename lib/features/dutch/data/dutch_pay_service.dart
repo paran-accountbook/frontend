@@ -84,8 +84,7 @@ class DutchPayApiService implements DutchPayService {
 
   @override
   Future<Map<String, dynamic>> result(String sessionId) async =>
-      await _client.get('/dutch-pay/$sessionId/result')
-          as Map<String, dynamic>;
+      await _client.get('/dutch-pay/$sessionId/result') as Map<String, dynamic>;
 
   @override
   Future<Map<String, dynamic>> summary(String sessionId) async =>

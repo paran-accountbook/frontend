@@ -6,6 +6,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_chevron.dart';
+import '../../category/data/category_models.dart';
+import '../../category/data/category_service.dart';
+import '../../finance/data/payment_methods.dart';
 
 class ReceiptEntryForm extends StatefulWidget {
   const ReceiptEntryForm({
@@ -13,10 +16,18 @@ class ReceiptEntryForm extends StatefulWidget {
     this.showMemo = false,
     this.initialData,
     this.editable = false,
+    this.lightReceipt = false,
+    this.originalReceipt,
+    this.trailingInset = 0,
+    this.photos,
   });
   final bool showMemo;
   final Map<String, dynamic>? initialData;
   final bool editable;
+  final bool lightReceipt;
+  final Widget? originalReceipt;
+  final double trailingInset;
+  final Widget? photos;
   @override
   State<ReceiptEntryForm> createState() => ReceiptEntryFormState();
 }
@@ -24,7 +35,7 @@ class ReceiptEntryForm extends StatefulWidget {
 class ReceiptEntryFormState extends State<ReceiptEntryForm> {
   late final List<Map<String, dynamic>> _items;
   late final List<int> _quantities;
-  int _paymentMethod = 0;
+  late String _paymentMethod;
   late String _storeName;
   late String _category;
   late String _memo;
@@ -57,12 +68,9 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
                 )
         : remoteItems;
     _quantities = _items.map((item) => item['quantity'] as int? ?? 1).toList();
-    _paymentMethod = switch (widget.initialData?['payment_method']) {
-      '카드' => 1,
-      '미지정' => 2,
-      '현금' => 0,
-      _ => widget.editable ? 2 : 0,
-    };
+    _paymentMethod = normalizePaymentMethod(
+      widget.initialData?['payment_method'] as String?,
+    );
     _storeName =
         widget.initialData?['store_name'] as String? ??
         (widget.editable ? '' : '아주대학교');
@@ -77,241 +85,392 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
 
   @override
   Widget build(BuildContext context) {
+    final inset = EdgeInsets.only(right: widget.trailingInset);
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (widget.editable) ...[
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Padding(
+          padding: inset,
+          child: Column(
             children: [
-              const Text('품목 합계', style: _labelStyle),
-              Text(
-                '${_formatAmount(_itemsTotal)}원',
-                key: const Key('receipt-items-total'),
-                style: const TextStyle(
-                  color: AppColors.text,
-                  fontFamily: 'Amarante',
-                  fontSize: 24,
-                ),
+              if (widget.editable) ...[
+                if (!widget.lightReceipt) ...[
+                  const SizedBox(height: 25),
+                  const _Asterisks(lightReceipt: false),
+                  const SizedBox(height: 26),
+                ],
+                _buildTotal(),
+                const SizedBox(height: 14),
+                if (widget.lightReceipt) ...[
+                  const _Asterisks(lightReceipt: true),
+                  const SizedBox(height: 12),
+                ],
+                ?widget.originalReceipt,
+              ],
+              if (widget.initialData?['is_duplicate'] == true) ...[
+                const _RecognitionWarning('이미 등록된 영수증과 동일한 이미지예요.'),
+                const SizedBox(height: 10),
+              ],
+              if (widget.initialData?['amount_mismatch'] == true) ...[
+                const _RecognitionWarning('인식된 총액과 품목 합계가 달라요. 내용을 확인해 주세요.'),
+                const SizedBox(height: 10),
+              ],
+              _InfoRow(
+                lightReceipt: widget.lightReceipt,
+                label: '가맹점 명',
+                value: _storeName.isEmpty ? '입력해 주세요' : _storeName,
+                missing: _storeName.isEmpty,
+                onTap: widget.editable ? _editStore : null,
               ),
+              const SizedBox(height: 16),
+              _InfoRow(
+                lightReceipt: widget.lightReceipt,
+                label: '결제일시',
+                value: _paidAtLabel,
+                onTap: widget.editable ? _editPaidAt : null,
+              ),
+              if (widget.editable && !widget.lightReceipt) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    _DateQuickChip(
+                      label: '오늘',
+                      onTap: () => _setQuickDate(DateTime.now()),
+                    ),
+                    const SizedBox(width: 8),
+                    _DateQuickChip(
+                      label: '어제',
+                      onTap: () => _setQuickDate(
+                        DateTime.now().subtract(const Duration(days: 1)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 16),
+              _InfoRow(
+                lightReceipt: widget.lightReceipt,
+                label: '카테고리',
+                value: _category,
+                onTap: widget.editable ? _selectCategory : null,
+              ),
+              if (widget.lightReceipt) ...[
+                const SizedBox(height: 16),
+                _InfoRow(
+                  key: const Key('receipt-payment-method-row'),
+                  lightReceipt: true,
+                  label: '결제수단',
+                  value: _paymentMethod,
+                  onTap: widget.editable ? _selectPaymentMethod : null,
+                ),
+              ],
+              const SizedBox(height: 25),
+              _Asterisks(lightReceipt: widget.lightReceipt),
             ],
           ),
-          const SizedBox(height: 14),
-        ],
-        if (widget.initialData?['is_duplicate'] == true) ...[
-          const _RecognitionWarning('이미 등록된 영수증과 동일한 이미지예요.'),
-          const SizedBox(height: 10),
-        ],
-        if (widget.initialData?['amount_mismatch'] == true) ...[
-          const _RecognitionWarning('인식된 총액과 품목 합계가 달라요. 내용을 확인해 주세요.'),
-          const SizedBox(height: 10),
-        ],
-        _InfoRow(
-          label: '가맹점 명',
-          value: _storeName.isEmpty ? '입력해 주세요' : _storeName,
-          missing: _storeName.isEmpty,
-          onTap: widget.editable ? _editStore : null,
         ),
-        const SizedBox(height: 16),
-        _InfoRow(
-          label: '결제일시',
-          value: _paidAtLabel,
-          onTap: widget.editable ? _editPaidAt : null,
-        ),
-        if (widget.editable) ...[
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              _DateQuickChip(
-                label: '오늘',
-                onTap: () => _setQuickDate(DateTime.now()),
-              ),
-              const SizedBox(width: 8),
-              _DateQuickChip(
-                label: '어제',
-                onTap: () => _setQuickDate(
-                  DateTime.now().subtract(const Duration(days: 1)),
-                ),
-              ),
-            ],
-          ),
-        ],
-        const SizedBox(height: 16),
-        _InfoRow(
-          label: '카테고리',
-          value: _category,
-          onTap: widget.editable ? _selectCategory : null,
-        ),
-        const SizedBox(height: 25),
-        const _Asterisks(),
-        const SizedBox(height: 20),
-        Row(
-          children: List.generate(
-            3,
-            (index) => Padding(
-              padding: EdgeInsets.only(right: index == 2 ? 0 : 8),
-              child: GestureDetector(
-                onTap: () => setState(() => _paymentMethod = index),
-                child: Container(
-                  width: index == 2 ? 92 : 79,
-                  height: 48,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: _paymentMethod == index
-                        ? const Color(0xFFA8A3FF)
-                        : AppColors.selected,
-                    borderRadius: BorderRadius.circular(30),
-                    border: Border.all(
-                      color: _paymentMethod == 2 && index == 2
-                          ? const Color(0xFFCF376A)
-                          : AppColors.outline,
-                      width: 0.5,
-                    ),
-                  ),
-                  child: Text(
-                    const ['현금', '카드', '미지정'][index],
-                    style: TextStyle(
-                      color: _paymentMethod == index
-                          ? const Color(0xFF1B1B1B)
-                          : AppColors.text50,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 31),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('품목   ${_items.length}', style: _labelStyle),
-            GestureDetector(
-              onTap: widget.editable ? _addItem : null,
-              child: const Text(
-                '품목 추가 +',
-                style: TextStyle(color: Color(0xFFA8A3FF), fontSize: 14),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 13),
-        ...List.generate(_items.length, _buildItem),
-        if (widget.showMemo) ...[
+        if (!widget.lightReceipt) ...[
           const SizedBox(height: 20),
-          GestureDetector(
-            key: const Key('receipt-memo-field'),
-            onTap: widget.editable ? _editMemo : null,
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              width: 354,
-              height: 91,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFF191A1F),
-                borderRadius: BorderRadius.circular(20),
+          SingleChildScrollView(
+            key: const Key('receipt-payment-method-scroll'),
+            scrollDirection: Axis.horizontal,
+            padding: inset,
+            child: Row(
+              spacing: 8,
+              children: _paymentOptions(
+                widget.editable
+                    ? (method) => setState(() => _paymentMethod = method)
+                    : null,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+          ),
+        ],
+        SizedBox(height: widget.lightReceipt ? 20 : 31),
+        Padding(
+          padding: inset,
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('메모 (선택)', style: _valueStyle),
-                  const SizedBox(height: 8),
-                  Text(
-                    _memo.isEmpty ? '메모를 입력해 주세요' : _memo,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.text50,
-                      fontSize: 12,
+                  Text.rich(
+                    TextSpan(
+                      text: '품목  ',
+                      children: [
+                        TextSpan(
+                          text: '${_items.length}',
+                          style: _receiptValue,
+                        ),
+                      ],
+                    ),
+                    style: _receiptLabel,
+                  ),
+                  GestureDetector(
+                    onTap: widget.editable ? _addItem : null,
+                    child: Text(
+                      '품목 추가 +',
+                      style: _receiptValue.copyWith(color: _accent),
                     ),
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+              ...List.generate(_items.length, _buildItem),
+              if (widget.photos case final photos?) ...[
+                SizedBox(height: widget.lightReceipt ? 16 : 10),
+                photos,
+              ],
+              if (widget.showMemo) ...[
+                const SizedBox(height: 26),
+                GestureDetector(
+                  key: const Key('receipt-memo-field'),
+                  onTap: widget.editable ? _editMemo : null,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    width: 354,
+                    height: 98,
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+                    decoration: BoxDecoration(
+                      color: widget.lightReceipt
+                          ? Colors.white.withValues(alpha: .64)
+                          : AppColors.secondary,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text.rich(
+                          TextSpan(
+                            text: '메모 ',
+                            children: [
+                              TextSpan(
+                                text: '(선택)',
+                                style: TextStyle(color: _accent),
+                              ),
+                            ],
+                          ),
+                          style: _receiptValue.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _memo.isEmpty ? '메모를 입력해 주세요' : _memo,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: _receiptLabel.color,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTotal() {
+    final light = widget.lightReceipt;
+    final amount = _formatAmount(_itemsTotal);
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: light ? 0 : 6),
+      child: Row(
+        mainAxisAlignment: light
+            ? MainAxisAlignment.center
+            : MainAxisAlignment.spaceBetween,
+        spacing: 4,
+        children: [
+          Text(
+            light ? '총' : '품목 합계',
+            style: light
+                ? _receiptValue.copyWith(
+                    fontSize: 15,
+                    height: 18 / 15,
+                    fontWeight: FontWeight.w600,
+                  )
+                : _receiptLabel,
+          ),
+          Flexible(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              spacing: 4,
+              children: [
+                Flexible(
+                  child: Text(
+                    amount,
+                    key: const Key('receipt-items-total'),
+                    semanticsLabel:
+                        '$amount'
+                        '원',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: light ? AppColors.background : AppColors.text,
+                      fontFamily: 'Amarante',
+                      fontSize: light ? 30 : 20,
+                      fontWeight: FontWeight.w400,
+                      height: light ? 38 / 30 : 25 / 20,
+                    ),
+                  ),
+                ),
+                SvgPicture.asset(
+                  light ? AppAssets.wonDark : AppAssets.wonLight,
+                  width: light ? 19 : 14,
+                  height: light ? 20 : 15,
+                ),
+              ],
             ),
           ),
         ],
-      ],
+      ),
     );
   }
 
   Widget _buildItem(int index) {
     final item = _items[index];
+    final name = item['item_name'] as String? ?? '';
     final unitPrice = item['unit_price'] as int? ?? 0;
+    final editing = _editingItemIndex == index;
+    void startEditing() {
+      if (widget.editable && !editing) {
+        setState(() => _editingItemIndex = index);
+      }
+    }
+
+    final deleteButton = widget.editable
+        ? GestureDetector(
+            key: Key('receipt-item-delete-$index'),
+            behavior: HitTestBehavior.opaque,
+            onTap: _items.length <= 1
+                ? null
+                : () {
+                    FocusManager.instance.primaryFocus?.unfocus();
+                    setState(() {
+                      _editingItemIndex = null;
+                      _items.removeAt(index);
+                      _quantities.removeAt(index);
+                    });
+                  },
+            child: Semantics(
+              button: true,
+              label: '품목 삭제',
+              child: SvgPicture.asset(
+                AppAssets.receiptDeleteItem,
+                width: 24,
+                height: 24,
+                colorFilter: widget.lightReceipt
+                    ? const ColorFilter.mode(Color(0x80121215), BlendMode.srcIn)
+                    : null,
+              ),
+            ),
+          )
+        : null;
+
     return Container(
-      width: 354,
-      height: 72,
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0x0DE2E2F9))),
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: _ink.withValues(alpha: .08))),
       ),
       child: Row(
         children: [
           Expanded(
             child: GestureDetector(
               key: Key('receipt-item-$index'),
-              onDoubleTap: widget.editable
-                  ? () => setState(() => _editingItemIndex = index)
-                  : null,
               behavior: HitTestBehavior.opaque,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (_editingItemIndex == index)
-                    Focus(
-                      onFocusChange: (hasFocus) {
-                        if (!hasFocus) {
-                          _finishItemEditing(
-                            index,
-                            item['item_name'] as String? ?? '',
-                          );
-                        }
-                      },
-                      child: Column(
+              onTap: startEditing,
+              child: Focus(
+                onFocusChange: (hasFocus) {
+                  if (!hasFocus && editing) {
+                    _finishItemEditing(
+                      index,
+                      item['item_name'] as String? ?? '',
+                    );
+                  }
+                },
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 96),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
                         children: [
-                          TextFormField(
-                            key: Key('receipt-item-name-input-$index'),
-                            initialValue: item['item_name'] as String? ?? '',
-                            autofocus: true,
-                            maxLines: 1,
-                            textInputAction: TextInputAction.next,
-                            style: _valueStyle,
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              contentPadding: EdgeInsets.zero,
-                              border: InputBorder.none,
+                          if (editing)
+                            Expanded(
+                              child: TextFormField(
+                                key: Key('receipt-item-name-input-$index'),
+                                initialValue: name,
+                                autofocus: true,
+                                scrollPadding: const EdgeInsets.only(
+                                  bottom: 84,
+                                ),
+                                textInputAction: TextInputAction.next,
+                                style: _itemNameStyle,
+                                decoration: _itemInputDecoration('품목명 입력'),
+                                onTapOutside: (_) => FocusManager
+                                    .instance
+                                    .primaryFocus
+                                    ?.unfocus(),
+                                onChanged: (value) => item['item_name'] = value,
+                              ),
+                            )
+                          else
+                            Flexible(
+                              child: Text(
+                                name.isEmpty ? '품목명 입력' : name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: _itemNameStyle,
+                              ),
                             ),
-                            onChanged: (value) => item['item_name'] = value,
-                          ),
-                          const SizedBox(height: 4),
+                          if (deleteButton != null) ...[
+                            const SizedBox(width: 3),
+                            deleteButton,
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        item['unit_price'] == null
+                            ? (editing ? '0원' : '단가 입력')
+                            : '${_formatAmount(unitPrice * _quantities[index])}원',
+                        style: item['unit_price'] == null && !editing
+                            ? _unitPriceStyle
+                            : _itemPriceStyle,
+                      ),
+                      if (editing || item['unit_price'] != null) ...[
+                        const SizedBox(height: 14),
+                        if (editing)
                           Row(
                             children: [
-                              const Text('단가', style: _labelStyle),
-                              const SizedBox(width: 8),
-                              SizedBox(
-                                width: 62,
+                              Text('단가', style: _unitPriceStyle),
+                              const SizedBox(width: 12),
+                              Expanded(
                                 child: TextFormField(
                                   key: Key('receipt-item-price-input-$index'),
                                   initialValue:
                                       item['unit_price']?.toString() ?? '',
-                                  // The numeric keypad has no Done key on iOS.
-                                  // Keep digits-only input while exposing Return.
-                                  keyboardType: TextInputType.text,
+                                  keyboardType: TextInputType.number,
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
                                     LengthLimitingTextInputFormatter(9),
                                   ],
                                   textInputAction: TextInputAction.done,
-                                  style: const TextStyle(
-                                    color: AppColors.text,
-                                    fontSize: 12,
+                                  style: _unitPriceStyle,
+                                  decoration: _itemInputDecoration(
+                                    '입력',
+                                    suffix: '원',
                                   ),
-                                  decoration: const InputDecoration(
-                                    isDense: true,
-                                    suffixText: '원',
-                                    contentPadding: EdgeInsets.zero,
-                                    border: InputBorder.none,
-                                  ),
+                                  onTapOutside: (_) => FocusManager
+                                      .instance
+                                      .primaryFocus
+                                      ?.unfocus(),
                                   onChanged: (value) => setState(
                                     () => item['unit_price'] = int.tryParse(
                                       value,
@@ -323,85 +482,85 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
                                   ),
                                 ),
                               ),
-                              const Spacer(),
+                            ],
+                          )
+                        else
+                          Row(
+                            children: [
+                              Text('단가', style: _unitPriceStyle),
+                              const SizedBox(width: 12),
                               Text(
-                                '${_formatAmount((item['unit_price'] as int? ?? 0) * _quantities[index])}원',
-                                style: const TextStyle(
-                                  color: AppColors.text50,
-                                  fontSize: 12,
-                                ),
+                                '${_formatAmount(unitPrice)}원',
+                                style: _unitPriceStyle,
                               ),
                             ],
                           ),
-                        ],
-                      ),
-                    )
-                  else
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          (item['item_name'] as String?)?.isNotEmpty == true
-                              ? item['item_name'] as String
-                              : '품목명을 입력해 주세요',
-                          style:
-                              (item['item_name'] as String?)?.isNotEmpty == true
-                              ? _valueStyle
-                              : const TextStyle(
-                                  color: Color(0xFFFF9BB8),
-                                  fontSize: 14,
-                                ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '단가   ${_formatAmount(unitPrice)}원   ${_formatAmount(unitPrice * _quantities[index])}원',
-                          style: const TextStyle(
-                            color: AppColors.text50,
-                            fontSize: 12,
-                          ),
-                        ),
                       ],
-                    ),
-                ],
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
+          const SizedBox(width: 8),
           _RoundControl(
+            lightReceipt: widget.lightReceipt,
             asset: AppAssets.receiptAddItem,
             onTap: () => setState(() => _quantities[index]++),
           ),
+          const SizedBox(width: 6),
           SizedBox(
-            width: 34,
+            width: 23.833,
             child: Text(
               _quantities[index].toString(),
               textAlign: TextAlign.center,
-              style: _valueStyle,
+              style: _receiptValue.copyWith(
+                fontSize: 15,
+                height: 18 / 15,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
+          const SizedBox(width: 6),
           _RoundControl(
+            lightReceipt: widget.lightReceipt,
             asset: AppAssets.receiptRemoveItem,
             onTap: () => setState(() {
               if (_quantities[index] > 1) _quantities[index]--;
             }),
           ),
-          const SizedBox(width: 6),
-          GestureDetector(
-            onTap: widget.editable && _items.length > 1
-                ? () => setState(() {
-                    _items.removeAt(index);
-                    _quantities.removeAt(index);
-                  })
-                : null,
-            child: SvgPicture.asset(
-              AppAssets.receiptDeleteItem,
-              width: 24,
-              height: 24,
-            ),
-          ),
         ],
       ),
     );
   }
+
+  InputDecoration _itemInputDecoration(String hint, {String? suffix}) =>
+      InputDecoration(
+        hintText: hint,
+        suffixText: suffix,
+        isDense: true,
+        contentPadding: EdgeInsets.zero,
+        border: InputBorder.none,
+        hintStyle: _receiptLabel,
+        suffixStyle: _unitPriceStyle,
+      );
+
+  TextStyle get _unitPriceStyle => _receiptLabel;
+
+  TextStyle get _itemNameStyle =>
+      _receiptValue.copyWith(fontSize: 20, height: 24 / 20);
+
+  TextStyle get _itemPriceStyle => _receiptValue.copyWith(color: _accent);
+
+  Color get _accent =>
+      widget.lightReceipt ? AppColors.main : const Color(0xFFA8A3FF);
+
+  Color get _ink =>
+      widget.lightReceipt ? const Color(0xFF1B1B1B) : AppColors.text;
+  TextStyle get _receiptLabel => widget.lightReceipt
+      ? _labelStyle.copyWith(color: const Color(0x80121215))
+      : _labelStyle;
+  TextStyle get _receiptValue => _valueStyle.copyWith(color: _ink);
 
   int get _itemsTotal {
     var total = 0;
@@ -502,8 +661,73 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
     if (result != null && mounted) setState(() => _memo = result);
   }
 
+  List<Widget> _paymentOptions(ValueChanged<String>? onSelected) => [
+    for (final method in paymentMethods)
+      ChoiceChip(
+        label: Text(method),
+        selected: _paymentMethod == method,
+        showCheckmark: false,
+        shape: const StadiumBorder(),
+        backgroundColor: AppColors.selected,
+        disabledColor: _paymentMethod == method
+            ? const Color(0xFFA8A3FF)
+            : AppColors.selected,
+        selectedColor: const Color(0xFFA8A3FF),
+        side: const BorderSide(color: AppColors.text20, width: .5),
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.standard,
+        labelPadding: const EdgeInsets.symmetric(horizontal: 26, vertical: 7.5),
+        padding: EdgeInsets.zero,
+        labelStyle: TextStyle(
+          fontSize: 15,
+          height: 18 / 15,
+          fontFamily: 'Pretendard',
+          letterSpacing: 0,
+          fontWeight: FontWeight.w600,
+          color: _paymentMethod == method
+              ? const Color(0xFF1B1B1B)
+              : AppColors.text50,
+        ),
+        onSelected: onSelected == null ? null : (_) => onSelected(method),
+      ),
+  ];
+
+  Future<void> _selectPaymentMethod() async {
+    final method = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: AppColors.secondary,
+      showDragHandle: true,
+      useSafeArea: true,
+      builder: (context) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('결제수단 선택', style: _valueStyle),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _paymentOptions(
+                  (method) => Navigator.pop(context, method),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (method != null && mounted) setState(() => _paymentMethod = method);
+  }
+
   Future<void> _selectCategory() async {
-    const categories = ['식비', '카페', '쇼핑', '교통', '의료', '문화', '교육', '기타'];
+    final categories = categoryNames(
+      CategoryKind.expense,
+      including: _category,
+    );
     final value = await showModalBottomSheet<String>(
       context: context,
       builder: (context) => SafeArea(
@@ -621,7 +845,7 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
     );
   }
 
-  Map<String, Object?>? buildPayload({required String source}) {
+  Map<String, Object?>? buildUpdatePayload() {
     if (_storeName.trim().isEmpty) return null;
     final items = <Map<String, Object?>>[];
     for (var index = 0; index < _items.length; index++) {
@@ -638,9 +862,17 @@ class ReceiptEntryFormState extends State<ReceiptEntryForm> {
       'store_name': _storeName.trim(),
       'paid_at': _paidAt.toUtc().toIso8601String(),
       'category': _category,
-      'payment_method': const ['현금', '카드', '미지정'][_paymentMethod],
+      'payment_method': _paymentMethod,
       'items': items,
       'memo': _memo.trim().isEmpty ? null : _memo.trim(),
+    };
+  }
+
+  Map<String, Object?>? buildPayload({required String source}) {
+    final update = buildUpdatePayload();
+    if (update == null) return null;
+    return {
+      ...update,
       'source': source,
       // 등록_006: OCR 응답의 store_address를 저장 요청에 그대로 되돌려주면
       // 백엔드가 사업장 주소 기반 상호명 매칭에 사용한다.
@@ -706,24 +938,30 @@ String _formatAmount(int amount) {
   return '${amount < 0 ? '-' : ''}$buffer';
 }
 
-const _labelStyle = TextStyle(color: AppColors.text50, fontSize: 14);
 const _valueStyle = TextStyle(
+  fontFamily: 'Pretendard',
   color: AppColors.text,
   fontSize: 14,
+  height: 22 / 14,
+  letterSpacing: 0,
   fontWeight: FontWeight.w500,
 );
+final _labelStyle = _valueStyle.copyWith(color: AppColors.text50);
 
 class _InfoRow extends StatelessWidget {
   const _InfoRow({
+    super.key,
     required this.label,
     required this.value,
     this.onTap,
     this.missing = false,
+    this.lightReceipt = false,
   });
   final String label;
   final String value;
   final VoidCallback? onTap;
   final bool missing;
+  final bool lightReceipt;
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -734,7 +972,12 @@ class _InfoRow extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: _labelStyle),
+            Text(
+              label,
+              style: lightReceipt
+                  ? _labelStyle.copyWith(color: const Color(0x80121215))
+                  : _labelStyle,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Row(
@@ -751,11 +994,18 @@ class _InfoRow extends StatelessWidget {
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                             )
+                          : lightReceipt
+                          ? _valueStyle.copyWith(color: const Color(0xFF1B1B1B))
                           : _valueStyle,
                     ),
                   ),
                   const SizedBox(width: 6),
-                  const AppChevron(size: 20),
+                  AppChevron(
+                    size: 20,
+                    color: lightReceipt
+                        ? const Color(0x80121215)
+                        : AppColors.text,
+                  ),
                 ],
               ),
             ),
@@ -767,22 +1017,29 @@ class _InfoRow extends StatelessWidget {
 }
 
 class _Asterisks extends StatelessWidget {
-  const _Asterisks();
+  const _Asterisks({required this.lightReceipt});
+  final bool lightReceipt;
   @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 354,
-      child: Text(
-        List.filled(18, '*').join('   '),
-        maxLines: 1,
-        style: const TextStyle(color: AppColors.text20, fontSize: 11),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => SizedBox(
+    width: double.infinity,
+    height: 7,
+    child: SvgPicture.asset(
+      AppAssets.receiptAsteriskDivider,
+      fit: BoxFit.fill,
+      colorFilter: lightReceipt
+          ? null
+          : const ColorFilter.mode(AppColors.text, BlendMode.srcIn),
+    ),
+  );
 }
 
 class _RoundControl extends StatelessWidget {
-  const _RoundControl({required this.asset, required this.onTap});
+  const _RoundControl({
+    required this.asset,
+    required this.onTap,
+    required this.lightReceipt,
+  });
+  final bool lightReceipt;
   final String asset;
   final VoidCallback onTap;
   @override
@@ -793,11 +1050,20 @@ class _RoundControl extends StatelessWidget {
         width: 38,
         height: 38,
         decoration: BoxDecoration(
-          color: AppColors.selected,
+          color: lightReceipt ? Colors.white : AppColors.selected,
           shape: BoxShape.circle,
-          border: Border.all(color: AppColors.outline, width: 0.5),
+          border: Border.all(
+            color: lightReceipt ? const Color(0x26121215) : AppColors.outline,
+            width: .5,
+          ),
         ),
-        child: SvgPicture.asset(asset),
+        child: lightReceipt
+            ? Icon(
+                asset == AppAssets.receiptAddItem ? Icons.add : Icons.remove,
+                color: const Color(0xFF1B1B1B),
+                size: 21,
+              )
+            : SvgPicture.asset(asset),
       ),
     );
   }

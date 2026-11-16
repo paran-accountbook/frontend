@@ -28,6 +28,7 @@ void main() {
       ),
     );
 
+    await tester.ensureVisible(find.text('저장'));
     await tester.tap(find.text('저장'));
     await tester.pumpAndSettle();
 

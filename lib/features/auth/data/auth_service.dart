@@ -48,8 +48,11 @@ abstract interface class AuthService {
 }
 
 class AuthApiService implements AuthService {
-  const AuthApiService(this._client);
+  const AuthApiService(this._client, {this.onSignedOut});
   final ApiClient _client;
+
+  /// 로그아웃·탈퇴 후 호출 (예약된 로컬 알림 전부 취소 등).
+  final Future<void> Function()? onSignedOut;
 
   @override
   Future<void> checkEmail(String email) async {
@@ -95,9 +98,8 @@ class AuthApiService implements AuthService {
                 'password_confirm': password,
                 'nickname': nickname,
                 'terms_agreed': true,
-                'privacy_agreed': true,
                 'age_confirmed': ageConfirmed,
-                'marketing_agreed': marketingAgreed,
+                // 인증_003-01: privacy_agreed·marketing_agreed 는 보내지 않음
               },
               authenticated: false,
             )
@@ -181,9 +183,7 @@ class AuthApiService implements AuthService {
   }) async {
     final body = <String, Object?>{
       'terms_agreed': true,
-      'privacy_agreed': true,
       'age_confirmed': ageConfirmed,
-      'marketing_agreed': marketingAgreed,
     };
     if (nickname != null) body['nickname'] = nickname;
     return await _client.post('/auth/terms/initial-agree', body: body)
@@ -244,7 +244,11 @@ class AuthApiService implements AuthService {
   }
 
   @override
-  Future<void> logout() => _client.sessionStore.clear();
+  Future<void> logout() async {
+    await _client.sessionStore.clear();
+    await onSignedOut?.call();
+  }
+
   @override
   Future<void> deleteAccount({String? password}) async {
     await _client.post(
@@ -252,6 +256,7 @@ class AuthApiService implements AuthService {
       body: {'password': password},
     );
     await _client.sessionStore.clear();
+    await onSignedOut?.call();
   }
 
   @override

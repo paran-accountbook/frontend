@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../../../core/constants/app_assets.dart';
-import '../../../core/network/api_exception.dart';
+import '../../../core/network/app_services.dart';
+import '../../../core/notifications/local_notifications.dart';
+import '../../../core/notifications/notification_sync.dart';
+import '../../../core/storage/app_preferences.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
-import '../../../shared/widgets/app_chevron.dart';
-import '../../../shared/widgets/design_canvas.dart';
+import '../../../shared/widgets/p2_widgets.dart';
 import '../../analysis/presentation/analysis_overview_screen.dart';
 import '../../finance/data/finance_service.dart';
 import '../../home/presentation/home_screen.dart';
@@ -15,321 +15,437 @@ import '../../ledger/presentation/ledger_screen.dart';
 import '../../register/presentation/register_type_screen.dart';
 import 'profile_screen.dart';
 
-/// 마이_004: 알림 설정 화면.
+const _chevron = 'assets/icons/analysis_arrow_right.svg';
+
+/// 마이_004-01 알림 설정 (+ 마이_004-02 기록 리마인더 시간 시트).
 class NotificationSettingsScreen extends StatefulWidget {
-  const NotificationSettingsScreen({super.key, this.financeService});
+  const NotificationSettingsScreen({
+    super.key,
+    this.financeService,
+    this.notifications,
+    this.preferences,
+  });
+
   final FinanceService? financeService;
+  final LocalNotificationService? notifications;
+  final AppPreferences? preferences;
 
   @override
   State<NotificationSettingsScreen> createState() =>
       _NotificationSettingsScreenState();
 }
 
-class _NotificationSettingsScreenState
-    extends State<NotificationSettingsScreen> {
-  bool _pushEnabled = false;
-  bool _reminderEnabled = false;
-  String _reminderTime = '21:00';
-  bool _budgetAlertEnabled = true;
-  bool _rewardAlertEnabled = true;
-  bool _marketingAgreed = false;
-  bool _isLoading = false;
-  String? _error;
+class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
+    with WidgetsBindingObserver {
+  late final LocalNotificationService _local =
+      widget.notifications ?? AppServices.notifications;
+  late final AppPreferences _prefs =
+      widget.preferences ?? AppServices.preferences;
+
+  bool _loading = true;
+
+  /// 서버 push_enabled(전체 알림). 화면에 전체 스위치는 없고, 꺼져 있으면 두 스위치를 꺼진 모양으로 보여준다.
+  bool _push = true;
+  bool _reminder = false;
+  bool _ai = true;
+  TimeOfDay _time = const TimeOfDay(hour: 21, minute: 0);
+  NotificationPermission _permission = NotificationPermission.notDetermined;
+  bool _saving = false;
+
+  bool get _osOff => _permission == NotificationPermission.denied;
 
   @override
   void initState() {
     super.initState();
-    if (widget.financeService != null) {
-      _isLoading = true;
-      _load();
-    }
+    WidgetsBinding.instance.addObserver(this);
+    _load();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkPermission();
+  }
+
+  Future<void> _checkPermission() async {
+    final asked = await _prefs.notificationPermissionAsked();
+    final permission = await _local.permission(asked: asked);
+    if (mounted) setState(() => _permission = permission);
   }
 
   Future<void> _load() async {
-    try {
-      final data = await widget.financeService!.notificationSettings();
-      if (mounted) {
-        setState(() {
-          _pushEnabled = data['push_enabled'] as bool? ?? _pushEnabled;
-          _reminderEnabled =
-              data['reminder_enabled'] as bool? ?? _reminderEnabled;
-          _reminderTime = data['reminder_time'] as String? ?? _reminderTime;
-          _budgetAlertEnabled =
-              data['budget_alert_enabled'] as bool? ?? _budgetAlertEnabled;
-          _rewardAlertEnabled =
-              data['reward_alert_enabled'] as bool? ?? _rewardAlertEnabled;
-          _marketingAgreed =
-              data['marketing_agreed'] as bool? ?? _marketingAgreed;
-        });
-      }
-    } on ApiException catch (error) {
-      if (mounted) setState(() => _error = error.message);
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _update(Map<String, Object?> body) async {
     final service = widget.financeService;
-    if (service == null) return;
     try {
-      await service.updateNotificationSettings(body);
-      if (mounted) setState(() => _error = null);
-    } on ApiException catch (error) {
-      if (mounted) {
-        setState(() => _error = error.message);
-        await _load();
-      }
-    }
-  }
-
-  Future<void> _openSystemSettings() async {
-    try {
-      final opened = await launchUrl(Uri.parse('app-settings:'));
-      if (opened || !mounted) return;
+      final json = service == null
+          ? const <String, dynamic>{
+              'push_enabled': true,
+              'reminder_enabled': false,
+              'reminder_time': '21:00',
+            }
+          : await service.notificationSettings();
+      final settings = NotificationSettings.fromJson(
+        json,
+        aiFallback: await _prefs.aiAlertEnabled(),
+      );
+      await _checkPermission();
+      if (!mounted) return;
+      setState(() {
+        _push = settings.pushEnabled;
+        _reminder = settings.reminderEnabled;
+        _time = settings.reminderTime;
+        _ai = settings.aiReportEnabled;
+        _loading = false;
+      });
+      await _reschedule();
     } catch (_) {
       if (!mounted) return;
+      showTopToast(context, '알림 설정을 불러오지 못했어요', error: true);
+      Navigator.of(context).maybePop();
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('시스템 설정을 열 수 없습니다.')));
+  }
+
+  NotificationSettings get _settings => NotificationSettings(
+    pushEnabled: _push,
+    reminderEnabled: _reminder,
+    reminderTime: _time,
+    aiReportEnabled: _ai,
+  );
+
+  /// 현재 값으로 로컬 알림을 다시 예약 (전체 꺼짐·권한 없음이면 전부 취소).
+  Future<void> _reschedule() => applyNotificationSettings(
+    _settings,
+    notifications: _local,
+    preferences: _prefs,
+  );
+
+  /// 서버에 저장하고 알림을 다시 예약한다. 실패하면 [revert] 후 안내.
+  Future<bool> _save(Map<String, Object?> body, VoidCallback revert) async {
+    setState(() => _saving = true);
+    try {
+      await widget.financeService?.updateNotificationSettings(body);
+      await _prefs.setAiAlertEnabled(_ai);
+      await _reschedule();
+      return true;
+    } catch (_) {
+      if (!mounted) return false;
+      setState(revert);
+      _saveFailed();
+      return false;
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  /// 스위치를 켤 때 iOS 권한을 확인한다. 허용되면 true.
+  Future<bool> _ensurePermission() async {
+    if (_permission == NotificationPermission.granted) return true;
+    if (_permission == NotificationPermission.denied) return false;
+    final granted = await _local.requestPermission();
+    await _prefs.setNotificationPermissionAsked();
+    if (!mounted) return false;
+    setState(
+      () => _permission = granted
+          ? NotificationPermission.granted
+          : NotificationPermission.denied,
+    );
+    return granted;
+  }
+
+  void _saveFailed() =>
+      showTopToast(context, '저장하지 못했어요. 다시 시도해 주세요', error: true, bottom: true);
+
+  Future<void> _toggleReminder(bool value) => _toggle(value, reminder: true);
+
+  Future<void> _toggleAi(bool value) => _toggle(value, reminder: false);
+
+  /// 스위치 켬/끔. 전체 알림(push_enabled)이 꺼진 상태에서 하나를 켜면 push_enabled 를 켜면서
+  /// 나머지 항목도 화면에 보이던 값(꺼짐)으로 함께 보낸다. 서버에는 push_enabled 만 false 이고
+  /// 각 항목은 true 로 남아 있을 수 있어, 사용자가 켜지 않은 알림까지 켜지는 것을 막기 위함.
+  Future<void> _toggle(bool value, {required bool reminder}) async {
+    if (_saving || _osOff) return;
+    if (value && !await _ensurePermission()) return;
+    final before = (_push, _reminder, _ai);
+    final wasPushOff = !_push;
+    setState(() {
+      if (reminder) {
+        _reminder = value;
+      } else {
+        _ai = value;
+      }
+      if (value && wasPushOff) {
+        _push = true;
+        if (reminder) {
+          _ai = false;
+        } else {
+          _reminder = false;
+        }
+      }
+    });
+    final body = <String, Object?>{
+      'push_enabled': _push,
+      if (reminder || (value && wasPushOff)) 'reminder_enabled': _reminder,
+      if (!reminder || (value && wasPushOff)) 'ai_report_alert_enabled': _ai,
+    };
+    final saved = await _save(body, () {
+      _push = before.$1;
+      _reminder = before.$2;
+      _ai = before.$3;
+    });
+    if (saved && value && mounted) {
+      showTopToast(context, '알림을 켰어요', bottom: true);
+    }
+  }
+
+  Future<void> _pickTime() async {
+    if (_osOff || _saving) return;
+    final picked = await showReminderTimeSheet(context, initial: _time);
+    if (picked == null || !mounted) return;
+    final previous = _time;
+    setState(() => _time = picked);
+    final saved = await _save({
+      'reminder_time': formatReminderTime(picked),
+    }, () => _time = previous);
+    if (saved && mounted) {
+      showTopToast(
+        context,
+        '매일 ${formatReminderTime(picked)}에 알려드릴게요',
+        bottom: true,
+      );
+    }
   }
 
   void _navigate(int index) {
-    final Widget? destination = switch (index) {
+    final Widget page = switch (index) {
       0 => HomeScreen(financeService: widget.financeService),
       1 => LedgerScreen(financeService: widget.financeService),
       2 => RegisterTypeScreen(financeService: widget.financeService),
       3 => AnalysisOverviewScreen(financeService: widget.financeService),
-      4 => ProfileScreen(financeService: widget.financeService),
-      _ => null,
+      _ => ProfileScreen(financeService: widget.financeService),
     };
-    if (destination == null) return;
     Navigator.of(
       context,
-    ).pushReplacement(MaterialPageRoute<void>(builder: (_) => destination));
-  }
-
-  Future<void> _pickReminderTime() async {
-    final parts = _reminderTime.split(':');
-    final initial = TimeOfDay(
-      hour: parts.isNotEmpty ? int.tryParse(parts[0]) ?? 21 : 21,
-      minute: parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0,
-    );
-    final picked = await showTimePicker(context: context, initialTime: initial);
-    if (picked == null) return;
-    final formatted =
-        '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-    setState(() => _reminderTime = formatted);
-    await _update({'reminder_time': formatted});
+    ).pushReplacement(MaterialPageRoute<void>(builder: (_) => page));
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: DesignCanvas(
-        child: Stack(
+    final dim = _osOff ? .3 : 1.0;
+    final items = Opacity(
+      opacity: 1,
+      child: IgnorePointer(
+        ignoring: _osOff,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const ColoredBox(color: AppColors.background),
-            Positioned(
-              left: 24,
-              top: 50,
-              width: 34,
-              height: 34,
-              child: IconButton(
-                padding: EdgeInsets.zero,
-                onPressed: () => Navigator.of(context).maybePop(),
-                icon: SvgPicture.asset(AppAssets.arrowBackLight),
-              ),
-            ),
-            const Positioned(
-              left: 24,
-              top: 125,
-              child: Text(
-                '알림 설정',
+            Opacity(
+              opacity: dim,
+              child: const Text(
+                '항목별 설정',
                 style: TextStyle(
-                  color: AppColors.text,
-                  fontSize: 27,
-                  fontWeight: FontWeight.w700,
+                  color: AppColors.text80,
+                  fontSize: 12.34,
+                  fontWeight: FontWeight.w500,
+                  height: 15 / 12.34,
                 ),
               ),
             ),
-            if (_isLoading)
-              const Positioned(
-                top: 300,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: CircularProgressIndicator(color: AppColors.main),
-                ),
-              )
-            else
-              Positioned(
-                left: 24,
-                right: 24,
-                top: 190,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _ToggleRow(
-                      label: '전체 푸시 알림',
-                      value: _pushEnabled,
-                      onChanged: (value) {
-                        setState(() => _pushEnabled = value);
-                        _update({'push_enabled': value});
-                      },
-                    ),
-                    const SizedBox(height: 7),
-                    const _SectionDivider(),
-                    const SizedBox(height: 4),
-                    const Text(
-                      '항목별 설정',
-                      style: TextStyle(color: AppColors.text50, fontSize: 14),
-                    ),
-                    const SizedBox(height: 16),
-                    _ToggleRow(
-                      label: '기록 리마인더',
-                      value: _reminderEnabled,
-                      onChanged: (value) {
-                        setState(() => _reminderEnabled = value);
-                        _update({'reminder_enabled': value});
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    _ToggleRow(
-                      label: '목표 초과 경고',
-                      value: _budgetAlertEnabled,
-                      onChanged: (value) {
-                        setState(() => _budgetAlertEnabled = value);
-                        _update({'budget_alert_enabled': value});
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    _ToggleRow(
-                      label: '리워드 획득 알림',
-                      value: _rewardAlertEnabled,
-                      onChanged: (value) {
-                        setState(() => _rewardAlertEnabled = value);
-                        _update({'reward_alert_enabled': value});
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    _ToggleRow(
-                      label: '마케팅 정보 수신',
-                      value: _marketingAgreed,
-                      onChanged: (value) {
-                        setState(() => _marketingAgreed = value);
-                        _update({'marketing_agreed': value});
-                      },
-                    ),
-                    const _SectionDivider(),
-                    _RowButton(
-                      label: '기록 리마인더 시간',
-                      value: _reminderTime,
-                      onTap: _pickReminderTime,
-                    ),
-                    _RowButton(
-                      label: 'iOS 알림 권한',
-                      value: '시스템 설정 열기',
-                      onTap: _openSystemSettings,
-                    ),
-                    if (_error case final message?) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        message,
-                        style: const TextStyle(
-                          color: Color(0xFFFF6B7A),
-                          fontSize: 12,
+            const SizedBox(height: 26),
+            _SwitchRow(
+              key: const Key('noti-reminder'),
+              title: '기록 리마인더',
+              subtitle: '매일 정한 시간에 기록을 알려드려요',
+              value: _push && _reminder && !_osOff,
+              dim: dim,
+              onChanged: _toggleReminder,
+            ),
+            const SizedBox(height: 26),
+            GestureDetector(
+              key: const Key('noti-reminder-time'),
+              behavior: HitTestBehavior.opaque,
+              onTap: _pickTime,
+              child: Opacity(
+                opacity: dim,
+                child: SizedBox(
+                  width: 354,
+                  height: 36,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '리마인더 시간',
+                          style: p2Body.copyWith(color: AppColors.text50),
                         ),
                       ),
+                      Text(formatReminderTime(_time), style: p2Body),
+                      const SizedBox(width: 6),
+                      SvgPicture.asset(_chevron, width: 24, height: 24),
                     ],
-                  ],
+                  ),
                 ),
               ),
-            Positioned(
-              left: 0,
-              bottom: 0,
-              child: AppBottomNavigation(
-                selectedIndex: 4,
-                onSelected: _navigate,
-              ),
+            ),
+            const SizedBox(height: 26),
+            _SwitchRow(
+              key: const Key('noti-ai'),
+              title: '이달의 AI 분석 알림',
+              subtitle: '매달 1일, 새 소비 습관 진단과 할인 찾기를 알려드려요',
+              value: _push && _ai && !_osOff,
+              dim: dim,
+              onChanged: _toggleAi,
             ),
           ],
         ),
       ),
     );
+    return P2Page(
+      title: '알림 설정',
+      bottomHeight: 100,
+      bottom: Center(
+        child: AppBottomNavigation(selectedIndex: 4, onSelected: _navigate),
+      ),
+      children: [
+        const SizedBox(height: 1),
+        const P2AsteriskDivider(),
+        const SizedBox(height: 20),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.only(top: 100),
+            child: Center(
+              child: CircularProgressIndicator(color: AppColors.main),
+            ),
+          )
+        else ...[
+          if (_osOff) ...[
+            _OsOffCard(onOpen: _local.openSystemSettings),
+            const SizedBox(height: 20),
+          ],
+          items,
+        ],
+      ],
+    );
   }
 }
 
-class _SectionDivider extends StatelessWidget {
-  const _SectionDivider();
+class _OsOffCard extends StatelessWidget {
+  const _OsOffCard({required this.onOpen});
+
+  final Future<void> Function() onOpen;
 
   @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.symmetric(vertical: 20),
-    child: SizedBox(
+  Widget build(BuildContext context) => GestureDetector(
+    key: const Key('noti-open-settings'),
+    behavior: HitTestBehavior.opaque,
+    onTap: onOpen,
+    child: Container(
       width: 354,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: AppColors.text10)),
-        ),
-        child: SizedBox(height: 1),
+      height: 70,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: AppColors.secondary,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('휴대폰 알림이 꺼져 있어요', style: p2Body),
+                Text('설정 > 소비로그 > 알림에서 허용해 주세요', style: p2Caption50),
+              ],
+            ),
+          ),
+          Text('설정 열기', style: p2Body.copyWith(color: P2Colors.lavender)),
+          const SizedBox(width: 4),
+          SvgPicture.asset(
+            _chevron,
+            width: 24,
+            height: 24,
+            colorFilter: const ColorFilter.mode(
+              P2Colors.lavender,
+              BlendMode.srcIn,
+            ),
+          ),
+        ],
       ),
     ),
   );
 }
 
-class _ToggleRow extends StatelessWidget {
-  const _ToggleRow({
-    required this.label,
+class _SwitchRow extends StatelessWidget {
+  const _SwitchRow({
+    required this.title,
+    required this.subtitle,
     required this.value,
     required this.onChanged,
+    super.key,
+    this.dim = 1,
   });
 
-  final String label;
+  final String title;
+  final String subtitle;
   final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      Text(
-        label,
-        style: const TextStyle(
-          color: AppColors.text,
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      _ToggleSwitch(value: value, onChanged: onChanged),
-    ],
-  );
-}
-
-class _ToggleSwitch extends StatelessWidget {
-  const _ToggleSwitch({required this.value, required this.onChanged});
-
-  final bool value;
+  final double dim;
   final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) => GestureDetector(
+    behavior: HitTestBehavior.opaque,
     onTap: () => onChanged(!value),
+    child: SizedBox(
+      width: 354,
+      height: 42,
+      child: Row(
+        children: [
+          Expanded(
+            child: Opacity(
+              opacity: dim,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: p2Body.copyWith(height: 21 / 14)),
+                  Text(subtitle, style: p2Caption50),
+                ],
+              ),
+            ),
+          ),
+          P2Switch(value: value),
+        ],
+      ),
+    ),
+  );
+}
+
+/// 54×32 스위치 (켜짐: 보라 + 오른쪽 손잡이, 꺼짐: 회색 + 흐린 왼쪽 손잡이).
+class P2Switch extends StatelessWidget {
+  const P2Switch({required this.value, super.key});
+
+  final bool value;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    toggled: value,
     child: AnimatedContainer(
       duration: const Duration(milliseconds: 150),
       width: 54,
       height: 32,
-      padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
         color: value ? AppColors.main : AppColors.selected,
         borderRadius: BorderRadius.circular(30),
       ),
-      alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-      child: SizedBox(
-        width: 22,
-        height: 22,
-        child: DecoratedBox(
+      child: AnimatedAlign(
+        duration: const Duration(milliseconds: 150),
+        alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          width: 22,
+          height: 22,
+          margin: EdgeInsets.only(left: value ? 0 : 5, right: value ? 6 : 0),
           decoration: BoxDecoration(
             color: value ? AppColors.text : AppColors.text20,
             shape: BoxShape.circle,
@@ -340,42 +456,201 @@ class _ToggleSwitch extends StatelessWidget {
   );
 }
 
-class _RowButton extends StatelessWidget {
-  const _RowButton({
-    required this.label,
-    required this.value,
-    required this.onTap,
-  });
+/// 마이_004-02 기록 리마인더 시간 시트 (5분 단위). [저장]이면 선택한 시각.
+Future<TimeOfDay?> showReminderTimeSheet(
+  BuildContext context, {
+  required TimeOfDay initial,
+}) => showBlurOverlay<TimeOfDay>(
+  context,
+  label: '기록 리마인더 시간',
+  dismissible: true,
+  builder: (dialogContext) => P2DesignFrame(
+    child: Align(
+      alignment: Alignment.bottomCenter,
+      child: _ReminderTimeSheet(initial: initial),
+    ),
+  ),
+);
 
-  final String label;
-  final String value;
-  final VoidCallback onTap;
+class _ReminderTimeSheet extends StatefulWidget {
+  const _ReminderTimeSheet({required this.initial});
+
+  final TimeOfDay initial;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    behavior: HitTestBehavior.opaque,
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  State<_ReminderTimeSheet> createState() => _ReminderTimeSheetState();
+}
+
+class _ReminderTimeSheetState extends State<_ReminderTimeSheet> {
+  static const _rows = 1000;
+  late int _hour = widget.initial.hour;
+  late int _minute = (widget.initial.minute / 5).round() % 12 * 5;
+  late final FixedExtentScrollController _hours = FixedExtentScrollController(
+    initialItem: _rows * 24 + _hour,
+  );
+  late final FixedExtentScrollController _minutes = FixedExtentScrollController(
+    initialItem: _rows * 12 + _minute ~/ 5,
+  );
+
+  @override
+  void dispose() {
+    _hours.dispose();
+    _minutes.dispose();
+    super.dispose();
+  }
+
+  Widget _wheel({
+    required Key key,
+    required FixedExtentScrollController controller,
+    required int count,
+    required int selected,
+    required String Function(int index) label,
+    required ValueChanged<int> onChanged,
+  }) => SizedBox(
+    width: 100,
+    height: 195,
+    child: ListWheelScrollView.useDelegate(
+      key: key,
+      controller: controller,
+      itemExtent: 39,
+      diameterRatio: 100,
+      physics: const FixedExtentScrollPhysics(),
+      onSelectedItemChanged: (index) => onChanged(index % count),
+      childDelegate: ListWheelChildBuilderDelegate(
+        childCount: _rows * count * 2,
+        builder: (context, index) {
+          final value = index % count;
+          final raw = (value - selected).abs();
+          final distance = raw > count / 2 ? count - raw : raw;
+          final (size, opacity) = switch (distance) {
+            0 => (24.0, 1.0),
+            1 => (19.0, .5),
+            _ => (17.0, .25),
+          };
+          return Center(
+            child: Text(
+              label(value),
+              style: TextStyle(
+                color: AppColors.text.withValues(alpha: opacity),
+                fontFamily: 'Amarante',
+                fontSize: size,
+                height: 1.25,
+              ),
+            ),
+          );
+        },
+      ),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 402,
+    height: 392,
+    decoration: const BoxDecoration(
+      color: AppColors.secondary,
+      borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      border: Border(top: BorderSide(color: AppColors.text10)),
+    ),
+    child: Stack(
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: AppColors.text,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
+        Positioned(
+          left: 181,
+          top: 13,
+          child: Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0x40E2E2F9),
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
         ),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              value,
-              style: const TextStyle(color: AppColors.text, fontSize: 14),
+        const Positioned(
+          left: 25,
+          top: 35,
+          child: Text(
+            '기록 리마인더 시간',
+            style: TextStyle(
+              color: AppColors.text,
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              height: 24 / 20,
             ),
-            const SizedBox(width: 6),
-            const AppChevron(size: 16),
-          ],
+          ),
+        ),
+        Positioned(
+          left: 25,
+          top: 155,
+          child: Container(
+            width: 354,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0x14E2E2F9),
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        Positioned(
+          left: 91.5,
+          top: 79.5,
+          child: _wheel(
+            key: const Key('reminder-hour-wheel'),
+            controller: _hours,
+            count: 24,
+            selected: _hour,
+            label: (value) => '$value',
+            onChanged: (value) => setState(() => _hour = value),
+          ),
+        ),
+        const Positioned(
+          left: 198,
+          top: 161,
+          child: Text(
+            ':',
+            style: TextStyle(
+              color: AppColors.text,
+              fontFamily: 'Amarante',
+              fontSize: 24,
+              height: 1.25,
+            ),
+          ),
+        ),
+        Positioned(
+          left: 209.5,
+          top: 79.5,
+          child: _wheel(
+            key: const Key('reminder-minute-wheel'),
+            controller: _minutes,
+            count: 12,
+            selected: _minute ~/ 5,
+            label: (value) => (value * 5).toString().padLeft(2, '0'),
+            onChanged: (value) => setState(() => _minute = value * 5),
+          ),
+        ),
+        Positioned(
+          left: 25,
+          top: 295,
+          child: Row(
+            children: [
+              P2Button(
+                key: const Key('reminder-cancel'),
+                label: '취소',
+                tone: P2ButtonTone.grey,
+                width: 167,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              const SizedBox(width: 20),
+              P2Button(
+                key: const Key('reminder-save'),
+                label: '저장',
+                width: 167,
+                onPressed: () => Navigator.of(
+                  context,
+                ).pop(TimeOfDay(hour: _hour, minute: _minute)),
+              ),
+            ],
+          ),
         ),
       ],
     ),

@@ -14,7 +14,10 @@ import '../../finance/data/finance_service.dart';
 import '../../home/presentation/home_screen.dart';
 import '../../ledger/presentation/ledger_screen.dart';
 import '../../register/presentation/register_type_screen.dart';
+import '../../analysis/data/insight_service.dart';
 import 'account_settings_screen.dart';
+import 'attendance_screen.dart';
+import 'notification_settings_screen.dart';
 import 'profile_edit_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -38,6 +41,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _error;
 
   static const _menuItems = [
+    _ProfileMenuData('출석 현황', AppAssets.profileAttendance),
+    _ProfileMenuData('알림 설정', AppAssets.profileNotifications),
     _ProfileMenuData('계정 설정', AppAssets.profileAccount),
     _ProfileMenuData(
       '고객 센터',
@@ -122,9 +127,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: List.generate(
                   _menuItems.length,
                   (index) => _ProfileMenuRow(
+                    key: Key('profile-menu-${_menuItems[index].label}'),
                     data: _menuItems[index],
                     onTap: switch (index) {
-                      0 =>
+                      0 => () => _push(
+                        AttendanceScreen(
+                          financeService: widget.financeService,
+                          insightService: _insight,
+                        ),
+                      ),
+                      1 => () => _push(
+                        NotificationSettingsScreen(
+                          financeService: widget.financeService,
+                        ),
+                      ),
+                      2 =>
                         _profile == null && widget.financeService != null
                             ? null
                             : () => Navigator.of(context).push(
@@ -138,7 +155,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ),
                                 ),
                               ),
-                      1 => _openCustomerSupport,
+                      3 => _openCustomerSupport,
                       _ => null,
                     },
                   ),
@@ -158,6 +175,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+
+  InsightService? get _insight => switch (widget.financeService) {
+    final InsightService service => service,
+    _ => null,
+  };
+
+  Future<void> _push(Widget page) =>
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
 
   Future<void> _openCustomerSupport() async {
     final uri = Uri.parse('http://pf.kakao.com/_xbVZaX');
@@ -294,7 +319,7 @@ class _ProfileSummary extends StatelessWidget {
 }
 
 class _ProfileMenuRow extends StatelessWidget {
-  const _ProfileMenuRow({required this.data, this.onTap});
+  const _ProfileMenuRow({required this.data, super.key, this.onTap});
   final _ProfileMenuData data;
   final VoidCallback? onTap;
   @override

@@ -36,9 +36,7 @@ void main() {
       'password_confirm': 'Password1!',
       'nickname': '소비로그',
       'terms_agreed': true,
-      'privacy_agreed': true,
       'age_confirmed': true,
-      'marketing_agreed': false,
     });
   });
 
@@ -174,15 +172,11 @@ void main() {
       expect(jsonDecode(requests[6].body), {
         'nickname': '소비로그',
         'terms_agreed': true,
-        'privacy_agreed': true,
         'age_confirmed': true,
-        'marketing_agreed': true,
       });
       expect(jsonDecode(requests.last.body), {
         'terms_agreed': true,
-        'privacy_agreed': true,
         'age_confirmed': true,
-        'marketing_agreed': false,
       });
       expect(store.accessToken, 'access');
       expect(store.refreshToken, 'refresh');

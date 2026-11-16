@@ -41,11 +41,7 @@ class TermsScreen extends StatefulWidget {
 }
 
 class _TermsScreenState extends State<TermsScreen> {
-  static const _labels = [
-    '[필수] 만 18세 이상입니다',
-    '[필수] 서비스 이용약관 동의',
-    '[필수] 개인정보 수집 · 이용 동의',
-  ];
+  static const _labels = ['[필수] 만 18세 이상입니다', '[필수] 서비스 이용약관 동의'];
 
   final _selected = List.filled(_labels.length, false);
   bool _showRequiredError = false;
@@ -55,8 +51,29 @@ class _TermsScreenState extends State<TermsScreen> {
   bool get _allSelected => _selected.every((selected) => selected);
   bool get _requiredSelected => _allSelected;
 
+  /// 인증_003-02: 약관 전문 보기 — 서버가 알려주는 노션 페이지 링크를 연다.
+  /// 비로그인: GET /auth/terms/document → document_url
+  /// 로그인 후(소셜 신규·재동의): GET /auth/terms/status → latest_document_url
+  Future<Uri> _termsUri() async {
+    final auth = widget.authService ?? AppServices.auth;
+    try {
+      final loggedIn = widget.socialSignup || widget.reconsent;
+      final data = loggedIn
+          ? await auth.termsStatus()
+          : await auth.termsDocument();
+      final url =
+          (loggedIn ? data['latest_document_url'] : data['document_url'])
+              as String?;
+      if (url != null && url.isNotEmpty) return Uri.parse(url);
+    } catch (_) {
+      // 링크를 받지 못하면 앱에 설정된 기본 링크를 쓴다.
+    }
+    return Uri.parse(AppConfig.privacyPolicyUrl);
+  }
+
   Future<void> _openTerms() async {
-    final uri = Uri.parse(AppConfig.privacyPolicyUrl);
+    final uri = await _termsUri();
+    if (!mounted) return;
     final opened = widget.documentLauncher != null
         ? await widget.documentLauncher!(uri)
         : await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
@@ -225,7 +242,7 @@ class _TermsScreenState extends State<TermsScreen> {
               Positioned(
                 left: 24,
                 right: 24,
-                top: 487,
+                top: 534,
                 child: Column(
                   children: [
                     _TermsAgreementRow(
@@ -250,14 +267,8 @@ class _TermsScreenState extends State<TermsScreen> {
                         ),
                       );
                     }),
-                    const SizedBox(height: 14),
-                    GestureDetector(
-                      onTap: _openTerms,
-                      child: const Text(
-                        '개인정보 처리방침 보기',
-                        style: TextStyle(color: AppColors.text50, fontSize: 12),
-                      ),
-                    ),
+                    const SizedBox(height: 20),
+                    _PrivacyNoticeRow(onPressed: _openTerms),
                   ],
                 ),
               ),
@@ -385,6 +396,45 @@ class _TermsRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 체크박스 없는 '개인정보 수집·이용 안내' 행 (약관 전문과 같은 노션 페이지).
+class _PrivacyNoticeRow extends StatelessWidget {
+  const _PrivacyNoticeRow({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    key: const Key('terms-privacy-notice'),
+    behavior: HitTestBehavior.opaque,
+    onTap: onPressed,
+    child: SizedBox(
+      height: 24,
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              '개인정보 수집 · 이용 안내',
+              style: TextStyle(
+                color: AppColors.text80,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 3),
+            child: SvgPicture.asset(
+              AppAssets.termsArrowRight,
+              width: 24,
+              height: 24,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _TermsCheckbox extends StatelessWidget {

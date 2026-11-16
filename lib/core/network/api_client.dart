@@ -49,11 +49,8 @@ class ApiClient {
     bool authenticated = true,
   }) => _send('PATCH', path, body: body, authenticated: authenticated);
 
-  Future<Object?> put(
-    String path, {
-    Object? body,
-    bool authenticated = true,
-  }) => _send('PUT', path, body: body, authenticated: authenticated);
+  Future<Object?> put(String path, {Object? body, bool authenticated = true}) =>
+      _send('PUT', path, body: body, authenticated: authenticated);
 
   Future<Object?> delete(
     String path, {
@@ -74,9 +71,9 @@ class ApiClient {
     }
     request.files.add(await http.MultipartFile.fromPath(field, filePath));
     try {
-      final streamed = await request.send().timeout(
-        const Duration(seconds: 30),
-      );
+      final streamed = await _http
+          .send(request)
+          .timeout(const Duration(seconds: 30));
       final response = await http.Response.fromStream(streamed);
       if (response.statusCode == 401 && !retrying && await _refresh()) {
         return multipartPost(

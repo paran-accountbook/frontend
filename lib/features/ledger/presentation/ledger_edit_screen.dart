@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../category/data/category_service.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
@@ -43,6 +44,9 @@ class _LedgerEditScreenState extends State<LedgerEditScreen> {
     super.initState();
     _data = widget.initialData;
     if (_data == null && _hasRemoteTarget) _load();
+    preloadCategories(widget.financeService).then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   Future<void> _load() async {
@@ -130,8 +134,8 @@ class _LedgerEditScreenState extends State<LedgerEditScreen> {
   Widget build(BuildContext context) {
     final canSubmit = _hasRemoteTarget && _data != null;
     return Scaffold(
-      resizeToAvoidBottomInset: false,
       body: DesignCanvas(
+        fitWidthWithKeyboard: MediaQuery.viewInsetsOf(context).bottom > 0,
         child: Stack(
           children: [
             const ColoredBox(color: AppColors.background),
@@ -167,10 +171,12 @@ class _LedgerEditScreenState extends State<LedgerEditScreen> {
                 left: 24,
                 top: 112,
                 width: 354,
-                height: 621,
+                bottom: 141,
                 child: ClipRect(
                   child: SingleChildScrollView(
                     key: const Key('ledger-edit-receipt-scroll'),
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
                     child: EditableReceiptForm(
                       key: _formKey,
                       initialData: _data,

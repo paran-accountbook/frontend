@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../category/data/category_service.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../shared/widgets/auth_widgets.dart';
+import '../../../shared/widgets/form_save_button.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../../../shared/widgets/p2_widgets.dart';
 import '../../finance/data/finance_service.dart';
 import 'expense_registration_complete_screen.dart';
 import 'receipt_entry_form.dart';
@@ -98,9 +100,15 @@ class _RegisterDirectScreenState extends State<RegisterDirectScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    preloadCategories(widget.financeService);
+  }
+
+  @override
   Widget build(BuildContext context) => Scaffold(
-    resizeToAvoidBottomInset: false,
     body: DesignCanvas(
+      fitWidthWithKeyboard: MediaQuery.viewInsetsOf(context).bottom > 0,
       child: Stack(
         children: [
           const ColoredBox(color: AppColors.background),
@@ -130,45 +138,50 @@ class _RegisterDirectScreenState extends State<RegisterDirectScreen> {
           Positioned(
             left: 24,
             top: 166,
-            width: 354,
-            bottom: 110,
+            right: 0,
+            bottom: 0,
             child: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.only(bottom: 40),
               child: Column(
                 children: [
                   ReceiptEntryForm(
                     key: _formKey,
                     editable: serviceEnabled,
                     showMemo: true,
+                    trailingInset: 24,
+                    photos: P2PhotoAttachButton(
+                      count: _photoPaths.length,
+                      onTap: serviceEnabled ? _addPhoto : null,
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    onPressed: serviceEnabled ? _addPhoto : null,
-                    icon: const Icon(Icons.add_photo_alternate_outlined),
-                    label: Text(
-                      _photoPaths.isEmpty
-                          ? '소비 사진 첨부 (선택)'
-                          : '소비 사진 ${_photoPaths.length}장 첨부됨',
+                  Padding(
+                    padding: const EdgeInsets.only(right: 24),
+                    child: Column(
+                      children: [
+                        if (_error case final message?) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            message,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Color(0xFFFF6B7A),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 24),
+                        FormSaveButton(
+                          keyboardVisible:
+                              MediaQuery.viewInsetsOf(context).bottom > 0,
+                          label: _isLoading ? '저장 중...' : '저장',
+                          onPressed: _isLoading ? null : _save,
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-          if (_error case final message?)
-            Positioned(
-              left: 24,
-              right: 24,
-              bottom: 118,
-              child: Text(
-                message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(0xFFFF6B7A), fontSize: 12),
-              ),
-            ),
-          AuthBottomAction(
-            label: _isLoading ? '저장 중...' : '저장',
-            onPressed: _isLoading ? null : _save,
           ),
         ],
       ),

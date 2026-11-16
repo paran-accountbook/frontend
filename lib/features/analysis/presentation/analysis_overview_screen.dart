@@ -6,12 +6,18 @@ import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../../shared/widgets/app_category_icon.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../../shared/widgets/app_skeleton.dart';
+import '../../../shared/widgets/p2_widgets.dart';
 import '../../finance/data/finance_service.dart';
+import '../data/insight_service.dart';
 import '../../home/presentation/home_screen.dart';
 import '../../ledger/presentation/ledger_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../register/presentation/register_type_screen.dart';
+import 'ai_analysis_section.dart';
 import 'analysis_goal_screen.dart';
+
+/// 소비 분석 위쪽 탭.
+enum AnalysisTab { report, ai }
 
 class AnalysisOverviewScreen extends StatefulWidget {
   const AnalysisOverviewScreen({
@@ -19,10 +25,16 @@ class AnalysisOverviewScreen extends StatefulWidget {
     this.onNavigationSelected,
     this.financeService,
     this.initialMonth,
+    this.initialTab = AnalysisTab.report,
+    this.insightService,
   });
   final ValueChanged<int>? onNavigationSelected;
   final FinanceService? financeService;
   final DateTime? initialMonth;
+  final AnalysisTab initialTab;
+
+  /// 없으면 financeService 가 InsightService 를 구현할 때 그것을 쓴다.
+  final InsightService? insightService;
   @override
   State<AnalysisOverviewScreen> createState() => _AnalysisOverviewScreenState();
 }
@@ -32,6 +44,14 @@ class _AnalysisOverviewScreenState extends State<AnalysisOverviewScreen> {
   Map<String, dynamic>? _report;
   late bool _isLoading;
   String? _error;
+  late AnalysisTab _tab = widget.initialTab;
+
+  InsightService? get _insight =>
+      widget.insightService ??
+      switch (widget.financeService) {
+        final InsightService service => service,
+        _ => null,
+      };
 
   @override
   void initState() {
@@ -93,14 +113,17 @@ class _AnalysisOverviewScreenState extends State<AnalysisOverviewScreen> {
     final hasGoalLayout =
         widget.financeService == null || _report?['goal'] != null;
     return Scaffold(
+      backgroundColor: AppColors.background,
       body: Stack(
         children: [
           Positioned.fill(
-            child: ScrollableDesignCanvas(
-              width: 402,
-              height: hasGoalLayout ? 1723 : 1808,
-              child: _buildCanvas(),
-            ),
+            child: _tab == AnalysisTab.ai
+                ? _buildAiTab()
+                : ScrollableDesignCanvas(
+                    width: 402,
+                    height: hasGoalLayout ? 1723 : 1808,
+                    child: _buildCanvas(),
+                  ),
           ),
           Positioned(
             left: 0,
@@ -137,10 +160,7 @@ class _AnalysisOverviewScreenState extends State<AnalysisOverviewScreen> {
         left: 24,
         top: 192,
         width: 354,
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: _TabChip(label: '리포트', selected: true, onTap: () {}),
-        ),
+        child: Align(alignment: Alignment.centerLeft, child: _tabs()),
       ),
       Positioned(
         left: 24,
@@ -158,6 +178,62 @@ class _AnalysisOverviewScreenState extends State<AnalysisOverviewScreen> {
       Positioned(left: 24, top: 322, width: 354, child: _content()),
     ],
   );
+
+  Widget _tabs() => Row(
+    children: [
+      _TabChip(
+        key: const Key('analysis-tab-report'),
+        label: '리포트',
+        selected: _tab == AnalysisTab.report,
+        onTap: () => setState(() => _tab = AnalysisTab.report),
+      ),
+      const SizedBox(width: 8),
+      _TabChip(
+        key: const Key('analysis-tab-ai'),
+        label: 'AI분석',
+        selected: _tab == AnalysisTab.ai,
+        onTap: () => setState(() => _tab = AnalysisTab.ai),
+      ),
+    ],
+  );
+
+  /// 분석_008-01: [AI분석] 탭. 뒤로가기는 [리포트] 탭으로 돌아간다.
+  Widget _buildAiTab() {
+    final insight = _insight;
+    return P2DesignFrame(
+      child: SingleChildScrollView(
+        key: const Key('analysis-ai-scroll'),
+        padding: const EdgeInsets.fromLTRB(24, 50, 24, 140),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            P2BackButton(
+              onTap: () => setState(() => _tab = AnalysisTab.report),
+            ),
+            const SizedBox(height: 41),
+            const Text(
+              '소비 분석',
+              style: TextStyle(
+                color: AppColors.text,
+                fontSize: 27,
+                fontWeight: FontWeight.w700,
+                height: 32 / 27,
+              ),
+            ),
+            const SizedBox(height: 35),
+            if (insight == null)
+              _tabs()
+            else
+              AiAnalysisSection(
+                service: insight,
+                financeService: widget.financeService,
+                tabs: _tabs(),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _content() => _isLoading
       ? const _AnalysisSkeleton()
@@ -238,6 +314,7 @@ class _AnalysisSkeletonMetric extends StatelessWidget {
 
 class _TabChip extends StatelessWidget {
   const _TabChip({
+    super.key,
     required this.label,
     required this.selected,
     required this.onTap,
@@ -556,8 +633,7 @@ class _GoalReportSection extends StatelessWidget {
             children: [
               const Expanded(
                 child: Text(
-                  '이번달 지출 목표를 등록하면\n하루 사용 가능 금액을 확인할 수 있어요',
-                  maxLines: 2,
+                  '이번 달 지출 목표를 등록하면 하루 사용 가능 금액을 확인할 수 있어요',
                   style: TextStyle(
                     color: AppColors.text80,
                     fontSize: 12,

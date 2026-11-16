@@ -66,6 +66,7 @@ class DutchPeopleScreen extends StatefulWidget {
 }
 
 class _DutchPeopleScreenState extends State<DutchPeopleScreen> {
+  final _contentKey = GlobalKey();
   final _nameController = TextEditingController();
   final List<String> _names = [];
   List<String> _recentNames = const [];
@@ -229,132 +230,125 @@ class _DutchPeopleScreenState extends State<DutchPeopleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: DesignCanvas(
-        width: 749,
-        height: 1628,
-        child: Stack(
-          children: [
-            const ColoredBox(color: AppColors.background),
-            Positioned(
-              left: 32,
-              top: 104,
-              child: GestureDetector(
-                onTap: () => Navigator.of(context).maybePop(),
-                child: SvgPicture.asset(
-                  AppAssets.arrowBackLight,
-                  width: 70,
-                  height: 70,
-                ),
-              ),
+    final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final content = Stack(
+      key: _contentKey,
+      children: [
+        const ColoredBox(color: AppColors.background),
+        Positioned(
+          left: 32,
+          top: 104,
+          child: GestureDetector(
+            onTap: () => Navigator.of(context).maybePop(),
+            child: SvgPicture.asset(
+              AppAssets.arrowBackLight,
+              width: 70,
+              height: 70,
             ),
-            const Positioned(
-              left: 46,
-              top: 227,
-              child: Text(
-                '인원 등록',
-                style: TextStyle(
-                  color: AppColors.text,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 50,
-                ),
-              ),
-            ),
-            const Positioned(
-              left: 46,
-              top: 324,
-              child: Text(
-                '인원을 추가하세요',
-                style: TextStyle(color: Color(0xCCE2E2F9), fontSize: 30),
-              ),
-            ),
-            Positioned(
-              left: 46,
-              top: 426,
-              child: _NameInput(
-                controller: _nameController,
-                onSubmitted: _addName,
-              ),
-            ),
-            Positioned(
-              left: 46,
-              top: 567,
-              right: 46,
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  for (var i = 0; i < _names.length; i++)
-                    _PersonChip(
-                      name: _names[i] == _selfName
-                          ? '${_names[i]} (나)'
-                          : _names[i],
-                      self: _names[i] == _selfName,
-                      onEdit: () => _editName(i),
-                      onRemove: () => _removeName(i),
-                    ),
-                ],
-              ),
-            ),
-            if (_recentNames.isNotEmpty) ...[
-              const Positioned(
-                top: 1176,
-                width: 749,
-                child: Text(
-                  '최근 정산에 사용한 이름',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Color(0x80E2E2F9), fontSize: 23),
-                ),
-              ),
-              Positioned(
-                left: 46,
-                right: 46,
-                top: 1240,
-                child: _RecentPeople(names: _recentNames, onSelected: _addName),
-              ),
-            ],
-            if (_error case final message?)
-              Positioned(
-                left: 46,
-                right: 46,
-                top: 1400,
-                child: Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Color(0xFFFF6B7A),
-                    fontSize: 22,
-                  ),
-                ),
-              ),
-            Positioned(
-              left: 46,
-              top: 1451,
-              child: GestureDetector(
-                onTap: _isSaving ? null : _submit,
-                child: Container(
-                  width: 655,
-                  height: 102,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.main,
-                    borderRadius: BorderRadius.circular(37),
-                    border: Border.all(color: const Color(0x4DE2E2F9)),
-                  ),
-                  child: Text(
-                    _isSaving ? '저장 중...' : '정산하기',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+        const Positioned(
+          left: 46,
+          top: 227,
+          child: Text(
+            '인원 등록',
+            style: TextStyle(
+              color: AppColors.text,
+              fontWeight: FontWeight.w700,
+              fontSize: 50,
+            ),
+          ),
+        ),
+        const Positioned(
+          left: 46,
+          top: 324,
+          child: Text(
+            '인원을 추가하세요',
+            style: TextStyle(color: Color(0xCCE2E2F9), fontSize: 30),
+          ),
+        ),
+        Positioned(
+          left: 46,
+          top: 426,
+          child: _NameInput(controller: _nameController, onSubmitted: _addName),
+        ),
+        Positioned(
+          left: 46,
+          top: 567,
+          right: 46,
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              for (var i = 0; i < _names.length; i++)
+                _PersonChip(
+                  name: _names[i] == _selfName ? '${_names[i]} (나)' : _names[i],
+                  self: _names[i] == _selfName,
+                  onEdit: () => _editName(i),
+                  onRemove: () => _removeName(i),
+                ),
+            ],
+          ),
+        ),
+        if (_recentNames.isNotEmpty) ...[
+          const Positioned(
+            top: 1176,
+            width: 749,
+            child: Text(
+              '최근 정산에 사용한 이름',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0x80E2E2F9), fontSize: 23),
+            ),
+          ),
+          Positioned(
+            left: 46,
+            right: 46,
+            top: 1240,
+            child: _RecentPeople(names: _recentNames, onSelected: _addName),
+          ),
+        ],
+        if (_error case final message?)
+          Positioned(
+            left: 46,
+            right: 46,
+            top: 1400,
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(0xFFFF6B7A), fontSize: 22),
+            ),
+          ),
+        Positioned(
+          left: 46,
+          top: 1451,
+          child: GestureDetector(
+            onTap: _isSaving ? null : _submit,
+            child: Container(
+              width: 655,
+              height: 102,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.main,
+                borderRadius: BorderRadius.circular(37),
+                border: Border.all(color: const Color(0x4DE2E2F9)),
+              ),
+              child: Text(
+                _isSaving ? '저장 중...' : '정산하기',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+    return Scaffold(
+      body: keyboardVisible
+          ? ScrollableDesignCanvas(width: 749, height: 1628, child: content)
+          : DesignCanvas(width: 749, height: 1628, child: content),
     );
   }
 }

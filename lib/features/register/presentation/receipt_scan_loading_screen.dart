@@ -9,6 +9,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../../finance/data/finance_service.dart';
 import 'register_direct_screen.dart';
+import 'direct_input_guide_screen.dart';
 import 'receipt_result_screen.dart';
 
 enum _ReceiptFailureAction { retry, direct }
@@ -66,9 +67,20 @@ class _ReceiptScanLoadingScreenState extends State<ReceiptScanLoadingScreen>
           ),
         ),
       );
-    } on ApiException {
+    } on ApiException catch (error) {
       if (!mounted) return;
       _spinnerController.stop();
+      if (error.code == 'E508') {
+        // 병원·약국 영수증: AI 정리 없이 막고 사진도 넘기지 않는다.
+        await Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(
+            builder: (_) => DirectInputGuideScreen(
+              financeService: widget.financeService ?? AppServices.finance,
+            ),
+          ),
+        );
+        return;
+      }
       final action = await _showFailureDialog();
       if (!mounted) return;
       switch (action) {

@@ -9,20 +9,32 @@ class DesignCanvas extends StatelessWidget {
     this.width = 402,
     this.height = 874,
     this.paintBackground = true,
+    this.fitWidthWithKeyboard = false,
   });
 
   final Widget child;
   final double width;
   final double height;
   final bool paintBackground;
+  final bool fitWidthWithKeyboard;
 
   @override
   Widget build(BuildContext context) {
-    final canvas = SizedBox.expand(
-      child: FittedBox(
-        fit: BoxFit.contain,
-        child: SizedBox(width: width, height: height, child: child),
-      ),
+    final canvas = LayoutBuilder(
+      builder: (context, constraints) {
+        final visibleHeight = fitWidthWithKeyboard && constraints.maxWidth > 0
+            ? (constraints.maxHeight * width / constraints.maxWidth).clamp(
+                height < 320 ? height : 320.0,
+                height,
+              )
+            : height;
+        return SizedBox.expand(
+          child: FittedBox(
+            fit: BoxFit.contain,
+            child: SizedBox(width: width, height: visibleHeight, child: child),
+          ),
+        );
+      },
     );
     return paintBackground
         ? ColoredBox(color: AppColors.background, child: canvas)

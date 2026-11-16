@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../features/category/data/category_models.dart';
+import '../../features/category/data/category_service.dart';
+
 import '../../core/constants/app_assets.dart';
 import '../../core/theme/app_colors.dart';
 import 'app_chevron.dart';
 import 'receipt_surface.dart';
+
+import '../../features/finance/data/payment_methods.dart';
 
 class EditableReceiptForm extends StatefulWidget {
   const EditableReceiptForm({
@@ -40,7 +45,9 @@ class EditableReceiptFormState extends State<EditableReceiptForm> {
         )?.toLocal() ??
         DateTime(2026, 9, 1, 15, 20);
     _category = widget.initialData?['category'] as String? ?? '선택';
-    _paymentMethod = widget.initialData?['payment_method'] as String? ?? '현금';
+    _paymentMethod = normalizePaymentMethod(
+      widget.initialData?['payment_method'] as String?,
+    );
     _memo = widget.initialData?['memo'] as String? ?? '';
     final remoteItems = (widget.initialData?['items'] as List?)
         ?.whereType<Map<String, dynamic>>()
@@ -339,21 +346,14 @@ class EditableReceiptFormState extends State<EditableReceiptForm> {
   }
 
   Future<void> _editCategory() async {
-    final value = await _selectOption(const [
-      '식비',
-      '카페',
-      '쇼핑',
-      '교통',
-      '의료',
-      '문화',
-      '교육',
-      '기타',
-    ]);
+    final value = await _selectOption(
+      categoryNames(CategoryKind.expense, including: _category),
+    );
     if (value != null && mounted) setState(() => _category = value);
   }
 
   Future<void> _editPaymentMethod() async {
-    final value = await _selectOption(const ['현금', '카드', '미지정']);
+    final value = await _selectOption(paymentMethods);
     if (value != null && mounted) setState(() => _paymentMethod = value);
   }
 

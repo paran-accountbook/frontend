@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/bank_account_picker.dart';
 import '../../../shared/widgets/app_skeleton.dart';
 import '../../../shared/widgets/design_canvas.dart';
 import '../data/kakao_share_service.dart';
@@ -42,7 +43,6 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
   bool _isCompleting = false;
   String? _error;
   int _selectedRequestIndex = 0;
-  bool _didPrecacheBankLogos = false;
 
   bool get _isLive =>
       widget.dutchPayService != null && widget.sessionId != null;
@@ -54,16 +54,6 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
     if (_isLive) {
       _isLoading = true;
       _load();
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_didPrecacheBankLogos) return;
-    _didPrecacheBankLogos = true;
-    for (final bank in _BankPickerDialog.banks) {
-      precacheImage(AssetImage(_bankLogoAsset(bank)), context);
     }
   }
 
@@ -116,28 +106,13 @@ class _DutchRequestScreenState extends State<DutchRequestScreen> {
   }
 
   Future<void> _editAccount() async {
-    await Future.wait(
-      _BankPickerDialog.banks.map(
-        (bank) => precacheImage(AssetImage(_bankLogoAsset(bank)), context),
-      ),
+    final result = await showBankAccountPicker(
+      context,
+      bank: _data?['bank_name'] as String?,
+      number: _data?['bank_account_number'] as String?,
     );
-    if (!mounted) return;
-    final bankName = await showDialog<String>(
-      context: context,
-      barrierColor: Colors.transparent,
-      builder: (_) =>
-          _BankPickerDialog(selectedBank: _data?['bank_name'] as String?),
-    );
-    if (bankName == null || !mounted) return;
-    final account = await showDialog<String>(
-      context: context,
-      barrierColor: Colors.transparent,
-      builder: (_) => _AccountNumberDialog(
-        bankName: bankName,
-        initialValue: _data?['bank_account_number'] as String? ?? '',
-      ),
-    );
-    if (account == null || !mounted) return;
+    if (result == null || !mounted) return;
+    final (bank: bankName, number: account) = result;
     if (!_isLive) {
       setState(() {
         _data = {
@@ -800,15 +775,18 @@ class _CompactPerson extends StatelessWidget {
         children: [
           SvgPicture.asset(AppAssets.avatarSelected, width: 34, height: 34),
           const SizedBox(width: 16),
-          Text(
-            request['name'] as String? ?? '',
-            style: const TextStyle(
-              color: AppColors.text,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+          Expanded(
+            child: Text(
+              request['name'] as String? ?? '',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.text,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
-          const Spacer(),
           _RequestAmount(value: request['amount'] as int? ?? 0),
           const SizedBox(width: 16),
           GestureDetector(
@@ -1608,338 +1586,6 @@ String _formatAmount(int amount) {
 }
 
 enum _ShareTarget { kakao, message }
-
-class _BankPickerDialog extends StatelessWidget {
-  const _BankPickerDialog({this.selectedBank});
-
-  final String? selectedBank;
-
-  static const banks = [
-    '우리',
-    'KB국민',
-    '신한',
-    '카카오',
-    '하나',
-    '시티',
-    'SC제일',
-    '토스',
-    'IM',
-    'IBK기업',
-    '부산',
-    '경남',
-    '광주',
-    '전북',
-    '제주',
-    'KDB산업',
-    'MG새마을',
-    'NH농협',
-    '수협',
-    '신협',
-    '우체국',
-    'SBI저축',
-  ];
-
-  @override
-  Widget build(BuildContext context) => Dialog.fullscreen(
-    backgroundColor: Colors.transparent,
-    child: ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-        child: Scaffold(
-          backgroundColor: const Color(0x80121215),
-          body: DesignCanvas(
-            paintBackground: false,
-            child: Stack(
-              children: [
-                const Positioned(
-                  top: 112,
-                  left: 0,
-                  right: 0,
-                  child: Text(
-                    '은행을 선택해 주세요',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: AppColors.text,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: 35,
-                  right: 35,
-                  top: 155,
-                  child: GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: banks.length,
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 4,
-                          mainAxisExtent: 76,
-                          mainAxisSpacing: 35,
-                          crossAxisSpacing: 38,
-                        ),
-                    itemBuilder: (context, index) {
-                      final bank = banks[index];
-                      return GestureDetector(
-                        key: ValueKey('bank-$bank'),
-                        onTap: () => Navigator.pop(context, bank),
-                        child: Column(
-                          children: [
-                            _BankLogo(bank: bank, width: 50, height: 50),
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              height: 18,
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  _bankDisplayLabel(bank),
-                                  maxLines: 1,
-                                  style: const TextStyle(
-                                    color: AppColors.text,
-                                    fontSize: 15,
-                                    height: 1,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-String _bankDisplayLabel(String bank) => switch (bank) {
-  'IBK기업' => 'IBK 기업',
-  'KDB산업' => 'KDB 산업',
-  'MG새마을' => 'MG 새마을',
-  'NH농협' => 'NH 농협',
-  'SBI저축' => 'SBI 저축',
-  _ => bank,
-};
-
-String _bankLogoAsset(String bank) => switch (bank) {
-  '우리' => 'assets/bank_logos/woori.png',
-  'KB국민' => 'assets/bank_logos/kb.png',
-  '신한' => 'assets/bank_logos/shinhan.png',
-  '카카오' => 'assets/bank_logos/kakao.png',
-  '하나' => 'assets/bank_logos/hana.png',
-  '시티' => 'assets/bank_logos/citi.png',
-  'SC제일' => 'assets/bank_logos/sc.png',
-  '토스' => 'assets/bank_logos/toss.png',
-  'IM' => 'assets/bank_logos/im.png',
-  'IBK기업' => 'assets/bank_logos/ibk.png',
-  '부산' => 'assets/bank_logos/busan.png',
-  '경남' => 'assets/bank_logos/gyeongnam.png',
-  '광주' => 'assets/bank_logos/gwangju.png',
-  '전북' => 'assets/bank_logos/jeonbuk.png',
-  '제주' => 'assets/bank_logos/jeju.png',
-  'KDB산업' => 'assets/bank_logos/kdb.png',
-  'MG새마을' => 'assets/bank_logos/mg.png',
-  'NH농협' => 'assets/bank_logos/nh.png',
-  '수협' => 'assets/bank_logos/suhyup.png',
-  '신협' => 'assets/bank_logos/cu.png',
-  '우체국' => 'assets/bank_logos/post.png',
-  'SBI저축' => 'assets/bank_logos/sbi.png',
-  _ => 'assets/bank_logos/toss.png',
-};
-
-class _BankLogo extends StatelessWidget {
-  const _BankLogo({
-    required this.bank,
-    required this.width,
-    required this.height,
-  });
-
-  final String bank;
-  final double width;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) => ClipOval(
-    child: Image.asset(
-      _bankLogoAsset(bank),
-      key: ValueKey('bank-logo-$bank'),
-      width: width,
-      height: height,
-      fit: BoxFit.cover,
-      filterQuality: FilterQuality.high,
-    ),
-  );
-}
-
-class _AccountNumberDialog extends StatefulWidget {
-  const _AccountNumberDialog({
-    required this.bankName,
-    required this.initialValue,
-  });
-  final String bankName;
-  final String initialValue;
-
-  @override
-  State<_AccountNumberDialog> createState() => _AccountNumberDialogState();
-}
-
-class _AccountNumberDialogState extends State<_AccountNumberDialog> {
-  late final TextEditingController controller = TextEditingController(
-    text: widget.initialValue,
-  );
-
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Dialog.fullscreen(
-    backgroundColor: Colors.transparent,
-    child: ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-        child: Scaffold(
-          resizeToAvoidBottomInset: false,
-          backgroundColor: const Color(0x80121215),
-          body: DesignCanvas(
-            paintBackground: false,
-            child: Stack(
-              children: [
-                const Positioned(
-                  top: 249,
-                  left: 0,
-                  right: 0,
-                  child: Text(
-                    '계좌번호 입력',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: AppColors.text,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: 24,
-                  right: 24,
-                  top: 286,
-                  height: 56,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: AppColors.selected,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.text20),
-                    ),
-                    child: Row(
-                      children: [
-                        _BankLogo(bank: widget.bankName, width: 38, height: 38),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            widget.bankName == '토스'
-                                ? '토스뱅크'
-                                : _bankDisplayLabel(widget.bankName),
-                            style: const TextStyle(
-                              color: AppColors.text,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        SvgPicture.asset(
-                          AppAssets.editLight,
-                          width: 34,
-                          height: 34,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: 24,
-                  right: 24,
-                  top: 362,
-                  height: 56,
-                  child: TextField(
-                    key: const Key('settlement-account-number'),
-                    controller: controller,
-                    autofocus: true,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    style: const TextStyle(color: AppColors.text, fontSize: 15),
-                    decoration: InputDecoration(
-                      hintText: '계좌번호',
-                      hintStyle: const TextStyle(color: AppColors.text50),
-                      filled: true,
-                      fillColor: AppColors.selected,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
-                        borderSide: const BorderSide(color: AppColors.text20),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
-                        borderSide: const BorderSide(color: AppColors.main),
-                      ),
-                    ),
-                  ),
-                ),
-                const Positioned(
-                  left: 24,
-                  top: 438,
-                  child: Text(
-                    '숫자만 입력해 주세요. 하이픈(-)은 자동으로 빠져요',
-                    style: TextStyle(color: AppColors.text80, fontSize: 12),
-                  ),
-                ),
-                Positioned(
-                  left: 24,
-                  right: 24,
-                  top: 479,
-                  height: 56,
-                  child: FilledButton(
-                    key: const Key('register-settlement-account-number'),
-                    onPressed: () {
-                      final value = controller.text.trim();
-                      if (value.isNotEmpty) Navigator.pop(context, value);
-                    },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.main,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                    child: const Text(
-                      '등록',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
-}
 
 class _ShareDialog extends StatelessWidget {
   const _ShareDialog({

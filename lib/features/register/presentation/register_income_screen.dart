@@ -8,9 +8,11 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../shared/widgets/auth_widgets.dart';
+import '../../../shared/widgets/form_save_button.dart';
 import '../../../shared/widgets/app_chevron.dart';
 import '../../../shared/widgets/design_canvas.dart';
+import '../../category/data/category_models.dart';
+import '../../category/data/category_service.dart';
 import '../../finance/data/finance_service.dart';
 import '../../ledger/presentation/ledger_screen.dart';
 
@@ -32,7 +34,7 @@ class RegisterIncomeScreen extends StatefulWidget {
 class _RegisterIncomeScreenState extends State<RegisterIncomeScreen> {
   final _amount = TextEditingController();
   final _memo = TextEditingController();
-  final _categories = const ['급여', '용돈', '환급·환불', '부수입', '기타'];
+  final _categories = categoryNames(CategoryKind.income);
   int _category = 0;
   late DateTime _incomeDate;
   bool _isLoading = false;
@@ -47,11 +49,30 @@ class _RegisterIncomeScreenState extends State<RegisterIncomeScreen> {
     _amount.text = data?['amount']?.toString() ?? '';
     _memo.text = data?['memo'] as String? ?? '';
     final category = data?['category'] as String?;
-    final categoryIndex = category == null ? -1 : _categories.indexOf(category);
+    if (category != null &&
+        category.isNotEmpty &&
+        !_categories.contains(category)) {
+      _categories.add(category);
+    }
+    final categoryIndex = _categories.indexOf(category ?? '');
     if (categoryIndex >= 0) _category = categoryIndex;
     _incomeDate =
         DateTime.tryParse(data?['income_date'] as String? ?? '') ??
         DateTime.now();
+    _refreshCategories();
+  }
+
+  /// 필터 시트에서 직접 만든 수입 카테고리도 선택 목록에 보여준다.
+  Future<void> _refreshCategories() async {
+    await preloadCategories(widget.financeService);
+    if (!mounted) return;
+    final current = _categories[_category];
+    setState(() {
+      _categories
+        ..clear()
+        ..addAll(categoryNames(CategoryKind.income, including: current));
+      _category = _categories.indexOf(current).clamp(0, _categories.length - 1);
+    });
   }
 
   @override
@@ -177,6 +198,7 @@ class _RegisterIncomeScreenState extends State<RegisterIncomeScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     body: DesignCanvas(
+      fitWidthWithKeyboard: MediaQuery.viewInsetsOf(context).bottom > 0,
       child: Stack(
         children: [
           const ColoredBox(color: AppColors.background),
@@ -207,112 +229,123 @@ class _RegisterIncomeScreenState extends State<RegisterIncomeScreen> {
             left: 24,
             right: 24,
             top: 192,
-            child: Column(
-              children: [
-                SvgPicture.asset(
-                  AppAssets.asteriskDividerDark,
-                  width: 354,
-                  height: 8,
-                  fit: BoxFit.fill,
-                ),
-                const SizedBox(height: 26),
-                _IncomeFieldRow(
-                  key: const Key('income-amount-row'),
-                  label: '금액',
-                  value: '${_formatAmount(int.tryParse(_amount.text) ?? 0)}원',
-                  valueKey: const Key('income-amount-value'),
-                  chevronKey: const Key('income-amount-chevron'),
-                  onTap: _editAmount,
-                ),
-                const SizedBox(height: 16),
-                _IncomeFieldRow(
-                  key: const Key('income-date-picker'),
-                  label: '수입일',
-                  value: _formatIncomeDate(_incomeDate),
-                  valueKey: const Key('income-date-value'),
-                  chevronKey: const Key('income-date-chevron'),
-                  onTap: _pickDate,
-                ),
-                const SizedBox(height: 16),
-                _IncomeFieldRow(
-                  key: const Key('income-category-picker'),
-                  label: '카테고리',
-                  value: _categories[_category],
-                  valueKey: const Key('income-category-value'),
-                  chevronKey: const Key('income-category-chevron'),
-                  onTap: _selectCategory,
-                ),
-                const SizedBox(height: 26),
-                SvgPicture.asset(
-                  AppAssets.asteriskDividerDark,
-                  width: 354,
-                  height: 8,
-                  fit: BoxFit.fill,
-                ),
-                const SizedBox(height: 24),
-                Container(
-                  width: double.infinity,
-                  height: 92,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 16,
+            bottom: 0,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 40),
+              child: Column(
+                children: [
+                  SvgPicture.asset(
+                    AppAssets.asteriskDividerDark,
+                    width: 354,
+                    height: 8,
+                    fit: BoxFit.fill,
                   ),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary,
-                    borderRadius: BorderRadius.circular(20),
+                  const SizedBox(height: 26),
+                  _IncomeFieldRow(
+                    key: const Key('income-amount-row'),
+                    label: '금액',
+                    value: '${_formatAmount(int.tryParse(_amount.text) ?? 0)}원',
+                    valueKey: const Key('income-amount-value'),
+                    chevronKey: const Key('income-amount-chevron'),
+                    onTap: _editAmount,
                   ),
-                  child: TextField(
-                    controller: _memo,
-                    maxLength: 500,
-                    maxLines: 2,
-                    style: const TextStyle(
-                      color: AppColors.text80,
-                      fontSize: 12,
-                    ),
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      counterText: '',
-                      labelText: '메모 (선택)',
-                      labelStyle: TextStyle(
-                        color: AppColors.text,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
-                      contentPadding: EdgeInsets.zero,
-                    ),
+                  const SizedBox(height: 16),
+                  _IncomeFieldRow(
+                    key: const Key('income-date-picker'),
+                    label: '수입일',
+                    value: _formatIncomeDate(_incomeDate),
+                    valueKey: const Key('income-date-value'),
+                    chevronKey: const Key('income-date-chevron'),
+                    onTap: _pickDate,
                   ),
-                ),
-                if (_isEditing) ...[
-                  const SizedBox(height: 18),
-                  SizedBox(
+                  const SizedBox(height: 16),
+                  _IncomeFieldRow(
+                    key: const Key('income-category-picker'),
+                    label: '카테고리',
+                    value: _categories[_category],
+                    valueKey: const Key('income-category-value'),
+                    chevronKey: const Key('income-category-chevron'),
+                    onTap: _selectCategory,
+                  ),
+                  const SizedBox(height: 26),
+                  SvgPicture.asset(
+                    AppAssets.asteriskDividerDark,
+                    width: 354,
+                    height: 8,
+                    fit: BoxFit.fill,
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
                     width: double.infinity,
-                    child: TextButton(
-                      key: const Key('delete-income'),
-                      onPressed: _delete,
-                      child: const Text(
-                        '수입 내역 삭제',
-                        style: TextStyle(color: Color(0xFFCF376A)),
+                    height: 92,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 16,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: TextField(
+                      controller: _memo,
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
+                      maxLength: 500,
+                      maxLines: 2,
+                      style: const TextStyle(
+                        color: AppColors.text80,
+                        fontSize: 12,
+                      ),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        counterText: '',
+                        labelText: '메모 (선택)',
+                        labelStyle: TextStyle(
+                          color: AppColors.text,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        floatingLabelBehavior: FloatingLabelBehavior.always,
+                        contentPadding: EdgeInsets.zero,
                       ),
                     ),
                   ),
-                ],
-                if (_error case final message?) ...[
-                  const SizedBox(height: 14),
-                  Text(
-                    message,
-                    style: const TextStyle(
-                      color: Color(0xFFFF6B7A),
-                      fontSize: 12,
+                  if (_isEditing) ...[
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton(
+                        key: const Key('delete-income'),
+                        onPressed: _delete,
+                        child: const Text(
+                          '수입 내역 삭제',
+                          style: TextStyle(color: Color(0xFFCF376A)),
+                        ),
+                      ),
                     ),
+                  ],
+                  if (_error case final message?) ...[
+                    const SizedBox(height: 14),
+                    Text(
+                      message,
+                      style: const TextStyle(
+                        color: Color(0xFFFF6B7A),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  FormSaveButton(
+                    keyboardVisible:
+                        MediaQuery.viewInsetsOf(context).bottom > 0,
+                    label: _isLoading
+                        ? '저장 중...'
+                        : (_isEditing ? '수정 완료' : '저장'),
+                    onPressed: _isLoading ? null : _save,
                   ),
                 ],
-              ],
+              ),
             ),
-          ),
-          AuthBottomAction(
-            label: _isLoading ? '저장 중...' : (_isEditing ? '수정 완료' : '저장'),
-            onPressed: _isLoading ? null : _save,
           ),
         ],
       ),
@@ -320,7 +353,7 @@ class _RegisterIncomeScreenState extends State<RegisterIncomeScreen> {
   );
 }
 
-class _IncomeCategoryDialog extends StatelessWidget {
+class _IncomeCategoryDialog extends StatefulWidget {
   const _IncomeCategoryDialog({
     required this.categories,
     required this.selectedIndex,
@@ -330,95 +363,41 @@ class _IncomeCategoryDialog extends StatelessWidget {
   final int selectedIndex;
 
   @override
-  Widget build(BuildContext context) => Dialog.fullscreen(
-    backgroundColor: Colors.transparent,
-    child: ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-        child: Scaffold(
-          backgroundColor: const Color(0x80121215),
-          body: Stack(
-            children: [
-              Positioned(
-                left: 184,
-                top: 554,
-                width: 34,
-                height: 34,
-                child: IconButton(
-                  key: const Key('close-income-category-picker'),
-                  padding: EdgeInsets.zero,
-                  onPressed: () => Navigator.pop(context),
-                  icon: SvgPicture.asset(AppAssets.closeLight),
-                ),
-              ),
-              const Positioned(
-                top: 613,
-                left: 0,
-                right: 0,
-                child: Text(
-                  '카테고리',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppColors.text,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 24,
-                right: 24,
-                top: 653,
-                child: Container(height: .5, color: AppColors.text10),
-              ),
-              Positioned(
-                left: 24,
-                right: 24,
-                top: 680,
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: List.generate(
-                    categories.length,
-                    (index) => GestureDetector(
-                      key: ValueKey('income-category-option-$index'),
-                      onTap: () => Navigator.pop(context, index),
-                      behavior: HitTestBehavior.opaque,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 26,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          color: selectedIndex == index
-                              ? const Color(0xFFA8A3FF)
-                              : AppColors.selected,
-                          borderRadius: BorderRadius.circular(30),
-                          border: Border.all(
-                            color: AppColors.text20,
-                            width: .5,
-                          ),
-                        ),
-                        child: Text(
-                          categories[index],
-                          style: TextStyle(
-                            color: selectedIndex == index
-                                ? const Color(0xFF1B1B1B)
-                                : AppColors.text50,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+  State<_IncomeCategoryDialog> createState() => _IncomeCategoryDialogState();
+}
+
+class _IncomeCategoryDialogState extends State<_IncomeCategoryDialog> {
+  late int _selectedIndex = widget.selectedIndex;
+
+  @override
+  Widget build(BuildContext context) => _IncomePickerDialog(
+    title: '카테고리',
+    closeKey: const Key('close-income-category-picker'),
+    completeKey: const Key('complete-income-category-picker'),
+    onComplete: () => Navigator.pop(context, _selectedIndex),
+    child: Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (var index = 0; index < widget.categories.length; index++)
+          ChoiceChip(
+            key: ValueKey('income-category-option-$index'),
+            label: Text(widget.categories[index]),
+            selected: _selectedIndex == index,
+            selectedColor: const Color(0xFFA8A3FF),
+            labelStyle: TextStyle(
+              color: _selectedIndex == index ? Colors.black : AppColors.text80,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+            showCheckmark: false,
+            shape: const StadiumBorder(),
+            backgroundColor: AppColors.selected,
+            side: const BorderSide(color: AppColors.text20, width: .5),
+            onSelected: (_) => setState(() => _selectedIndex = index),
           ),
-        ),
-      ),
+      ],
     ),
   );
 }
@@ -432,7 +411,52 @@ class _IncomeDateDialog extends StatefulWidget {
 }
 
 class _IncomeDateDialogState extends State<_IncomeDateDialog> {
-  late DateTime value = widget.initialValue;
+  late DateTime value = DateUtils.dateOnly(widget.initialValue);
+
+  @override
+  Widget build(BuildContext context) => _IncomePickerDialog(
+    title: '수입일',
+    closeKey: const Key('close-income-date-picker'),
+    completeKey: const Key('complete-income-date-picker'),
+    onComplete: () => Navigator.pop(context, value),
+    child: SizedBox(
+      height: 173,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            height: 59,
+            decoration: BoxDecoration(
+              color: AppColors.selected,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.text20),
+            ),
+          ),
+          _IncomeDateWheels(
+            key: const Key('income-date-wheel'),
+            initialValue: value,
+            onChanged: (next) => value = next,
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _IncomePickerDialog extends StatelessWidget {
+  const _IncomePickerDialog({
+    required this.title,
+    required this.closeKey,
+    required this.completeKey,
+    required this.onComplete,
+    required this.child,
+  });
+
+  final String title;
+  final Key closeKey;
+  final Key completeKey;
+  final VoidCallback onComplete;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) => Dialog.fullscreen(
@@ -440,93 +464,47 @@ class _IncomeDateDialogState extends State<_IncomeDateDialog> {
     child: ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-        child: Scaffold(
-          backgroundColor: const Color(0x80121215),
-          body: Stack(
-            children: [
-              Positioned(
-                left: 184,
-                top: 432,
-                width: 34,
-                height: 34,
-                child: IconButton(
-                  key: const Key('close-income-date-picker'),
-                  padding: EdgeInsets.zero,
-                  onPressed: () => Navigator.pop(context),
-                  icon: SvgPicture.asset(AppAssets.closeLight),
-                ),
-              ),
-              const Positioned(
-                top: 486,
-                left: 0,
-                right: 0,
-                child: Text(
-                  '수입일',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppColors.text,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+        child: ColoredBox(
+          color: const Color(0x80121215),
+          child: SafeArea(
+            minimum: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: IconButton(
+                      key: closeKey,
+                      tooltip: '닫기',
+                      onPressed: () => Navigator.pop(context),
+                      icon: SvgPicture.asset(AppAssets.closeLight),
+                    ),
                   ),
-                ),
-              ),
-              Positioned(
-                left: 24,
-                right: 24,
-                top: 529,
-                child: Container(height: .5, color: AppColors.text20),
-              ),
-              Positioned(
-                left: 24,
-                right: 24,
-                top: 555,
-                height: 173,
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: Center(
-                          child: Container(
-                            height: 59,
-                            decoration: BoxDecoration(
-                              color: AppColors.selected,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: AppColors.text20),
-                            ),
-                          ),
+                  const SizedBox(height: 12),
+                  Text(title, textAlign: TextAlign.center),
+                  const Divider(height: 32, color: AppColors.text20),
+                  Flexible(child: SingleChildScrollView(child: child)),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    height: 56,
+                    child: FilledButton(
+                      key: completeKey,
+                      onPressed: onComplete,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.main,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
                         ),
                       ),
-                    ),
-                    _IncomeDateWheels(
-                      key: const Key('income-date-wheel'),
-                      initialValue: value,
-                      onChanged: (next) => value = next,
-                    ),
-                  ],
-                ),
-              ),
-              Positioned(
-                left: 24,
-                right: 24,
-                top: 778,
-                height: 56,
-                child: FilledButton(
-                  key: const Key('complete-income-date-picker'),
-                  onPressed: () => Navigator.pop(context, value),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.main,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
+                      child: const Text('완료'),
                     ),
                   ),
-                  child: const Text(
-                    '완료',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                  ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -552,7 +530,7 @@ class _IncomeDateWheelsState extends State<_IncomeDateWheels> {
   late DateTime value = widget.initialValue;
   late final List<int> years = [value.year - 1, value.year, value.year + 1];
 
-  void _update({int? year, int? month, int? day, int? hour, int? minute}) {
+  void _update({int? year, int? month, int? day}) {
     final nextYear = year ?? value.year;
     final nextMonth = month ?? value.month;
     final maxDay = DateUtils.getDaysInMonth(nextYear, nextMonth);
@@ -560,20 +538,14 @@ class _IncomeDateWheelsState extends State<_IncomeDateWheels> {
       nextYear,
       nextMonth,
       (day ?? value.day).clamp(1, maxDay),
-      hour ?? value.hour,
-      minute ?? value.minute,
     );
     setState(() => value = next);
     widget.onChanged(next);
   }
 
-  String _weekday(int day) =>
-      const ['월', '화', '수', '목', '금', '토', '일'][day - 1];
-
   @override
   Widget build(BuildContext context) {
     final days = DateUtils.getDaysInMonth(value.year, value.month);
-    final timeIndex = (value.hour % 12) * 12 + value.minute ~/ 5;
     return CupertinoTheme(
       data: const CupertinoThemeData(brightness: Brightness.dark),
       child: Row(
@@ -582,7 +554,6 @@ class _IncomeDateWheelsState extends State<_IncomeDateWheels> {
             flex: 81,
             child: _IncomeWheel(
               itemCount: years.length,
-              initialItem: 1,
               selectedItem: years.indexOf(value.year),
               itemBuilder: (index, selected) => _dateWheelNumber(
                 '${years[index]}',
@@ -596,7 +567,6 @@ class _IncomeDateWheelsState extends State<_IncomeDateWheels> {
             flex: 51,
             child: _IncomeWheel(
               itemCount: 12,
-              initialItem: value.month - 1,
               selectedItem: value.month - 1,
               itemBuilder: (index, selected) => _dateWheelNumber(
                 '${index + 1}',
@@ -610,7 +580,6 @@ class _IncomeDateWheelsState extends State<_IncomeDateWheels> {
             flex: 58,
             child: _IncomeWheel(
               itemCount: days,
-              initialItem: value.day - 1,
               selectedItem: value.day - 1,
               itemBuilder: (index, selected) => _dateWheelNumber(
                 '${index + 1}',
@@ -620,85 +589,69 @@ class _IncomeDateWheelsState extends State<_IncomeDateWheels> {
               onSelected: (index) => _update(day: index + 1),
             ),
           ),
-          Expanded(
-            flex: 76,
-            child: _IncomeWheel(
-              itemCount: 2,
-              initialItem: value.hour >= 12 ? 1 : 0,
-              selectedItem: value.hour >= 12 ? 1 : 0,
-              itemBuilder: (index, selected) => _dateWheelPeriod(
-                weekday: selected ? _weekday(value.weekday) : null,
-                period: index == 0 ? '오전' : '오후',
-                selected: selected,
-              ),
-              onSelected: (index) =>
-                  _update(hour: (value.hour % 12) + index * 12),
-            ),
-          ),
-          Expanded(
-            flex: 68,
-            child: _IncomeWheel(
-              itemCount: 144,
-              initialItem: timeIndex,
-              selectedItem: timeIndex,
-              looping: true,
-              itemBuilder: (index, selected) {
-                final hour = index ~/ 12;
-                final minute = (index % 12) * 5;
-                return _dateWheelNumber(
-                  '${hour == 0 ? 12 : hour}:${minute.toString().padLeft(2, '0')}',
-                  selected: selected,
-                );
-              },
-              onSelected: (index) => _update(
-                hour: (index ~/ 12) + (value.hour >= 12 ? 12 : 0),
-                minute: (index % 12) * 5,
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 }
 
-class _IncomeWheel extends StatelessWidget {
+class _IncomeWheel extends StatefulWidget {
   const _IncomeWheel({
     required this.itemCount,
-    required this.initialItem,
     required this.selectedItem,
     required this.itemBuilder,
     required this.onSelected,
-    this.looping = false,
   });
 
   final int itemCount;
-  final int initialItem;
   final int selectedItem;
   final Widget Function(int index, bool selected) itemBuilder;
   final ValueChanged<int> onSelected;
-  final bool looping;
+
+  @override
+  State<_IncomeWheel> createState() => _IncomeWheelState();
+}
+
+class _IncomeWheelState extends State<_IncomeWheel> {
+  late final _controller = FixedExtentScrollController(
+    initialItem: widget.selectedItem,
+  );
+
+  @override
+  void didUpdateWidget(covariant _IncomeWheel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.itemCount == widget.itemCount) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted &&
+          _controller.hasClients &&
+          _controller.selectedItem != widget.selectedItem) {
+        _controller.jumpToItem(widget.selectedItem);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => CupertinoPicker.builder(
-    scrollController: FixedExtentScrollController(initialItem: initialItem),
+    scrollController: _controller,
     itemExtent: 59,
     diameterRatio: 1.15,
     squeeze: 1,
     useMagnifier: false,
     selectionOverlay: const SizedBox.shrink(),
-    childCount: looping ? null : itemCount,
-    onSelectedItemChanged: (index) => onSelected(index % itemCount),
-    itemBuilder: (context, index) {
-      final normalized = index % itemCount;
-      final selected = normalized == selectedItem;
-      return Center(
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: itemBuilder(normalized, selected),
-        ),
-      );
-    },
+    childCount: widget.itemCount,
+    onSelectedItemChanged: widget.onSelected,
+    itemBuilder: (context, index) => Center(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: widget.itemBuilder(index, index == widget.selectedItem),
+      ),
+    ),
   );
 }
 
@@ -730,39 +683,6 @@ Widget _dateWheelNumber(
           ),
         ),
       ],
-    ],
-  ),
-  maxLines: 1,
-);
-
-Widget _dateWheelPeriod({
-  required String? weekday,
-  required String period,
-  required bool selected,
-}) => Text.rich(
-  TextSpan(
-    children: [
-      if (weekday != null) ...[
-        TextSpan(
-          text: '($weekday)',
-          style: const TextStyle(
-            color: AppColors.text80,
-            fontFamily: 'Pretendard',
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const WidgetSpan(child: SizedBox(width: 6)),
-      ],
-      TextSpan(
-        text: period,
-        style: TextStyle(
-          color: selected ? AppColors.text : AppColors.text20,
-          fontFamily: 'Pretendard',
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
     ],
   ),
   maxLines: 1,

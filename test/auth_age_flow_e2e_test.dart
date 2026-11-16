@@ -46,7 +46,6 @@ void main() {
     expect(find.byType(TermsScreen), findsOneWidget);
 
     await tester.tap(find.text('[필수] 서비스 이용약관 동의'));
-    await tester.tap(find.text('[필수] 개인정보 수집 · 이용 동의'));
     await tester.tap(find.text('동의합니다'));
     await tester.pump();
     expect(find.byType(SignupPasswordScreen), findsNothing);
@@ -78,7 +77,7 @@ void main() {
     final signupBody = jsonDecode(requests.last.body) as Map<String, dynamic>;
     expect(signupBody['age_confirmed'], isTrue);
     expect(signupBody['terms_agreed'], isTrue);
-    expect(signupBody['privacy_agreed'], isTrue);
+    expect(signupBody.containsKey('privacy_agreed'), isFalse);
     expect(signupBody['nickname'], '소비로그');
   });
 }

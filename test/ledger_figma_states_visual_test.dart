@@ -7,6 +7,7 @@ import 'package:sobilog/features/finance/data/finance_service.dart';
 import 'package:sobilog/features/ledger/presentation/ledger_screen.dart';
 
 void main() {
+  setUp(resetLedgerFilterMemory);
   const captureKey = Key('ledger-figma-capture');
   setUpAll(() async {
     final pretendard = FontLoader('Pretendard')
@@ -15,7 +16,9 @@ void main() {
       ..addFont(rootBundle.load('assets/fonts/Pretendard-SemiBold.otf'));
     final amarante = FontLoader('Amarante')
       ..addFont(rootBundle.load('assets/fonts/Amarante-Regular.ttf'));
-    await Future.wait([pretendard.load(), amarante.load()]);
+    final material = FontLoader('MaterialIcons')
+      ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+    await Future.wait([pretendard.load(), amarante.load(), material.load()]);
   });
 
   Future<void> pumpLedger(
@@ -56,9 +59,9 @@ void main() {
   Future<void> applyFoodCardFilters(WidgetTester tester) async {
     await tester.tap(find.text('필터'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('ledger-filter-식비')));
+    await tester.tap(find.byKey(const Key('category-chip-expense-식비')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('ledger-filter-카드')));
+    await tester.tap(find.byKey(const Key('ledger-payment-체크카드')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('apply-ledger-filter')));
     await tester.pumpAndSettle();

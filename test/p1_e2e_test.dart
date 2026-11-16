@@ -176,6 +176,7 @@ void main() {
     );
     await tester.tap(find.text('확인'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('수정 완료'));
     await tester.tap(find.text('수정 완료'));
     await tester.pumpAndSettle();
 
@@ -221,6 +222,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(service.requestedMonths, [DateTime(2026, 9)]);
+    await tester.ensureVisible(find.byKey(const Key('attendance-prev-month')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('attendance-prev-month')));
     await tester.pumpAndSettle();
 
@@ -228,6 +231,8 @@ void main() {
     expect(find.byKey(const Key('attendance-day-2-recorded')), findsOneWidget);
     expect(find.byKey(const Key('attendance-day-4-no-spend')), findsOneWidget);
 
+    await tester.ensureVisible(find.byKey(const Key('attendance-next-month')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('attendance-next-month')));
     await tester.pumpAndSettle();
     expect(service.requestedMonths.last, DateTime(2026, 9));
